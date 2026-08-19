@@ -1,0 +1,7 @@
+fun-audio-chat:
+  class: audio_evals.models.fun_audio_chat.FunAudioChat
+  args:
+    path: FunAudioLLM/Fun-Audio-Chat-8B
+    env_path: envs/fun-audio-chat
+    requirements_path: audio_evals/lib/fun-audio-chat/requirements.txt
+    max_new_tokens: 256

@@ -1,0 +1,9 @@
+extends: fleurs
+dataset_id: fleurs-zh
+display_name: FLEURS cmn_hans_cn
+language: zh
+defaults:
+  metrics: [cer]
+field_mapping:
+  sample_id: {from: id, prefix: fleurs_zh_}
+

@@ -1,0 +1,35 @@
+librispeech-test-clean:
+  class: audio_evals.dataset.huggingface.Huggingface
+  args:
+    default_task: asr
+    name: TwinkStart/librispeech
+    local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/librispeech_c"
+    split: test_clean
+    ref_col: text
+
+librispeech-dev-clean:
+  class: audio_evals.dataset.huggingface.Huggingface
+  args:
+    default_task: asr
+    name: TwinkStart/librispeech
+    local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/librispeech_c"
+    split: dev_clean
+    ref_col: text
+
+librispeech-test-other:
+  class: audio_evals.dataset.huggingface.Huggingface
+  args:
+    default_task: asr
+    name: TwinkStart/librispeech
+    local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/librispeech_c"
+    split: test_other
+    ref_col: text
+
+librispeech-dev-other:
+  class: audio_evals.dataset.huggingface.Huggingface
+  args:
+    default_task: asr
+    name: TwinkStart/librispeech
+    local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/librispeech_c"
+    split: dev_other
+    ref_col: text

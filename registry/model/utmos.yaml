@@ -1,0 +1,7 @@
+utmos-en:
+  class: audio_evals.models.utmos.UTMOS
+  args:
+    path: "${EVALUATION_UTILS_ROOT:-evaluation_utils}/models/utmos/utmos22_strong_step7459_v1.pt"
+    source_path: "${EVALUATION_UTILS_ROOT:-evaluation_utils}/src/SpeechMOS"
+    env_path: "${EVALUATION_UTILS_ROOT:-evaluation_utils}/envs/utmos"
+    requirements_path: ""

@@ -1,0 +1,29 @@
+dataset_id: slurp
+display_name: SLURP
+sources:
+  - type: paper
+    title: "SLURP: A Spoken Language Understanding Resource Package"
+    url: https://arxiv.org/abs/2011.13205
+    note: 意图、槽位、scenario/action 标注
+  - type: website
+    title: SLURP GitHub
+    url: https://github.com/pswietojanski/slurp
+    note: 数据格式与下载
+
+seed_facts:
+  language: en
+  style: spoken language understanding / smart assistant
+  primary_capability: instruction_following
+  typical_labels:
+    task: agent
+    capability: instruction_following
+    scenario: phone
+    condition:
+      acoustic: clean
+      spatial: near_field
+      speaker: single_speaker
+      device: phone_mic
+      interaction: single_turn
+  reference_fields: [intent]
+  metrics: [intent_acc, slot_f1]
+  formal_ready: false

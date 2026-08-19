@@ -1,0 +1,131 @@
+version: "2026-07-20"
+status_definitions:
+  ready_cpu: 可在当前 CPU 环境直接运行
+  diagnostic_cpu: 可直接运行，但属于近似/诊断实现，正式报告需说明口径
+  requires_api: evaluator 已有实现，运行前需 API 凭据
+  requires_offline_model: evaluator 已有实现，运行前需准备离线权重和对应环境
+  requires_tool: evaluator 已有实现，运行前需额外系统工具或 Python 包
+  pending_external_backend: 指标已纳入路由设计，但当前仓库没有可用后端
+
+metrics:
+  wer: {category: text, evaluator: wer, status: ready_cpu}
+  cer: {category: text, evaluator: cer, status: ready_cpu}
+  bleu: {category: text, evaluator: bleu, status: ready_cpu, dependencies: [sacrebleu]}
+  bleu_zh: {category: text, evaluator: bleu-zh, status: ready_cpu, dependencies: [sacrebleu]}
+  chrf: {category: text, evaluator: mesh-chrf, status: ready_cpu, dependencies: [sacrebleu]}
+  mer: {category: text, evaluator: mesh-mer, status: ready_cpu}
+  repeat_rate: {category: text, evaluator: mesh-repeat-rate, status: diagnostic_cpu}
+  exact_match: {category: text, evaluator: em, status: ready_cpu}
+  text_f1: {category: text, evaluator: mesh-text-f1, status: ready_cpu}
+  rouge_l: {category: text, evaluator: mesh-rouge-l, status: ready_cpu}
+  entity_f1: {category: text, evaluator: mesh-entity-f1, status: ready_cpu}
+  comet:
+    category: text
+    evaluator: mesh-comet
+    status: requires_offline_model
+    dependencies: [Unbabel COMET package, wmt22-comet-da checkpoint, XLM-RoBERTa checkpoint, preferably GPU]
+  bert_score:
+    category: text
+    evaluator: mesh-bert-score
+    status: requires_offline_model
+    dependencies: [bert-score package, encoder checkpoint, preferably GPU]
+  cider:
+    category: caption
+    evaluator: coco
+    status: requires_tool
+    dependencies: [pycocoevalcap, pycocotools, Java runtime]
+  spice:
+    category: caption
+    evaluator: coco
+    status: requires_tool
+    dependencies: [pycocoevalcap, Java runtime, SPICE resources]
+
+  accuracy: {category: classification, evaluator: mesh-classification, status: ready_cpu}
+  macro_f1: {category: classification, evaluator: mesh-classification, status: ready_cpu, aggregation: mesh}
+  multilabel_f1: {category: classification, evaluator: mesh-multilabel-f1, status: ready_cpu}
+  intent_acc: {category: agent, evaluator: mesh-intent, status: ready_cpu}
+  slot_f1: {category: agent, evaluator: mesh-slot-f1, status: ready_cpu}
+  json_valid: {category: structured, evaluator: mesh-structured-json, status: ready_cpu}
+  structured_exact_match: {category: structured, evaluator: mesh-structured-json, status: ready_cpu}
+  tool_acc: {category: agent, evaluator: mesh-tool-call, status: ready_cpu}
+  parameter_acc: {category: agent, evaluator: mesh-tool-call, status: ready_cpu}
+  parameter_f1: {category: agent, evaluator: mesh-tool-call, status: ready_cpu}
+  task_success: {category: agent, evaluator: mesh-action-match, status: ready_cpu}
+  response_acc: {category: edge, evaluator: mesh-response-gate, status: ready_cpu}
+  false_accept: {category: edge, evaluator: mesh-response-gate, status: ready_cpu}
+  false_reject: {category: edge, evaluator: mesh-response-gate, status: ready_cpu}
+  authorization_acc: {category: edge, evaluator: mesh-authorization, status: ready_cpu}
+  unauthorized_accept: {category: edge, evaluator: mesh-authorization, status: ready_cpu}
+  target_speaker_acc: {category: edge, evaluator: mesh-target-speaker, status: ready_cpu}
+  mis_execution: {category: edge, evaluator: mesh-target-speaker, status: ready_cpu}
+  constraint_satisfaction: {category: agent, evaluator: ifeval, status: ready_cpu}
+  attack_success_rate: {category: safety, evaluator: harm, status: ready_cpu}
+  llm_judge:
+    category: judge
+    evaluator: [qa_open_5_rating, voicebench-multiturn-judge]
+    status: requires_api
+    dependencies: ["OPENAI_API_KEY + gpt-4o-mini or LLMCenterUserToken + mb-gpt4o-mini", network access]
+  llm_judge_reference:
+    category: judge
+    evaluator: qa_with_reference
+    status: requires_api
+    dependencies: ["OPENAI_API_KEY + gpt-4o-mini or LLMCenterUserToken + mb-gpt4o-mini", network access]
+
+  speaker_count_acc: {category: speaker, evaluator: mesh-speaker-count, status: ready_cpu}
+  der:
+    category: speaker
+    evaluator: mesh-diarization
+    status: diagnostic_cpu
+    notes: 内置实现做时间区间与说话人最优置换；正式 DER 建议用 pyannote.metrics 复核
+  jer:
+    category: speaker
+    evaluator: mesh-jer
+    status: requires_tool
+    dependencies: [pyannote.metrics]
+  attribution_acc: {category: speaker, evaluator: mesh-speaker-attribution, status: ready_cpu}
+  cpcer: {category: speaker, evaluator: mesh-speaker-attribution, status: diagnostic_cpu}
+  eer: {category: speaker, evaluator: mesh-speaker-verification, status: ready_cpu, aggregation: mesh}
+  auc: {category: speaker, evaluator: mesh-speaker-verification, status: ready_cpu, aggregation: mesh}
+
+  content_acc:
+    category: speech_output
+    evaluator: [seed-tts-eval-asr-wer-en, seed-tts-eval-asr-wer-zh]
+    evaluator_by_language: {en: seed-tts-eval-asr-wer-en, zh: seed-tts-eval-asr-wer-zh}
+    status: requires_offline_model
+    dependencies: [openai/whisper-large-v3 or iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch, GPU]
+  intelligibility:
+    category: speech_output
+    evaluator: [seed-tts-eval-asr-wer-en, seed-tts-eval-asr-wer-zh]
+    evaluator_by_language: {en: seed-tts-eval-asr-wer-en, zh: seed-tts-eval-asr-wer-zh}
+    status: requires_offline_model
+    dependencies: [ASR checkpoint, GPU]
+  sim:
+    category: speech_output
+    evaluator: simo
+    status: requires_offline_model
+    dependencies: [wavlm_large checkpoint, envs/simo, GPU recommended]
+  mos:
+    category: speech_output
+    evaluator: utmos
+    status: requires_offline_model
+    dependencies: [sarulab-speech/UTMOS-demo checkpoint, envs/utmos]
+  dnsmos:
+    category: speech_output
+    evaluator: dnsmos
+    status: requires_offline_model
+    dependencies: [DNSMOS ONNX model_path, p_model_path, p808_model_path, envs/dnsmos]
+  emotion_acc: {category: speech_output, evaluator: mesh-classification, status: ready_cpu}
+  style_acc: {category: speech_output, evaluator: mesh-classification, status: ready_cpu}
+
+  latency_p50: {category: runtime, evaluator: mesh-runtime, status: ready_cpu, aggregation: mesh}
+  latency_p90: {category: runtime, evaluator: mesh-runtime, status: ready_cpu, aggregation: mesh}
+  latency_p95: {category: runtime, evaluator: mesh-runtime, status: ready_cpu, aggregation: mesh}
+  first_token_latency: {category: runtime, evaluator: mesh-runtime, status: ready_cpu, aggregation: mesh}
+  first_audio_chunk_latency: {category: runtime, evaluator: mesh-runtime, status: ready_cpu, aggregation: mesh}
+  rtf: {category: runtime, evaluator: mesh-runtime, status: ready_cpu}
+  timeout_rate: {category: runtime, evaluator: mesh-runtime, status: ready_cpu, aggregation: mesh}
+  failure_rate: {category: runtime, evaluator: mesh-runtime, status: ready_cpu, aggregation: mesh}
+  memory_peak: {category: runtime, evaluator: mesh-runtime, status: ready_cpu, aggregation: mesh}
+  cpu_usage: {category: runtime, evaluator: mesh-runtime, status: diagnostic_cpu, aggregation: mesh}
+  npu_usage: {category: runtime, evaluator: mesh-runtime, status: diagnostic_cpu, aggregation: mesh}
+  power_watts: {category: runtime, evaluator: mesh-runtime, status: diagnostic_cpu, aggregation: mesh}

@@ -1,0 +1,106 @@
+mesh-router-evaluator:
+  class: mesh_eval.core.router.RouterEvaluator
+  args:
+    registry_paths: [mesh_eval/registry]
+    default_evaluator: dump
+    metric_routes:
+      wer: wer
+      cer: cer
+      bleu: bleu
+      bleu_zh: bleu-zh
+      chrf: mesh-chrf
+      mer: mesh-mer
+      comet: mesh-comet
+      bert_score: mesh-bert-score
+      repeat_rate: mesh-repeat-rate
+      em: em
+      exact_match: em
+      f1: mesh-text-f1
+      text_f1: mesh-text-f1
+      rouge: mesh-rouge-l
+      rouge_l: mesh-rouge-l
+      cider: coco
+      spice: coco
+      accuracy: mesh-classification
+      macro_f1: mesh-classification
+      multilabel_f1: mesh-multilabel-f1
+      intent_acc: mesh-intent
+      slot_f1: mesh-slot-f1
+      json_valid: mesh-structured-json
+      structured_exact_match: mesh-structured-json
+      tool_acc: mesh-tool-call
+      parameter_acc: mesh-tool-call
+      parameter_f1: mesh-tool-call
+      task_success: mesh-action-match
+      response_acc: mesh-response-gate
+      false_accept: mesh-response-gate
+      false_reject: mesh-response-gate
+      authorization_acc: mesh-authorization
+      unauthorized_accept: mesh-authorization
+      target_speaker_acc: mesh-target-speaker
+      mis_execution: mesh-target-speaker
+      speaker_count_acc: mesh-speaker-count
+      der: mesh-diarization
+      jer: mesh-jer
+      eer: mesh-speaker-verification
+      auc: mesh-speaker-verification
+      attribution_acc: mesh-speaker-attribution
+      cpcer: mesh-speaker-attribution
+      entity_f1: mesh-entity-f1
+      constraint_satisfaction: ifeval
+      attack_success_rate: harm
+      llm_judge: qa_open_5_rating
+      llm_judge_reference: qa_with_reference
+      content_acc:
+        en: seed-tts-eval-asr-wer-en
+        zh: seed-tts-eval-asr-wer-zh
+      intelligibility:
+        en: seed-tts-eval-asr-wer-en
+        zh: seed-tts-eval-asr-wer-zh
+      sim: simo
+      mos: utmos
+      dnsmos: dnsmos
+      style_acc: mesh-classification
+      emotion_acc: mesh-classification
+      latency_p50: mesh-runtime
+      latency_p90: mesh-runtime
+      latency_p95: mesh-runtime
+      first_token_latency: mesh-runtime
+      first_audio_chunk_latency: mesh-runtime
+      rtf: mesh-runtime
+      timeout_rate: mesh-runtime
+      failure_rate: mesh-runtime
+      memory_peak: mesh-runtime
+      cpu_usage: mesh-runtime
+      npu_usage: mesh-runtime
+      power_watts: mesh-runtime
+    routes:
+      speech_understanding:asr:
+        - wer
+        - cer
+      speech_understanding/asr:
+        - wer
+        - cer
+      speech_understanding:speech_translation: bleu
+      agent:qa: em
+      agent:instruction_following:
+        - mesh-intent
+        - mesh-slot-f1
+      agent:tool_call: mesh-tool-call
+      agent:navigation: mesh-action-match
+      agent:calendar: mesh-action-match
+      agent:reminder: mesh-action-match
+      agent:phone_message: mesh-action-match
+      agent:music_control: mesh-action-match
+      agent:vehicle_control: mesh-action-match
+      agent:meeting_summary: mesh-rouge-l
+      speaker:speaker_count: mesh-speaker-count
+      speaker:speaker_verification: mesh-speaker-verification
+      speaker:diarization: mesh-diarization
+      speaker:speaker_attribution: mesh-speaker-attribution
+      speaker:target_speaker: mesh-target-speaker
+      runtime: mesh-runtime
+      asr: wer
+      task:asr: wer
+      speech_qa: em
+      task:speech_qa: em

@@ -1,0 +1,38 @@
+# tool_call 补标 Prompt 模板
+# 变量: {transcript}, {available_tools}, {tool_schema}
+
+你是一个端侧语音助手数据标注员。请根据以下语音转写文本，生成结构化的工具调用标注。
+
+## 语音转写
+{transcript}
+
+## 可用工具
+{available_tools}
+
+## 工具 Schema
+{tool_schema}
+
+## 输出要求
+请输出 JSON，包含以下字段：
+- tool: 应调用的工具名
+- args: 工具参数（键值对）
+- success_criterion: 任务成功判定条件（如 route_created、alarm_set、message_sent）
+- transcript: 原始转写（与输入一致）
+
+## 注意事项
+1. 仅当转写明确表达可执行意图时才标注 tool_call
+2. 参数必须从转写中提取，不可臆造
+3. 模糊指令（如"播放那首歌"但无歌名）标注 clarification_needed: true
+4. 中文地名、联系人等实体保持原文
+
+## 输出格式
+```json
+{
+  "transcript": "...",
+  "expected_output": {
+    "tool": "...",
+    "args": {},
+    "success_criterion": "..."
+  }
+}
+```

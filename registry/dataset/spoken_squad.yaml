@@ -1,0 +1,11 @@
+spoken-squad:
+  class: audio_evals.dataset.huggingface.Huggingface
+  args:
+    default_task: aqa
+    name: TwinkStart/spoken_squad_test
+    split: test
+    local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/spoken_squad_test_c"
+    ref_col: answer
+    col_aliases:
+      context: audio
+      instruction: question

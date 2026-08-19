@@ -1,0 +1,17 @@
+WenetSpeech-test-meeting:
+  class: audio_evals.dataset.huggingface.Huggingface
+  args:
+    default_task: asr-zh
+    name: TwinkStart/WenetSpeech
+    local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/WenetSpeech_c"
+    split: test_meeting
+    ref_col: text
+
+WenetSpeech-test-net:
+  class: audio_evals.dataset.huggingface.Huggingface
+  args:
+    default_task: asr-zh
+    name: TwinkStart/WenetSpeech
+    local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/WenetSpeech_c"
+    split: test_net
+    ref_col: text

@@ -1,0 +1,7 @@
+--extra-index-url https://download.pytorch.org/whl/cu128
+accelerate
+librosa
+numpy<2.0.0
+soundfile
+torch==2.8.0
+transformers==4.52.3

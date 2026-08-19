@@ -1,0 +1,27 @@
+extends: wenetspeech
+dataset_id: wenetspeech-test-meeting
+display_name: WenetSpeech test-meeting
+contributions:
+  - task: speech_understanding
+    capability: asr
+    scenario: meeting
+    use_bucket: formal_subscores
+defaults:
+  scenario: meeting
+  condition:
+    acoustic: overlap_speech
+    spatial: far_field
+    speaker: multi_speaker
+    device: meeting_array
+field_mapping:
+  sample_id: {from: id, prefix: wenetspeech_test_meeting_}
+knowledge_overrides:
+  seed_facts:
+    typical_labels:
+      scenario: meeting
+      condition:
+        acoustic: overlap_speech
+        spatial: far_field
+        speaker: multi_speaker
+        device: meeting_array
+        interaction: single_turn

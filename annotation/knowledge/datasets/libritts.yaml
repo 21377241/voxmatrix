@@ -1,0 +1,30 @@
+dataset_id: libritts
+display_name: LibriTTS
+sources:
+  - type: paper
+    title: "LibriTTS: A Corpus Derived from LibriSpeech for Text-to-Speech"
+    url: https://arxiv.org/abs/1904.02882
+    note: TTS 语料，有规范化文本与高质量朗读
+  - type: website
+    title: OpenSLR LibriTTS
+    url: https://www.openslr.org/60/
+    note: 下载页
+
+seed_facts:
+  language: en
+  style: read speech for TTS
+  primary_capability: tts_correctness
+  typical_labels:
+    task: speech_output
+    capability: tts_correctness
+    scenario: phone
+    condition:
+      acoustic: clean
+      spatial: near_field
+      speaker: single_speaker
+      device: phone_mic
+      interaction: single_turn
+  reference_fields: [text]
+  metrics: [content_acc]
+  formal_ready: false
+  notes: 方案中 speech_output 首版 optional，推荐 diagnostic_evidence

@@ -1,0 +1,7 @@
+wavlm_large:
+  class: audio_evals.models.wavlm.WavLM
+  args:
+    path: "${EVALUATION_UTILS_ROOT:-evaluation_utils}/models/wavlm/wavlm_large_finetune.pth"
+    feature_path: "${EVALUATION_UTILS_ROOT:-evaluation_utils}/models/wavlm/wavlm_large.pt"
+    env_path: "${EVALUATION_UTILS_ROOT:-evaluation_utils}/envs/simo"
+    requirements_path: ""

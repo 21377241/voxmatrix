@@ -1,0 +1,169 @@
+mesh-unified-speech-smoke:
+  class: mesh_eval.dataset.unified.UnifiedSpeechJsonl
+  args:
+    f_name: mesh_eval/data/unified_speech_smoke.jsonl
+    default_task: mesh-unified-speech
+    ref_col: text
+    dataset_id: local_smoke
+    strict: true
+    check_audio_exists: true
+
+full-aishell-1-asr:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: aishell_1, benchmark_id: full-aishell-1-asr}
+
+full-aishell-4-asr:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: aishell_4, benchmark_id: full-aishell-4-asr}
+
+full-aishell-5-asr:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: aishell_5, benchmark_id: full-aishell-5-asr}
+
+full-alimeeting-asr:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: alimeeting, benchmark_id: full-alimeeting-asr, view: alimeeting_asr}
+
+full-alimeeting-diarization:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: alimeeting, benchmark_id: full-alimeeting-diarization, view: alimeeting_diarization}
+
+full-alimeeting-attribution:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: alimeeting, benchmark_id: full-alimeeting-attribution, view: alimeeting_attribution}
+
+full-ami-asr:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: ami, benchmark_id: full-ami-asr}
+
+full-audiocaps-caption:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: audiocaps, benchmark_id: full-audiocaps-caption}
+
+full-chime-asr:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: chime, benchmark_id: full-chime-asr}
+
+full-clotho-caption:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: clotho, benchmark_id: full-clotho-caption}
+
+full-common-voice-asr:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: common_voice, benchmark_id: full-common-voice-asr}
+
+full-covost2-zh-en:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: covost2, benchmark_id: full-covost2-zh-en, view: covost_zh_en}
+
+full-covost2-en-zh:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: covost2, benchmark_id: full-covost2-en-zh, view: covost_en_zh}
+
+full-esc50-sound-event:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: esc50, benchmark_id: full-esc50-sound-event}
+
+full-fsc-slu:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: fluent_speech_commands, benchmark_id: full-fsc-slu}
+
+full-librispeech-asr:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: librispeech, benchmark_id: full-librispeech-asr}
+
+full-libritts-tts-source:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: libritts, benchmark_id: full-libritts-tts-source}
+
+full-magicdata-ramc-asr:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: magicdata_ramc, benchmark_id: full-magicdata-ramc-asr}
+
+full-misp-asr:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: misp, benchmark_id: full-misp-asr}
+
+full-slurp-slu:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: slurp, benchmark_id: full-slurp-slu}
+
+full-spoken-squad-qa:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: spoken_squad, benchmark_id: full-spoken-squad-qa}
+
+full-voxceleb1-verification:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: voxceleb1, benchmark_id: full-voxceleb1-verification}
+
+full-fsc-tool-call-proxy:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: fluent_speech_commands, benchmark_id: full-fsc-tool-call-proxy, view: tool_call_proxy}
+
+full-slurp-tool-call-proxy:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: slurp, benchmark_id: full-slurp-tool-call-proxy, view: tool_call_proxy}
+
+full-voxceleb1-target-speaker-proxy:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: voxceleb1, benchmark_id: full-voxceleb1-target-speaker-proxy, view: target_speaker_proxy}
+
+full-mmsu-audio-reasoning:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: mmsu, benchmark_id: full-mmsu-audio-reasoning, view: capability_audio_reasoning}
+
+full-mmsu-speech-translation:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: mmsu, benchmark_id: full-mmsu-speech-translation, view: capability_speech_translation}
+
+full-mmsu-paralinguistic:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: mmsu, benchmark_id: full-mmsu-paralinguistic, view: capability_paralinguistic}
+
+full-mmsu-sound-event:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: mmsu, benchmark_id: full-mmsu-sound-event, view: capability_sound_event}
+
+full-mmsu-acoustic-scene:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: mmsu, benchmark_id: full-mmsu-acoustic-scene, view: capability_acoustic_scene}
+
+full-mmsu-speaker-count:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: mmsu, benchmark_id: full-mmsu-speaker-count, view: capability_speaker_count}
+
+full-mmsu-spoof-diagnostic:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: mmsu, benchmark_id: full-mmsu-spoof-diagnostic, view: capability_spoof_detection}
+
+full-vocalbench-qa:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: vocalbench, benchmark_id: full-vocalbench-qa, view: capability_qa}
+
+full-vocalbench-zh-qa:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: vocalbench_zh, benchmark_id: full-vocalbench-zh-qa, view: capability_qa}
+
+full-uro-bench-qa:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: uro_bench, benchmark_id: full-uro-bench-qa, view: capability_qa}
+
+full-uro-bench-meeting-summary:
+  class: mesh_eval.dataset.full_eval.FullEvalDataset
+  args: {dataset: uro_bench, benchmark_id: full-uro-bench-meeting-summary, view: capability_meeting_summary}
+
+audio-agent-bench-dialogue:
+  class: mesh_eval.dataset.external_benchmarks.AudioAgentBenchDataset
+  args: {benchmark_id: audio-agent-bench-dialogue, view: dialogue}
+
+audio-agent-bench-tool-call:
+  class: mesh_eval.dataset.external_benchmarks.AudioAgentBenchDataset
+  args: {benchmark_id: audio-agent-bench-tool-call, view: tool_call}
+
+audio-agent-bench-clarification:
+  class: mesh_eval.dataset.external_benchmarks.AudioAgentBenchDataset
+  args: {benchmark_id: audio-agent-bench-clarification, view: clarification}
+
+ihbench-interruption-offline:
+  class: mesh_eval.dataset.external_benchmarks.IHBenchDataset
+  args: {benchmark_id: ihbench-interruption-offline}

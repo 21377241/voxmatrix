@@ -1,0 +1,10 @@
+caption:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: "Describe the main audible event in one concise sentence of no more than 25 words. Return only the caption."

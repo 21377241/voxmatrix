@@ -1,0 +1,22 @@
+xfyun:
+  class: audio_evals.models.asr.xfyun.XFYunRealTime
+  args:
+    app_id: ${XFYUN_APP_ID}
+    api_key: ${XFYUN_API_KEY}
+    api_secret: ${XFYUN_API_SECRET}
+
+xfyun-offline-zh:
+  class: audio_evals.models.asr.xfyun.IFlyASR
+  args:
+    app_id: ${XFYUN_APP_ID}
+    api_secret: ${XFYUN_API_SECRET}
+    sample_params:
+      lang: cn
+
+xfyun-offline-en:
+  class: audio_evals.models.asr.xfyun.IFlyASR
+  args:
+    app_id: ${XFYUN_APP_ID}
+    api_secret: ${XFYUN_API_SECRET}
+    sample_params:
+      lang: en

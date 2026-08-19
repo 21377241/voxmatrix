@@ -1,0 +1,44 @@
+# LibriTTS — speech_output 试点（用参考文本评 TTS 内容正确性）
+dataset_id: libritts
+display_name: LibriTTS
+language: en
+license: CC-BY-4.0
+
+contributions:
+  - task: speech_output
+    capability: tts_correctness
+    scenario: phone
+    use_bucket: diagnostic_evidence
+
+defaults:
+  task: speech_output
+  capability: tts_correctness
+  scenario: phone
+  condition:
+    acoustic: clean
+    spatial: near_field
+    speaker: single_speaker
+    device: phone_mic
+    interaction: single_turn
+  metrics: [content_acc]
+  use_bucket: diagnostic_evidence
+  split: train
+
+field_mapping:
+  input.audio_path:
+    from: audio_path
+  reference.text:
+    from: text
+  sample_id:
+    from: id
+    prefix: libritts_
+
+cost_policy:
+  homogeneous: true
+  skip_llm_label_if_verify_pass: true
+  audit_sample_rate: 0.1
+
+auto_complete: true
+missing_labels: []
+notes: |
+  首版 speech_output 为 optional；LibriTTS 参考语音+文本用于 tts_correctness / intelligibility 诊断。

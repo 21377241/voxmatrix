@@ -1,0 +1,33 @@
+dataset_id: aishell_1
+display_name: AISHELL-1
+sources:
+  - type: paper
+    title: "AISHELL-1: An Open-Source Mandarin Speech Corpus and A Speech Recognition Baseline"
+    url: https://arxiv.org/abs/1709.05522
+    note: 官方论文，描述语料采集、近场朗读、转录与基线 ASR
+  - type: website
+    title: OpenSLR AISHELL-1
+    url: https://www.openslr.org/33/
+    note: 下载与许可说明
+  - type: website
+    title: AISHELL-1 OpenSLR description mirror
+    url: https://www.openslr.org/resources/33/
+    note: OpenSLR 资源页（官网子路径偶发 404，保留论文+OpenSLR 主源）
+
+seed_facts:
+  language: zh
+  style: read speech / near-field
+  domains: general Mandarin sentences
+  typical_labels:
+    task: speech_understanding
+    capability: asr
+    scenario: phone
+    condition:
+      acoustic: clean
+      spatial: near_field
+      speaker: single_speaker
+      device: phone_mic
+      interaction: single_turn
+  reference_fields: [text]
+  metrics: [cer]
+  formal_ready: true

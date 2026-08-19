@@ -1,0 +1,110 @@
+# AliMeeting 数据集映射规则
+
+dataset_id: alimeeting
+display_name: AliMeeting
+language: zh
+license: research
+
+contributions:
+  - task: speech_understanding
+    capability: asr
+    scenario: meeting
+    use_bucket: formal_subscores
+  - task: speaker
+    capability: diarization
+    scenario: meeting
+    use_bucket: formal_subscores
+  - task: speaker
+    capability: speaker_attribution
+    scenario: meeting
+    use_bucket: formal_subscores
+
+# 一条原始样本可展开为多条 manifest
+manifest_expansions:
+  - name: asr
+    defaults:
+      task: speech_understanding
+      capability: asr
+      scenario: meeting
+      condition:
+        acoustic: overlap_speech
+        spatial: far_field
+        speaker: multi_speaker
+        device: meeting_array
+        interaction: single_turn
+      metrics: [cer, wer]
+      use_bucket: formal_subscores
+    field_mapping:
+      input.audio_path:
+        from: audio_path
+      reference.text:
+        from: text
+      sample_id:
+        from: utterance_id
+        prefix: alimeeting_asr_
+
+  - name: diarization
+    level: session
+    defaults:
+      task: speaker
+      capability: diarization
+      scenario: meeting
+      condition:
+        acoustic: overlap_speech
+        spatial: far_field
+        speaker: multi_speaker
+        device: meeting_array
+        interaction: single_turn
+      metrics: [der]
+      use_bucket: formal_subscores
+    field_mapping:
+      input.audio_path:
+        from: session_audio_path
+      reference.segments:
+        from: rttm
+        transform: rttm_to_segments
+      sample_id:
+        from: session_id
+        prefix: alimeeting_diar_
+
+  - name: speaker_attribution
+    defaults:
+      task: speaker
+      capability: speaker_attribution
+      scenario: meeting
+      condition:
+        acoustic: overlap_speech
+        spatial: far_field
+        speaker: multi_speaker
+        device: meeting_array
+        interaction: single_turn
+      metrics: [cpcer, attribution_acc]
+      use_bucket: formal_subscores
+    field_mapping:
+      input.audio_path:
+        from: audio_path
+      reference.utterances:
+        from: aligned_utterances
+        transform: attribution_format
+      sample_id:
+        from: utterance_id
+        prefix: alimeeting_attr_
+
+# 条件推断规则
+condition_rules:
+  - if: "num_speakers > 1"
+    set:
+      condition.speaker: multi_speaker
+  - if: "num_speakers == 1"
+    set:
+      condition.speaker: single_speaker
+
+auto_complete: true
+missing_labels:
+  - field: condition.acoustic
+    detail: 仅可确认 overlap_speech，细粒度噪声类型需声学分析
+    priority: P2
+
+notes: |
+  AliMeeting 是首版会议场景核心数据集。
+  diarization 和 speaker_attribution 需确认 RTTM 格式转换脚本。

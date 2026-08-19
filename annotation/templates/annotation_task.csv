@@ -1,0 +1,7 @@
+sample_id,dataset,task,capability,scenario,condition_acoustic,condition_spatial,condition_speaker,condition_device,condition_interaction,audio_path,reference_json,metrics,use_bucket,split,label_field,current_value,suggested_value,confidence,label_source,status,annotator,reviewed,notes
+# 人工标注任务 CSV 模板
+# status: pending | done | rejected
+# label_field: 需要补标或修正的字段路径，如 condition.spatial 或 reference.expected_output
+# reference_json: 完整 reference 对象的 JSON 字符串（补标 agent 类任务时使用）
+# 示例行（删除后使用）:
+# vehicle_ts_001,self_collected,agent,tool_call,vehicle,highway_noise,driver,authorized_user,car_mic,single_turn,data/v001.wav,"{""tool"":""navigate"",""args"":{""destination"":""充电站""}}","tool_acc,parameter_acc,task_success",coverage_debt,test,reference.expected_output,,,0.0,human,pending,,false,需听音确认导航意图

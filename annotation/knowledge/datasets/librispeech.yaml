@@ -1,0 +1,40 @@
+dataset_id: librispeech
+display_name: LibriSpeech
+sources:
+  - type: paper
+    title: "LibriSpeech: An ASR corpus based on public domain audio books"
+    url: https://arxiv.org/abs/1512.02595
+    note: 官方论文：有声读物采集、clean/other 划分、WER 评测
+  - type: website
+    title: OpenSLR LibriSpeech
+    url: https://www.openslr.org/12/
+    note: 下载与子集说明
+  - type: website
+    title: LibriSpeech official page
+    url: https://www.openslr.org/resources/12
+    note: 资源镜像页
+
+seed_facts:
+  language: en
+  style: read speech from audiobooks / near-field
+  domains: public domain books
+  subsets: [train-clean-100, train-clean-360, train-other-500, dev-clean, dev-other, test-clean, test-other]
+  primary_capability: asr
+  typical_labels:
+    task: speech_understanding
+    capability: asr
+    scenario: phone
+    condition:
+      acoustic: clean   # other 子集可标 light_noise
+      spatial: near_field
+      speaker: single_speaker
+      device: phone_mic
+      interaction: single_turn
+  reference_fields: [text]
+  metrics: [wer]
+  formal_ready: true
+  capability_priority: |
+    标注时优先确认 capability。
+    - 标准短句/章节句 → asr
+    - 仅当样本为长音频（通常>=60s）或专门做长程 ASR 时 → long_form_asr
+    - 不要标 speech_translation / tool_call / diarization 等与协议不符的能力

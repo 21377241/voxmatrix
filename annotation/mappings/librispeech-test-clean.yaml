@@ -1,0 +1,12 @@
+extends: librispeech
+dataset_id: librispeech-test-clean
+display_name: LibriSpeech test-clean
+spec_dataset: librispeech
+knowledge_dataset: librispeech
+defaults:
+  condition:
+    acoustic: clean
+  metrics: [wer]
+field_mapping:
+  sample_id: {from: id, prefix: librispeech_test_clean_}
+

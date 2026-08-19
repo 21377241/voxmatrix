@@ -1,0 +1,1119 @@
+version: "2026-08-19"
+full_eval_root: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}"
+
+aliases:
+  WenetSpeech-test-net: wenetspeech-test-net
+  WenetSpeech-test-meeting: wenetspeech-test-meeting
+  MMSU: full-mmsu-audio-reasoning
+  VocalBench: full-vocalbench-qa
+  VocalBench-zh: full-vocalbench-zh-qa
+  URO-Bench: full-uro-bench-qa
+  AudioAgentBench: audio-agent-bench-dialogue
+  IHBench: ihbench-interruption-offline
+
+benchmarks:
+  librispeech-test-clean:
+    display_name: LibriSpeech test-clean
+    group: current_asr
+    registry_dataset: librispeech-test-clean
+    task: speech_understanding
+    capability: asr
+    answer_type: text
+    language: en
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [wer]
+    evaluators: [wer]
+    prompt: qwen3-omni-asr-en
+    use_bucket: formal_subscores
+    annotation_mapping: librispeech-test-clean
+    data:
+      local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/librispeech_c"
+      split: test_clean
+      raw_audio_path: "${VOXMATRIX_RAW_ROOT:-raw}/TwinkStart/librispeech/test_clean"
+    smoke_status: ready_after_inference
+
+  librispeech-test-other:
+    display_name: LibriSpeech test-other
+    group: current_asr
+    registry_dataset: librispeech-test-other
+    task: speech_understanding
+    capability: asr
+    answer_type: text
+    language: en
+    scenario: phone
+    condition: {acoustic: light_noise, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [wer]
+    evaluators: [wer]
+    prompt: qwen3-omni-asr-en
+    use_bucket: formal_subscores
+    annotation_mapping: librispeech-test-other
+    data:
+      local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/librispeech_c"
+      split: test_other
+      raw_audio_path: "${VOXMATRIX_RAW_ROOT:-raw}/TwinkStart/librispeech/test_other"
+    smoke_status: ready_after_inference
+
+  wenetspeech-test-net:
+    display_name: WenetSpeech test-net
+    aliases: [WenetSpeech-test-net]
+    group: current_asr
+    registry_dataset: WenetSpeech-test-net
+    task: speech_understanding
+    capability: asr
+    answer_type: text
+    language: zh
+    scenario: phone
+    condition: {acoustic: light_noise, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [cer]
+    evaluators: [cer]
+    prompt: qwen3-omni-asr-zh
+    use_bucket: formal_subscores
+    annotation_mapping: wenetspeech-test-net
+    data:
+      local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/WenetSpeech_c"
+      split: test_net
+      raw_audio_path: "${VOXMATRIX_RAW_ROOT:-raw}/TwinkStart/WenetSpeech/test_net"
+    smoke_status: ready_after_inference
+
+  wenetspeech-test-meeting:
+    display_name: WenetSpeech test-meeting
+    aliases: [WenetSpeech-test-meeting]
+    group: current_asr
+    registry_dataset: WenetSpeech-test-meeting
+    task: speech_understanding
+    capability: asr
+    answer_type: text
+    language: zh
+    scenario: meeting
+    condition: {acoustic: overlap_speech, spatial: far_field, speaker: multi_speaker, device: meeting_array, interaction: single_turn}
+    metrics: [cer]
+    evaluators: [cer]
+    prompt: qwen3-omni-asr-zh
+    use_bucket: formal_subscores
+    annotation_mapping: wenetspeech-test-meeting
+    data:
+      local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/WenetSpeech_c"
+      split: test_meeting
+      raw_audio_path: "${VOXMATRIX_RAW_ROOT:-raw}/TwinkStart/WenetSpeech/test_meeting"
+    smoke_status: ready_after_inference
+
+  fleurs-en_us:
+    display_name: FLEURS en_us
+    group: current_asr
+    registry_dataset: fleurs-en_us
+    task: speech_understanding
+    capability: asr
+    answer_type: text
+    language: en
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [wer]
+    evaluators: [wer]
+    prompt: qwen3-omni-asr-en
+    use_bucket: formal_subscores
+    annotation_mapping: fleurs-en_us
+    data:
+      local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/fleurs_en_us"
+      split: test
+      raw_audio_path: "${VOXMATRIX_RAW_ROOT:-raw}/google/fleurs/en_us/test"
+    smoke_status: ready_after_inference
+
+  fleurs-zh:
+    display_name: FLEURS cmn_hans_cn
+    group: current_asr
+    registry_dataset: fleurs-zh
+    task: speech_understanding
+    capability: asr
+    answer_type: text
+    language: zh
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [cer]
+    evaluators: [cer]
+    prompt: qwen3-omni-asr-zh
+    use_bucket: formal_subscores
+    annotation_mapping: fleurs-zh
+    data:
+      local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/fleurs_cmn_hans_cn"
+      split: test
+      raw_audio_path: "${VOXMATRIX_RAW_ROOT:-raw}/google/fleurs/cmn_hans_cn/test"
+    smoke_status: ready_after_inference
+
+  seed_tts_eval_en:
+    display_name: Seed-TTS-Eval English
+    group: local_additional
+    registry_dataset: seed_tts_eval_en
+    task: speech_output
+    capability: speaker_similarity
+    answer_type: audio
+    language: en
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [content_acc, intelligibility, sim, mos, dnsmos]
+    evaluators: [seed-tts-eval-asr-wer-en, simo, utmos, dnsmos]
+    prompt: voice-clone
+    use_bucket: diagnostic_evidence
+    data:
+      local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/Seed-TTS-Eval_en_c"
+      alternate_local_paths: ["${VOXMATRIX_HF_DATA_ROOT:-data/hf}/Seed-TTS-Eval_c"]
+      split: train
+    requirements: [TTS candidate audio, prepared Whisper/WavLM/UTMOS/DNSMOS assets, GPU scoring]
+    smoke_status: awaiting_candidate_audio
+
+  seed_tts_eval_zh:
+    display_name: Seed-TTS-Eval Chinese
+    group: local_additional
+    registry_dataset: seed_tts_eval_zh
+    task: speech_output
+    capability: speaker_similarity
+    answer_type: audio
+    language: zh
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [content_acc, intelligibility, sim, mos, dnsmos]
+    evaluators: [seed-tts-eval-asr-wer-zh, simo, utmos, dnsmos]
+    prompt: voice-clone
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/Seed-TTS-Eval_zh_c", split: train}
+    requirements: [TTS candidate audio, prepared Paraformer/WavLM/UTMOS/DNSMOS assets, GPU scoring]
+    smoke_status: awaiting_candidate_audio
+
+  voice_bench_alpacaeval:
+    display_name: VoiceBench AlpacaEval
+    group: voicebench
+    registry_dataset: voice_bench_alpacaeval
+    task: agent
+    capability: qa
+    answer_type: text
+    language: en
+    scenario: phone
+    condition: &voice_condition {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [llm_judge]
+    evaluators: [qa_open_5_rating]
+    prompt: direct-aqa
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/voicebench_alpacaeval_c", split: test}
+    requirements: &judge_requirements [recorded model inference, OPENAI_API_KEY or LLMCenterUserToken]
+    smoke_status: awaiting_api_credential
+
+  voice_bench_alpacaeval_full:
+    <<: &voice_open
+      group: voicebench
+      task: agent
+      capability: qa
+      answer_type: text
+      language: en
+      scenario: phone
+      condition: *voice_condition
+      metrics: [llm_judge]
+      evaluators: [qa_open_5_rating]
+      prompt: direct-aqa
+      use_bucket: diagnostic_evidence
+      requirements: *judge_requirements
+      smoke_status: awaiting_api_credential
+    display_name: VoiceBench AlpacaEval Full
+    registry_dataset: voice_bench_alpacaeval_full
+    data: {local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/voicebench_alpacaeval_full_c", split: test}
+
+  voice_bench_commoneval:
+    <<: *voice_open
+    display_name: VoiceBench CommonEval
+    registry_dataset: voice_bench_commoneval
+    data: {local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/voicebench_commoneval_c", split: test}
+
+  voice_bench_wildvoice:
+    <<: *voice_open
+    display_name: VoiceBench WildVoice
+    registry_dataset: voice_bench_wildvoice
+    data: {local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/voicebench_wildvoice_c", split: test}
+
+  voice_bench_sd-qa:
+    <<: *voice_open
+    display_name: VoiceBench SD-QA
+    registry_dataset: voice_bench_sd-qa
+    metrics: [llm_judge_reference]
+    evaluators: [qa_with_reference]
+    data: {local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/voicebench_sd-qa_c", split: usa}
+
+  voice_bench_ifeval:
+    <<: *voice_open
+    display_name: VoiceBench IFEval
+    registry_dataset: voice_bench_ifeval
+    capability: instruction_following
+    answer_type: text
+    metrics: [constraint_satisfaction]
+    evaluators: [ifeval]
+    requirements: [model inference]
+    smoke_status: ready_after_inference
+    data: {local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/voicebench_ifeval_c", split: test}
+
+  voice_bench_bbh:
+    <<: *voice_open
+    display_name: VoiceBench BBH
+    registry_dataset: voice_bench_bbh
+    answer_type: classification
+    metrics: [accuracy]
+    evaluators: [bbh]
+    requirements: [model inference]
+    smoke_status: ready_after_inference
+    data: {local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/voicebench_bbh_c", split: test}
+
+  voice_bench_advbench:
+    <<: *voice_open
+    display_name: VoiceBench AdvBench
+    registry_dataset: voice_bench_advbench
+    capability: instruction_following
+    metrics: [attack_success_rate]
+    evaluators: [harm]
+    requirements: [model inference]
+    smoke_status: ready_after_inference
+    data: {local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/voicebench_advbench_c", split: test}
+
+  voice_bench_openbookqa:
+    <<: *voice_open
+    display_name: VoiceBench OpenBookQA
+    registry_dataset: voice_bench_openbookqa
+    answer_type: classification
+    metrics: [accuracy]
+    evaluators: [mcq_abcd]
+    requirements: [model inference]
+    smoke_status: ready_after_inference
+    data: {local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/voicebench_openbookqa_c", split: test}
+
+  voice_bench_mmsu:
+    <<: *voice_open
+    display_name: VoiceBench MMSU
+    registry_dataset: voice_bench_mmsu
+    answer_type: classification
+    metrics: [accuracy]
+    evaluators: [mcq_abcd]
+    requirements: [model inference]
+    smoke_status: ready_after_inference
+    data: {local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/voicebench_mmsu_c", split: all}
+
+  voice_bench_mtbench:
+    <<: *voice_open
+    display_name: VoiceBench MT-Bench
+    registry_dataset: voice_bench_mtbench
+    capability: multi_turn_dialogue
+    answer_type: dialogue
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: multi_turn}
+    evaluators: [voicebench-multiturn-judge]
+    prompt: mesh-multi-turn
+    requirements: [recorded model inference, OPENAI_API_KEY or LLMCenterUserToken]
+    smoke_status: awaiting_api_credential
+    data: {local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/voicebench_mtbench_c", split: test}
+
+  voice_bench_alpacaeval_speaker:
+    <<: *voice_open
+    display_name: VoiceBench AlpacaEval Speaker Robustness
+    registry_dataset: voice_bench_alpacaeval_speaker
+    data: {local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/voicebench_alpacaeval_speaker_c", split: all}
+
+  clotho-aqa:
+    display_name: ClothoAQA
+    group: local_additional
+    registry_dataset: clotho-aqa
+    task: speech_understanding
+    capability: audio_reasoning
+    answer_type: text
+    language: en
+    scenario: home
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: smart_speaker, interaction: single_turn}
+    metrics: [exact_match, text_f1]
+    evaluators: [qa-exist-match, mesh-text-f1]
+    prompt: aqa
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/ClothoAQA_c", split: test}
+    requirements: [model inference]
+    smoke_status: ready_after_inference
+
+  meld-emo:
+    display_name: MELD Emotion
+    group: local_additional
+    registry_dataset: meld-emo
+    task: speech_understanding
+    capability: paralinguistic
+    answer_type: classification
+    language: en
+    scenario: meeting
+    condition: {acoustic: clean, spatial: near_field, speaker: multi_speaker, device: meeting_array, interaction: multi_turn}
+    metrics: [accuracy, macro_f1]
+    evaluators: [mesh-classification]
+    prompt: emo_analysis
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/MELD_c", split: test}
+    requirements: [model inference]
+    smoke_status: ready_after_inference
+
+  meld-sentiment:
+    display_name: MELD Sentiment
+    group: local_additional
+    registry_dataset: meld-sentiment
+    task: speech_understanding
+    capability: paralinguistic
+    answer_type: classification
+    language: en
+    scenario: meeting
+    condition: {acoustic: clean, spatial: near_field, speaker: multi_speaker, device: meeting_array, interaction: multi_turn}
+    metrics: [accuracy, macro_f1]
+    evaluators: [mesh-classification]
+    prompt: sentiment_analysis
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/MELD_c", split: test}
+    requirements: [model inference]
+    smoke_status: ready_after_inference
+
+  mmau-test-mini:
+    display_name: MMAU
+    group: local_additional
+    registry_dataset: mmau-test-mini
+    task: speech_understanding
+    capability: audio_reasoning
+    answer_type: classification
+    language: en
+    scenario: home
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: smart_speaker, interaction: single_turn}
+    metrics: [accuracy]
+    evaluators: [kimi-mmau-choices]
+    prompt: mmau
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/MMAU_c", split: v05.15.25}
+    requirements: [model inference]
+    smoke_status: ready_after_inference
+
+  spoken-squad:
+    display_name: Spoken SQuAD
+    group: local_additional
+    registry_dataset: spoken-squad
+    task: agent
+    capability: qa
+    answer_type: text
+    language: en
+    scenario: phone
+    condition: *voice_condition
+    metrics: [exact_match, text_f1]
+    evaluators: [mesh-text-f1]
+    prompt: mesh-open-qa
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/spoken_squad_test_c", split: test}
+    requirements: [model inference]
+    smoke_status: ready_after_inference
+
+  audiocaps:
+    display_name: AudioCaps
+    group: local_additional
+    registry_dataset: audiocaps
+    task: speech_understanding
+    capability: audio_caption
+    answer_type: text
+    language: en
+    scenario: outdoor
+    condition: {acoustic: light_noise, spatial: far_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [cider, spice]
+    evaluators: [coco]
+    prompt: caption
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/AudioCaps", split: test}
+    requirements: [model inference, pycocoevalcap, pycocotools, Java/SPICE resources]
+    smoke_status: ready_after_inference_blocked_metrics
+
+  full-aishell-1-asr:
+    display_name: AISHELL-1 Full ASR
+    group: full_eval_objective
+    registry_dataset: full-aishell-1-asr
+    task: speech_understanding
+    capability: asr
+    answer_type: text
+    language: zh
+    scenario: home
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [cer]
+    evaluators: [cer]
+    prompt: qwen3-omni-asr-zh
+    use_bucket: formal_subscores
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/aishell_1/final/manifest.jsonl", split: test}
+    smoke_status: full_manifest_ready
+
+  full-aishell-4-asr:
+    display_name: AISHELL-4 Full ASR
+    group: full_eval_objective
+    registry_dataset: full-aishell-4-asr
+    task: speech_understanding
+    capability: asr
+    answer_type: text
+    language: zh
+    scenario: meeting
+    condition: {acoustic: overlap_speech, spatial: far_field, speaker: multi_speaker, device: meeting_array, interaction: multi_turn}
+    metrics: [cer]
+    evaluators: [cer]
+    prompt: mesh-segment-asr-zh
+    use_bucket: formal_subscores
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/aishell_4/final/manifest.jsonl", split: test}
+    smoke_status: full_manifest_ready_segmented_audio
+
+  full-aishell-5-asr:
+    display_name: AISHELL-5 Full ASR
+    group: full_eval_objective
+    registry_dataset: full-aishell-5-asr
+    task: speech_understanding
+    capability: asr
+    answer_type: text
+    language: zh
+    scenario: vehicle
+    condition: {acoustic: traffic_noise, spatial: near_field, speaker: multi_speaker, device: car_mic, interaction: multi_turn}
+    metrics: [cer]
+    evaluators: [cer]
+    prompt: mesh-segment-asr-zh
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/aishell_5/final/manifest.jsonl", split: test}
+    smoke_status: full_manifest_ready_segmented_audio
+
+  full-alimeeting-asr:
+    display_name: AliMeeting Full ASR
+    group: full_eval_objective
+    registry_dataset: full-alimeeting-asr
+    task: speech_understanding
+    capability: asr
+    answer_type: text
+    language: zh
+    scenario: meeting
+    condition: {acoustic: overlap_speech, spatial: far_field, speaker: multi_speaker, device: meeting_array, interaction: single_turn}
+    metrics: [cer]
+    evaluators: [cer]
+    prompt: mesh-segment-asr-zh
+    use_bucket: formal_subscores
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/alimeeting/final/manifest.jsonl", split: test_dev}
+    smoke_status: corrected_view_ready_segmented_audio
+
+  full-alimeeting-diarization:
+    display_name: AliMeeting Reconstructed Diarization
+    group: full_eval_reconstructed
+    registry_dataset: full-alimeeting-diarization
+    task: speaker
+    capability: diarization
+    answer_type: structured_json
+    language: zh
+    scenario: meeting
+    condition: {acoustic: overlap_speech, spatial: far_field, speaker: multi_speaker, device: meeting_array, interaction: single_turn}
+    metrics: [der]
+    evaluators: [mesh-diarization]
+    prompt: mesh-diarization
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/alimeeting/final/manifest.jsonl", split: test_dev}
+    requirements: [reference reconstructed from ASR timestamps; formal DER requires source RTTM validation]
+    smoke_status: diagnostic_reconstructed_reference
+
+  full-alimeeting-attribution:
+    display_name: AliMeeting Reconstructed Speaker Attribution
+    group: full_eval_reconstructed
+    registry_dataset: full-alimeeting-attribution
+    task: speaker
+    capability: speaker_attribution
+    answer_type: structured_json
+    language: zh
+    scenario: meeting
+    condition: {acoustic: overlap_speech, spatial: far_field, speaker: multi_speaker, device: meeting_array, interaction: single_turn}
+    metrics: [cpcer, attribution_acc]
+    evaluators: [mesh-speaker-attribution]
+    prompt: mesh-speaker-attribution
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/alimeeting/final/manifest.jsonl", split: test_dev}
+    requirements: [reference reconstructed from ASR timestamps; formal attribution requires source annotation validation]
+    smoke_status: diagnostic_reconstructed_reference
+
+  full-ami-asr:
+    display_name: AMI IHM Full ASR
+    group: full_eval_objective
+    registry_dataset: full-ami-asr
+    task: speech_understanding
+    capability: asr
+    answer_type: text
+    language: en
+    scenario: meeting
+    condition: {acoustic: overlap_speech, spatial: near_field, speaker: multi_speaker, device: meeting_array, interaction: multi_turn}
+    metrics: [wer]
+    evaluators: [wer]
+    prompt: qwen3-omni-asr-en
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/ami/final/manifest.jsonl", split: test}
+    smoke_status: full_manifest_ready
+
+  full-audiocaps-caption:
+    display_name: AudioCaps Full Captioning
+    group: full_eval_objective
+    registry_dataset: full-audiocaps-caption
+    task: speech_understanding
+    capability: audio_caption
+    answer_type: text
+    language: en
+    scenario: outdoor
+    condition: {acoustic: crowd_noise, spatial: far_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [cider, spice]
+    evaluators: [coco]
+    prompt: qwen3-omni-audio-caption
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/audiocaps/final/manifest.jsonl", split: test}
+    requirements: [pycocoevalcap, pycocotools, Java/SPICE resources]
+    smoke_status: full_manifest_ready
+
+  full-chime-asr:
+    display_name: CHiME-6 Full ASR
+    group: full_eval_objective
+    registry_dataset: full-chime-asr
+    task: speech_understanding
+    capability: asr
+    answer_type: text
+    language: en
+    scenario: home
+    condition: {acoustic: crowd_noise, spatial: near_field, speaker: multi_speaker, device: earphone_mic, interaction: multi_turn}
+    metrics: [wer]
+    evaluators: [wer]
+    prompt: qwen3-omni-asr-en
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/chime/final/manifest.jsonl", split: test}
+    smoke_status: full_manifest_ready
+
+  full-clotho-caption:
+    display_name: Clotho Full Captioning
+    group: full_eval_objective
+    registry_dataset: full-clotho-caption
+    task: speech_understanding
+    capability: audio_caption
+    answer_type: text
+    language: en
+    scenario: outdoor
+    condition: {acoustic: crowd_noise, spatial: far_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [cider, spice]
+    evaluators: [coco]
+    prompt: qwen3-omni-audio-caption
+    use_bucket: coverage_debt
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/clotho/final/manifest.jsonl", split: test}
+    requirements: [pycocoevalcap, pycocotools, Java/SPICE resources]
+    smoke_status: full_manifest_ready
+
+  full-common-voice-asr:
+    display_name: Common Voice zh-HK Full ASR
+    group: full_eval_objective
+    registry_dataset: full-common-voice-asr
+    task: speech_understanding
+    capability: asr
+    answer_type: text
+    language: zh
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: dialect, device: phone_mic, interaction: single_turn}
+    metrics: [cer]
+    evaluators: [cer]
+    prompt: qwen3-omni-asr-zh
+    use_bucket: coverage_debt
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/common_voice/final/manifest.jsonl", split: test}
+    smoke_status: full_manifest_ready
+
+  full-covost2-zh-en:
+    display_name: CoVoST2 zh-en Full Translation
+    group: full_eval_objective
+    registry_dataset: full-covost2-zh-en
+    task: speech_understanding
+    capability: speech_translation
+    answer_type: text
+    language: zh
+    target_language: en
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [bleu, chrf]
+    evaluators: [bleu, mesh-chrf]
+    prompt: qwen3-omni-s2tt-zh2en
+    use_bucket: formal_subscores
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/covost2/final/manifest.jsonl", split: test, view: zh-en}
+    smoke_status: filtered_view_ready
+
+  full-covost2-en-zh:
+    display_name: CoVoST2 en-zh Full Translation
+    group: full_eval_objective
+    registry_dataset: full-covost2-en-zh
+    task: speech_understanding
+    capability: speech_translation
+    answer_type: text
+    language: en
+    target_language: zh
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [bleu_zh, chrf]
+    evaluators: [bleu-zh, mesh-chrf]
+    prompt: qwen3-omni-s2tt-en2zh
+    use_bucket: formal_subscores
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/covost2/final/manifest.jsonl", split: test, view: en-zh}
+    smoke_status: filtered_view_ready
+
+  full-esc50-sound-event:
+    display_name: ESC-50 Fold 5 Full Classification
+    group: full_eval_objective
+    registry_dataset: full-esc50-sound-event
+    task: speech_understanding
+    capability: sound_event
+    answer_type: classification
+    language: en
+    scenario: outdoor
+    condition: {acoustic: crowd_noise, spatial: far_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [accuracy]
+    evaluators: [mesh-classification]
+    prompt: mesh-classification
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/esc50/final/manifest.jsonl", split: test}
+    smoke_status: full_manifest_ready
+
+  full-fsc-slu:
+    display_name: Fluent Speech Commands Full SLU
+    group: full_eval_objective
+    registry_dataset: full-fsc-slu
+    task: agent
+    capability: instruction_following
+    answer_type: structured_json
+    language: en
+    scenario: home
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: smart_speaker, interaction: single_turn}
+    metrics: [intent_acc, slot_f1]
+    evaluators: [mesh-intent, mesh-slot-f1]
+    prompt: mesh-intent-slots
+    use_bucket: coverage_debt
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/fluent_speech_commands/final/manifest.jsonl", split: test}
+    smoke_status: full_manifest_ready
+
+  full-librispeech-asr:
+    display_name: LibriSpeech Full ASR
+    group: full_eval_objective
+    registry_dataset: full-librispeech-asr
+    task: speech_understanding
+    capability: asr
+    answer_type: text
+    language: en
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [wer]
+    evaluators: [wer]
+    prompt: qwen3-omni-asr-en
+    use_bucket: formal_subscores
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/librispeech/final/manifest.jsonl", split: test_dev}
+    smoke_status: full_manifest_ready
+
+  full-libritts-tts-source:
+    display_name: LibriTTS Full TTS Source
+    group: full_eval_source
+    registry_dataset: full-libritts-tts-source
+    task: speech_output
+    capability: tts_correctness
+    answer_type: audio
+    language: en
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [content_acc]
+    evaluators: [seed-tts-eval-asr-wer-en]
+    prompt: qwen3-omni-tts-en
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/libritts/final/manifest.jsonl", split: test_dev}
+    requirements: [TTS-capable model output and prepared ASR scorer]
+    smoke_status: source_ready_requires_tts_inference
+
+  full-magicdata-ramc-asr:
+    display_name: MagicData-RAMC Full ASR
+    group: full_eval_objective
+    registry_dataset: full-magicdata-ramc-asr
+    task: speech_understanding
+    capability: asr
+    answer_type: text
+    language: zh
+    scenario: phone
+    condition: {acoustic: light_noise, spatial: near_field, speaker: multi_speaker, device: phone_mic, interaction: multi_turn}
+    metrics: [cer]
+    evaluators: [cer]
+    prompt: mesh-segment-asr-zh
+    use_bucket: formal_subscores
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/magicdata_ramc/final/manifest.jsonl", split: test_dev}
+    smoke_status: full_manifest_ready_segmented_audio
+
+  full-misp-asr:
+    display_name: MISP Full ASR
+    group: full_eval_objective
+    registry_dataset: full-misp-asr
+    task: speech_understanding
+    capability: asr
+    answer_type: text
+    language: zh
+    scenario: home
+    condition: {acoustic: overlap_speech, spatial: far_field, speaker: multi_speaker, device: meeting_array, interaction: multi_turn}
+    metrics: [cer]
+    evaluators: [cer]
+    prompt: mesh-segment-asr-zh
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/misp/final/manifest.jsonl", split: dev}
+    requirements: [raw PCM is decoded as 16 kHz mono s16le by the segment adapter]
+    smoke_status: full_manifest_ready_segmented_pcm
+
+  full-slurp-slu:
+    display_name: SLURP Full SLU
+    group: full_eval_objective
+    registry_dataset: full-slurp-slu
+    task: agent
+    capability: instruction_following
+    answer_type: structured_json
+    language: en
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [intent_acc, slot_f1]
+    evaluators: [mesh-intent, mesh-slot-f1]
+    prompt: mesh-intent-slots
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/slurp/final/manifest.jsonl", split: test}
+    smoke_status: full_manifest_ready
+
+  full-spoken-squad-qa:
+    display_name: Spoken SQuAD Full QA
+    group: full_eval_objective
+    registry_dataset: full-spoken-squad-qa
+    task: agent
+    capability: qa
+    answer_type: text
+    language: en
+    scenario: phone
+    condition: {acoustic: light_noise, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [exact_match, text_f1]
+    evaluators: [em, mesh-text-f1]
+    prompt: mesh-open-qa
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/spoken_squad/final/manifest.jsonl", split: test}
+    smoke_status: full_manifest_ready
+
+  full-voxceleb1-verification:
+    display_name: VoxCeleb1 Full Speaker Verification
+    group: full_eval_objective
+    registry_dataset: full-voxceleb1-verification
+    task: speaker
+    capability: speaker_verification
+    answer_type: classification
+    language: en
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [eer, auc]
+    evaluators: [mesh-speaker-verification]
+    prompt: mesh-speaker-verification
+    use_bucket: formal_subscores
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/voxceleb1/final/manifest.jsonl", split: test}
+    smoke_status: full_manifest_ready_two_audio
+
+  full-fsc-tool-call-proxy:
+    display_name: Fluent Speech Commands Tool Call Proxy
+    group: full_eval_diagnostic_proxy
+    registry_dataset: full-fsc-tool-call-proxy
+    task: agent
+    capability: tool_call
+    answer_type: structured_json
+    language: en
+    scenario: home
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: smart_speaker, interaction: single_turn}
+    metrics: [tool_acc, parameter_acc, parameter_f1, task_success]
+    evaluators: [mesh-tool-call]
+    prompt: mesh-tool-call
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/fluent_speech_commands/final/manifest.jsonl", split: test, view: tool_call_proxy}
+    requirements: [diagnostic proxy only; not a formal Chinese endpoint tool-call set]
+    smoke_status: diagnostic_proxy_ready
+
+  full-slurp-tool-call-proxy:
+    display_name: SLURP Tool Call Proxy
+    group: full_eval_diagnostic_proxy
+    registry_dataset: full-slurp-tool-call-proxy
+    task: agent
+    capability: tool_call
+    answer_type: structured_json
+    language: en
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [tool_acc, parameter_acc, parameter_f1, task_success]
+    evaluators: [mesh-tool-call]
+    prompt: mesh-tool-call
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/slurp/final/manifest.jsonl", split: test, view: tool_call_proxy}
+    requirements: [diagnostic proxy only; not a formal Chinese endpoint tool-call set]
+    smoke_status: diagnostic_proxy_ready
+
+  full-voxceleb1-target-speaker-proxy:
+    display_name: VoxCeleb1 Target Speaker Proxy
+    group: full_eval_diagnostic_proxy
+    registry_dataset: full-voxceleb1-target-speaker-proxy
+    task: speaker
+    capability: target_speaker
+    answer_type: classification
+    language: en
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: authorized_user, device: phone_mic, interaction: single_turn}
+    metrics: [target_speaker_acc, mis_execution]
+    evaluators: [mesh-target-speaker]
+    prompt: mesh-target-speaker
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/voxceleb1/final/manifest.jsonl", split: test, view: target_speaker_proxy}
+    requirements: [diagnostic identity proxy only; formal data needs target-user and bystander command audio]
+    smoke_status: diagnostic_proxy_ready
+
+  full-mmsu-audio-reasoning:
+    display_name: MMSU Audio Reasoning
+    group: benchmark_v2_connected
+    registry_dataset: full-mmsu-audio-reasoning
+    task: speech_understanding
+    capability: audio_reasoning
+    answer_type: text
+    language: en
+    scenario: phone
+    condition: {acoustic: light_noise, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [exact_match, text_f1]
+    evaluators: [em, mesh-text-f1]
+    prompt: mesh-external-qa
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/mmsu/final/manifest.jsonl", split: test, view: capability_audio_reasoning}
+    requirements: [diagnostic MMSU slice; does not replace open-form task primary metrics]
+    smoke_status: full_manifest_ready
+
+  full-mmsu-speech-translation:
+    display_name: MMSU Discriminative Speech Translation
+    group: benchmark_v2_connected
+    registry_dataset: full-mmsu-speech-translation
+    task: speech_understanding
+    capability: speech_translation
+    answer_type: classification
+    language: multilingual
+    scenario: phone
+    condition: {acoustic: light_noise, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [accuracy]
+    evaluators: [mesh-classification]
+    prompt: mesh-external-qa
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/mmsu/final/manifest.jsonl", split: test, view: capability_speech_translation}
+    requirements: [diagnostic MCQ translation slice; does not replace CoVoST BLEU]
+    smoke_status: full_manifest_ready
+
+  full-mmsu-paralinguistic:
+    display_name: MMSU Paralinguistic Recognition
+    group: benchmark_v2_connected
+    registry_dataset: full-mmsu-paralinguistic
+    task: speech_understanding
+    capability: paralinguistic
+    answer_type: classification
+    language: multilingual
+    scenario: phone
+    condition: {acoustic: light_noise, spatial: near_field, speaker: accent, device: phone_mic, interaction: single_turn}
+    metrics: [accuracy]
+    evaluators: [mesh-classification]
+    prompt: mesh-external-classification
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/mmsu/final/manifest.jsonl", split: test, view: capability_paralinguistic}
+    smoke_status: full_manifest_ready
+
+  full-mmsu-sound-event:
+    display_name: MMSU Sound Event
+    group: benchmark_v2_connected
+    registry_dataset: full-mmsu-sound-event
+    task: speech_understanding
+    capability: sound_event
+    answer_type: classification
+    language: multilingual
+    scenario: home
+    condition: {acoustic: light_noise, spatial: near_field, speaker: single_speaker, device: smart_speaker, interaction: single_turn}
+    metrics: [accuracy]
+    evaluators: [mesh-classification]
+    prompt: mesh-external-classification
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/mmsu/final/manifest.jsonl", split: test, view: capability_sound_event}
+    smoke_status: full_manifest_ready
+
+  full-mmsu-acoustic-scene:
+    display_name: MMSU Acoustic Scene
+    group: benchmark_v2_connected
+    registry_dataset: full-mmsu-acoustic-scene
+    task: speech_understanding
+    capability: acoustic_scene
+    answer_type: classification
+    language: multilingual
+    scenario: outdoor
+    condition: {acoustic: light_noise, spatial: far_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [accuracy]
+    evaluators: [mesh-classification]
+    prompt: mesh-external-classification
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/mmsu/final/manifest.jsonl", split: test, view: capability_acoustic_scene}
+    smoke_status: full_manifest_ready
+
+  full-mmsu-speaker-count:
+    display_name: MMSU Speaker Count
+    group: benchmark_v2_connected
+    registry_dataset: full-mmsu-speaker-count
+    task: speaker
+    capability: speaker_count
+    answer_type: classification
+    language: multilingual
+    scenario: meeting
+    condition: {acoustic: overlap_speech, spatial: far_field, speaker: multi_speaker, device: meeting_array, interaction: single_turn}
+    metrics: [speaker_count_acc]
+    evaluators: [mesh-speaker-count]
+    prompt: mesh-external-classification
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/mmsu/final/manifest.jsonl", split: test, view: capability_speaker_count}
+    smoke_status: full_manifest_ready
+
+  full-mmsu-spoof-diagnostic:
+    display_name: MMSU Real/Fake Diagnostic
+    group: benchmark_v2_connected
+    registry_dataset: full-mmsu-spoof-diagnostic
+    task: speaker
+    capability: spoof_detection
+    answer_type: classification
+    language: multilingual
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [accuracy]
+    evaluators: [mesh-classification]
+    prompt: mesh-external-classification
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/mmsu/final/manifest.jsonl", split: test, view: capability_spoof_detection}
+    requirements: [diagnostic accuracy only; not an ASVspoof EER replacement]
+    smoke_status: full_manifest_ready
+
+  full-vocalbench-qa:
+    display_name: VocalBench QA
+    group: benchmark_v2_connected
+    registry_dataset: full-vocalbench-qa
+    task: agent
+    capability: qa
+    answer_type: text
+    language: en
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [exact_match, text_f1]
+    evaluators: [em, mesh-text-f1]
+    prompt: mesh-external-qa
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/vocalbench/final/manifest.jsonl", split: test, view: capability_qa}
+    smoke_status: full_manifest_ready
+
+  full-vocalbench-zh-qa:
+    display_name: VocalBench-zh QA
+    group: benchmark_v2_connected
+    registry_dataset: full-vocalbench-zh-qa
+    task: agent
+    capability: qa
+    answer_type: text
+    language: zh
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [exact_match, text_f1]
+    evaluators: [em, mesh-text-f1]
+    prompt: mesh-external-qa
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/vocalbench_zh/final/manifest.jsonl", split: test, view: capability_qa}
+    smoke_status: full_manifest_ready
+
+  full-uro-bench-qa:
+    display_name: URO-Bench QA
+    group: benchmark_v2_connected
+    registry_dataset: full-uro-bench-qa
+    task: agent
+    capability: qa
+    answer_type: text
+    language: multilingual
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [exact_match, text_f1]
+    evaluators: [em, mesh-text-f1]
+    prompt: mesh-external-qa
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/uro_bench/final/manifest.jsonl", split: test, view: capability_qa}
+    smoke_status: full_manifest_ready
+
+  full-uro-bench-meeting-summary:
+    display_name: URO-Bench Meeting Summary
+    group: benchmark_v2_connected
+    registry_dataset: full-uro-bench-meeting-summary
+    task: agent
+    capability: meeting_summary
+    answer_type: text
+    language: multilingual
+    scenario: meeting
+    condition: {acoustic: overlap_speech, spatial: far_field, speaker: multi_speaker, device: meeting_array, interaction: multi_turn}
+    metrics: [rouge_l]
+    evaluators: [mesh-rouge-l]
+    prompt: mesh-meeting-summary
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/uro_bench/final/manifest.jsonl", split: test, view: capability_meeting_summary}
+    requirements: [diagnostic URO-Bench slice; meeting summary protocol is not frozen]
+    smoke_status: full_manifest_ready
+
+  audio-agent-bench-dialogue:
+    display_name: AudioAgentBench Dialogue
+    group: benchmark_v2_connected
+    registry_dataset: audio-agent-bench-dialogue
+    task: agent
+    capability: multi_turn_dialogue
+    answer_type: text
+    language: en
+    scenario: home
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: smart_speaker, interaction: multi_turn}
+    metrics: [text_f1]
+    evaluators: [mesh-text-f1]
+    prompt: mesh-contextual-audio
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_AUDIO_AGENT_ROOT:-data/AudioAgentBench}", split: test, view: dialogue}
+    requirements: [offline dialogue proxy; no live tool runtime]
+    smoke_status: native_metadata_ready
+
+  audio-agent-bench-tool-call:
+    display_name: AudioAgentBench Tool Call
+    group: benchmark_v2_connected
+    registry_dataset: audio-agent-bench-tool-call
+    task: agent
+    capability: tool_call
+    answer_type: structured_json
+    language: en
+    scenario: home
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: smart_speaker, interaction: multi_turn}
+    metrics: [tool_acc, parameter_acc, parameter_f1, task_success]
+    evaluators: [mesh-tool-call]
+    prompt: mesh-contextual-audio
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_AUDIO_AGENT_ROOT:-data/AudioAgentBench}", split: test, view: tool_call}
+    requirements: [offline expected-call scoring; no live tool execution]
+    smoke_status: native_metadata_ready
+
+  audio-agent-bench-clarification:
+    display_name: AudioAgentBench Clarification
+    group: benchmark_v2_connected
+    registry_dataset: audio-agent-bench-clarification
+    task: agent
+    capability: clarification
+    answer_type: text
+    language: en
+    scenario: home
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: smart_speaker, interaction: clarification}
+    metrics: [text_f1]
+    evaluators: [mesh-text-f1]
+    prompt: mesh-contextual-audio
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_AUDIO_AGENT_ROOT:-data/AudioAgentBench}", split: test, view: clarification}
+    requirements: [manually reviewed diagnostic subset]
+    smoke_status: native_metadata_ready
+
+  ihbench-interruption-offline:
+    display_name: IHBench Offline Interruption Recovery
+    group: benchmark_v2_connected
+    registry_dataset: ihbench-interruption-offline
+    task: agent
+    capability: interruption
+    answer_type: text
+    language: en
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: interruption}
+    metrics: [text_f1]
+    evaluators: [mesh-text-f1]
+    prompt: mesh-contextual-audio
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_IHBENCH_ROOT:-data/IHBench}", split: test, view: offline_recovery}
+    requirements: [offline recovery proxy; streaming stop latency remains unsupported]
+    smoke_status: parquet_audio_ready_offline_proxy

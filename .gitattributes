@@ -1,0 +1,12 @@
+* text=auto eol=lf
+
+# Keep repository statistics focused on VoxMatrix rather than vendored model code.
+audio_evals/lib/** linguist-vendored
+
+*.gif binary
+*.jpeg binary
+*.jpg binary
+*.npz binary
+*.png binary
+*.tiktoken binary
+*.wav binary

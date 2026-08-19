@@ -1,0 +1,31 @@
+dataset_id: alimeeting
+display_name: AliMeeting
+sources:
+  - type: paper
+    title: "M2MeT: The ICASSP 2022 Multi-Channel Multi-Party Meeting Transcription Challenge"
+    url: https://arxiv.org/abs/2110.07393
+    note: 会议多通道、重叠语音、说话人分离与转写评测设定
+  - type: paper
+    title: AISHELL-4 / meeting related corpora context
+    url: https://arxiv.org/abs/2104.03603
+    note: 中文会议远场语料相关参考（AISHELL-4）
+  - type: website
+    title: AliMeeting / M2MeT challenge page
+    url: https://www.openslr.org/119/
+    note: OpenSLR 发布页与文件说明
+
+seed_facts:
+  language: zh
+  style: meeting / far-field / multi-speaker / overlap
+  typical_labels:
+    task: [speech_understanding, speaker]
+    capability: [asr, diarization, speaker_attribution]
+    scenario: meeting
+    condition:
+      acoustic: overlap_speech
+      spatial: far_field
+      speaker: multi_speaker
+      device: meeting_array
+      interaction: single_turn
+  formal_ready: true
+  notes: RTTM / 说话人对齐是 diarization 与 attribution 必备

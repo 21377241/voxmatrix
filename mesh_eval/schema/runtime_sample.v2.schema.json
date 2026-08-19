@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ultraeval/runtime-sample-v2.schema.json",
+  "title": "UltraEval RuntimeSample V2",
+  "type": "object",
+  "required": ["schema_version", "canonical", "resolved_protocol", "run_context", "sample_id", "task", "capability", "scenario", "metadata", "input", "reference_obj", "measurement_protocol", "measurement_protocol_hash"],
+  "properties": {
+    "schema_version": {"const": "runtime-sample/2.0"},
+    "canonical": {"type": "object"},
+    "resolved_protocol": {
+      "type": "object",
+      "required": ["id", "hash", "input_schema", "output_schema", "parser", "prompt", "metrics", "evaluators", "runtime_profile", "runtime_profile_hash"],
+      "additionalProperties": true
+    },
+    "run_context": {"type": "object"},
+    "sample_id": {"type": "string"},
+    "task": {"type": "string"},
+    "capability": {"type": "string"},
+    "scenario": {"type": "object"},
+    "metadata": {"type": "object"},
+    "input": {"type": "object"},
+    "reference_obj": {"type": "object"}
+    ,"measurement_protocol": {"type": "string", "minLength": 1}
+    ,"measurement_protocol_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "additionalProperties": true
+}

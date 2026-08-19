@@ -1,0 +1,100 @@
+mesh-classification:
+  class: mesh_eval.evaluator.classification.ClassificationEvaluator
+  args: {}
+
+mesh-multilabel-f1:
+  class: mesh_eval.evaluator.classification.MultiLabelF1Evaluator
+  args: {}
+
+mesh-entity-f1:
+  class: mesh_eval.evaluator.classification.EntityF1Evaluator
+  args: {}
+
+mesh-text-f1:
+  class: mesh_eval.evaluator.text.TextF1Evaluator
+  args: {}
+
+mesh-rouge-l:
+  class: mesh_eval.evaluator.text.RougeLEvaluator
+  args: {}
+
+mesh-repeat-rate:
+  class: mesh_eval.evaluator.text.RepetitionEvaluator
+  args: {}
+
+mesh-chrf:
+  class: mesh_eval.evaluator.text.ChrFEvaluator
+  args: {}
+
+mesh-mer:
+  class: mesh_eval.evaluator.text.MixedErrorRateEvaluator
+  args: {}
+
+mesh-comet:
+  class: mesh_eval.evaluator.external.CometEvaluator
+  args: {}
+
+mesh-bert-score:
+  class: mesh_eval.evaluator.external.BertScoreEvaluator
+  args: {}
+
+mesh-structured-json:
+  class: mesh_eval.evaluator.structured.StructuredJsonEvaluator
+  args: {}
+
+mesh-tool-call:
+  class: mesh_eval.evaluator.structured.ToolCallEvaluator
+  args: {}
+
+mesh-slot-f1:
+  class: mesh_eval.evaluator.structured.SlotF1Evaluator
+  args: {}
+
+mesh-intent:
+  class: mesh_eval.evaluator.structured.IntentEvaluator
+  args: {}
+
+mesh-action-match:
+  class: mesh_eval.evaluator.structured.ActionMatchEvaluator
+  args: {}
+
+mesh-response-gate:
+  class: mesh_eval.evaluator.edge.ResponseGateEvaluator
+  args: {}
+
+mesh-authorization:
+  class: mesh_eval.evaluator.edge.AuthorizationEvaluator
+  args: {}
+
+mesh-target-speaker:
+  class: mesh_eval.evaluator.edge.TargetSpeakerEvaluator
+  args: {}
+
+mesh-diarization:
+  class: mesh_eval.evaluator.speaker.DiarizationEvaluator
+  args: {}
+
+mesh-jer:
+  class: mesh_eval.evaluator.external.JerEvaluator
+  args: {}
+
+mesh-speaker-count:
+  class: mesh_eval.evaluator.speaker.SpeakerCountEvaluator
+  args: {}
+
+mesh-speaker-verification:
+  class: mesh_eval.evaluator.speaker.SpeakerVerificationEvaluator
+  args: {}
+
+mesh-speaker-attribution:
+  class: mesh_eval.evaluator.speaker.SpeakerAttributionEvaluator
+  args: {}
+
+mesh-runtime:
+  class: mesh_eval.evaluator.runtime.RuntimeEvaluator
+  args: {}
+
+voicebench-multiturn-judge:
+  class: audio_evals.evaluator.voice_bench.VoiceBenchMultiTurnEvaluator
+  args:
+    model_name: gpt4o-mini

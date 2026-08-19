@@ -1,0 +1,99 @@
+# Operating systems and editors
+.DS_Store
+._*
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+
+# Python caches and tooling
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ipynb_checkpoints/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage/
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+envs/
+
+# Packaging
+build/
+dist/
+wheelhouse/
+*.egg-info/
+
+# Credentials and local configuration
+.env
+.env.*
+!**/.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.der
+
+# Runtime data, caches, and generated reports
+/raw/
+/data/
+/log/
+/output/
+/outputs/
+/tmp/
+/work/
+/.run/
+/models/
+/checkpoints/
+/prepared/
+annotation/work/
+annotation/knowledge/cache/
+mesh_eval/results/
+local_registry/
+local_registry_*/
+*.xlsx
+*.sqlite
+*.sqlite3
+*.db
+*.log
+*.out
+*.pid
+*.pid.lock
+*.cache
+*.tmp
+*.temp
+*.bak
+*.old
+
+# Model weights and large generated media are downloaded separately.
+*.bin
+*.ckpt
+*.onnx
+*.pt
+*.pth
+*.safetensors
+*.t7
+*.mp4
+*.pdf
+
+# Evaluation audio is generated or prepared outside Git. Keep only the small
+# fixtures that are intentionally part of the source tree.
+*.wav
+!mesh_eval/data/default.wav
+!audio_evals/lib/CosyVoice/asset/zero_shot_prompt.wav
+
+# Archives
+*.7z
+*.bz2
+*.gz
+*.tar
+*.zip

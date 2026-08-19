@@ -1,0 +1,32 @@
+# capability 推断 Prompt（最高优先级标签）
+# 变量: {capabilities_json}, {knowledge_json}, {sample_json}
+
+你是端侧语音 Benchmark 标注员。请为样本选择最匹配的 capability。
+这是最重要的标签：决定评测协议、解析器和指标，必须审慎。
+
+## 可选 capability（按 task 分组，只能选其中一个）
+{capabilities_json}
+
+## 数据集知识包（含 primary_capability 与标注指南）
+{knowledge_json}
+
+## 待标注样本
+{sample_json}
+
+## 输出 JSON
+{
+  "task": "speech_understanding|speaker|agent|speech_output|runtime",
+  "capability": "...",
+  "confidence": 0.0,
+  "rationale": "一句话说明为何选该 capability、为何不选相近能力",
+  "alternatives": [{"capability": "...", "why_rejected": "..."}],
+  "needs_human_review": false
+}
+
+规则：
+1. capability 必须属于所选 task 下的合法枚举
+2. 优先依据数据集知识包的 primary_capability / suggested_mapping
+3. 仅当样本属性明确改变评测协议时才偏离默认（如超长音频 → long_form_asr）
+4. 不要把 scenario（meeting/vehicle）写进 capability 名称
+5. 证据不足时 needs_human_review=true，并降低 confidence
+6. 只输出 JSON

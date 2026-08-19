@@ -1,0 +1,74 @@
+# SLURP 数据集映射规则
+
+dataset_id: slurp
+display_name: SLURP
+language: en
+license: CC-BY-4.0
+
+contributions:
+  - task: agent
+    capability: instruction_following
+    scenario: phone
+    use_bucket: diagnostic_evidence
+  - task: agent
+    capability: tool_call
+    scenario: phone
+    use_bucket: coverage_debt
+    note: 需映射到本地 tool schema 后方可升级
+
+defaults:
+  task: agent
+  capability: instruction_following
+  scenario: phone
+  condition:
+    acoustic: clean
+    spatial: near_field
+    speaker: single_speaker
+    device: phone_mic
+    interaction: single_turn
+  metrics: [intent_acc, slot_f1]
+  use_bucket: diagnostic_evidence
+  split: test
+
+field_mapping:
+  input.audio_path:
+    from: audio_path
+  reference.intent:
+    from: intent
+  reference.slots:
+    from: action
+    transform: slurp_action_to_slots
+  reference.transcript:
+    from: text
+  reference.text:
+    from: text
+  sample_id:
+    from: id
+    prefix: slurp_
+
+cost_policy:
+  homogeneous: true
+  skip_llm_label_if_verify_pass: true
+  audit_sample_rate: 0.1
+
+# intent → 本地 capability 候选（需人工确认）
+capability_candidates:
+  - match: ".*music.*"
+    capability: music_control
+  - match: ".*alarm.*|.*timer.*"
+    capability: reminder
+  - match: ".*navigate.*|.*direction.*"
+    capability: navigation
+
+auto_complete: false
+missing_labels:
+  - field: reference.expected_output
+    detail: SLURP action 需映射到本地 tool schema（navigate/set_alarm/play_music 等）
+    priority: P0
+  - field: scenario
+    detail: 英文智能助手风格，非真实中文端侧场景
+    priority: P1
+
+notes: |
+  SLURP 用于跑通 agent / instruction_following 诊断流程。
+  升级为 tool_call + formal_subscores 需完成 intent→tool 映射表。

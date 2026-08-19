@@ -1,0 +1,23 @@
+comet-wmt22:
+  class: audio_evals.models.text_metrics.CometMetricModel
+  args:
+    path: "${EVALUATION_UTILS_ROOT:-evaluation_utils}/models/Unbabel/wmt22-comet-da/checkpoints/model.ckpt"
+    encoder_path: "${EVALUATION_UTILS_ROOT:-evaluation_utils}/models/FacebookAI/xlm-roberta-large"
+    env_path: "${EVALUATION_UTILS_ROOT:-evaluation_utils}/envs/text_metrics"
+    requirements_path: ""
+
+bertscore-roberta-large:
+  class: audio_evals.models.text_metrics.BertScoreMetricModel
+  args:
+    path: "${EVALUATION_UTILS_ROOT:-evaluation_utils}/models/FacebookAI/roberta-large"
+    num_layers: 17
+    env_path: "${EVALUATION_UTILS_ROOT:-evaluation_utils}/envs/text_metrics"
+    requirements_path: ""
+
+jer-pyannote:
+  class: audio_evals.models.text_metrics.JerMetricModel
+  args:
+    collar: 0.0
+    skip_overlap: false
+    env_path: "${EVALUATION_UTILS_ROOT:-evaluation_utils}/envs/text_metrics"
+    requirements_path: ""

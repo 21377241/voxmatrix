@@ -1,0 +1,162 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ultraeval/evaluation-sample-v2.schema.json",
+  "title": "UltraEval Canonical EvaluationSample V2",
+  "type": "object",
+  "required": ["schema_version", "sample_id", "dataset", "task", "capability", "capability_protocol", "scenario", "metadata", "input", "reference", "provenance", "use_bucket", "split"],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {"properties": {"task": {"const": "speech_recognition_transcription"}}, "required": ["task"]},
+      "then": {"properties": {"capability": {"enum": ["asr", "long_form_asr", "speech_translation", "code_switch"]}}}
+    },
+    {
+      "if": {"properties": {"task": {"const": "audio_speech_understanding"}}, "required": ["task"]},
+      "then": {"properties": {"capability": {"enum": ["audio_reasoning", "audio_caption", "sound_event", "acoustic_scene", "paralinguistic_recognition", "qa", "meeting_summary", "meeting_qa", "timeline_query", "todo_extraction"]}}}
+    },
+    {
+      "if": {"properties": {"task": {"const": "speaker_attribution"}}, "required": ["task"]},
+      "then": {"properties": {"capability": {"enum": ["speaker_count", "speaker_verification", "diarization", "speaker_attribution", "target_speaker", "spoof_detection"]}}}
+    },
+    {
+      "if": {"properties": {"task": {"const": "spoken_agentic_interaction"}}, "required": ["task"]},
+      "then": {"properties": {"capability": {"enum": ["instruction_following", "tool_call", "navigation", "calendar", "reminder", "phone_message", "music_control", "vehicle_control", "translation_instruction", "multi_turn_dialogue", "clarification", "interruption"]}}}
+    },
+    {
+      "if": {"properties": {"task": {"const": "speech_generation_delivery"}}, "required": ["task"]},
+      "then": {"properties": {"capability": {"const": "speech_generation"}}}
+    }
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "sample_id": {"type": "string", "minLength": 1},
+    "dataset": {"type": "string", "minLength": 1},
+    "task": {"enum": ["speech_recognition_transcription", "audio_speech_understanding", "speaker_attribution", "spoken_agentic_interaction", "speech_generation_delivery"]},
+    "capability": {"type": "string", "minLength": 1},
+    "capability_protocol": {"type": "string", "pattern": "^[a-z0-9_]+/[a-z0-9_]+@[0-9]+$"},
+    "scenario": {
+      "type": "object",
+      "required": ["primary"],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"properties": {"primary": {"const": "home"}}, "required": ["primary"]},
+          "then": {"properties": {"secondary": {"enum": ["kitchen", "living_room", "bedroom", "whole_home", "unknown", null]}}}
+        },
+        {
+          "if": {"properties": {"primary": {"const": "vehicle"}}, "required": ["primary"]},
+          "then": {"properties": {"secondary": {"enum": ["parked", "urban_driving", "highway_driving", "cabin", "unknown", null]}}}
+        },
+        {
+          "if": {"properties": {"primary": {"const": "meeting"}}, "required": ["primary"]},
+          "then": {"properties": {"secondary": {"enum": ["conference_room", "remote_meeting", "hybrid_meeting", "unknown", null]}}}
+        },
+        {
+          "if": {"properties": {"primary": {"const": "public"}}, "required": ["primary"]},
+          "then": {"properties": {"secondary": {"enum": ["transit", "retail", "street", "venue", "unknown", null]}}}
+        },
+        {
+          "if": {"properties": {"primary": {"const": "outdoor"}}, "required": ["primary"]},
+          "then": {"properties": {"secondary": {"enum": ["roadside", "park", "open_area", "unknown", null]}}}
+        },
+        {
+          "if": {"properties": {"primary": {"const": "unknown"}}, "required": ["primary"]},
+          "then": {"properties": {"secondary": {"enum": ["unknown", null]}}}
+        }
+      ],
+      "properties": {
+        "primary": {"enum": ["home", "vehicle", "meeting", "public", "outdoor", "unknown"]},
+        "secondary": {"type": ["string", "null"]}
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "device_type": {"type": ["string", "null"]},
+        "recording_setup": {"type": ["string", "null"]},
+        "noise_type": {"oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}, "minItems": 1}, {"type": "null"}]},
+        "snr_bucket": {"type": ["string", "null"]},
+        "speaker_count": {"type": ["integer", "null"], "minimum": 0},
+        "overlap_level": {"type": ["string", "null"]},
+        "language": {"type": ["string", "null"]},
+        "language_mix": {"type": ["string", "array", "null"]},
+        "distance": {"type": ["string", "null"]},
+        "motion_state": {"type": ["string", "null"]},
+        "speaker_age_group": {"type": ["string", "null"]},
+        "speaker_role": {"type": ["string", "null"]},
+        "crowd_density": {"type": ["string", "null"]},
+        "weather": {"type": ["string", "null"]},
+        "authorization_state": {"type": ["string", "null"]},
+        "window_state": {"type": ["string", "null"]},
+        "hvac_state": {"type": ["string", "null"]},
+        "media_state": {"type": ["string", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "input": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "audio": {"type": "array", "items": {"$ref": "#/definitions/audio"}, "minItems": 1},
+        "text": {"type": "string"},
+        "question": {"type": "string"},
+        "instruction": {"type": "string"},
+        "choices": {"type": "array"},
+        "context": {"type": "object"},
+        "turns": {"type": "array"}
+      },
+      "additionalProperties": true
+    },
+    "reference": {"type": "object"},
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "scenario": {"$ref": "#/definitions/provenance"},
+        "metadata": {"type": "object", "additionalProperties": {"$ref": "#/definitions/provenance"}},
+        "labels": {"type": "object", "additionalProperties": {"$ref": "#/definitions/provenance"}}
+      },
+      "additionalProperties": true
+    },
+    "use_bucket": {"enum": ["formal_subscores", "diagnostic_evidence", "stress_test", "coverage_debt"]},
+    "split": {"enum": ["train", "dev", "test", "heldout"]},
+    "evaluation_hints": {
+      "type": "object",
+      "properties": {
+        "prompt": {"type": "string"},
+        "metrics": {"type": "array", "items": {"type": "string"}},
+        "evaluators": {"type": "array", "items": {"type": "string"}},
+        "answer_type": {"type": "string"},
+        "source": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "legacy": {"type": "object"},
+    "conversion_warnings": {"type": "array", "items": {"type": "string"}},
+    "asset_schema_version": {"const": "prepared-audio/1.0"}
+  },
+  "definitions": {
+    "audio": {
+      "type": "object",
+      "required": ["uri"],
+      "properties": {
+        "uri": {"type": "string", "minLength": 1},
+        "sampling_rate": {"type": "integer", "minimum": 1},
+        "duration_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "channel": {"type": ["integer", "string"]},
+        "turn": {"type": ["integer", "string"]}
+      },
+      "additionalProperties": true
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["source"],
+      "properties": {
+        "source": {"enum": ["dataset_native", "subset_documented", "verified_derived", "acoustic_model", "llm_draft", "human", "benchmark_fallback", "legacy_adapter", "unknown"]},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "derivation_version": {"type": "string"},
+        "evidence": {"type": "string"}
+      },
+      "additionalProperties": true
+    }
+  }
+}

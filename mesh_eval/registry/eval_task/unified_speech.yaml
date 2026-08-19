@@ -1,0 +1,18 @@
+mesh-unified-speech:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: mesh-unified-speech-smoke
+    prompt: mesh-router-prompt
+    model: qwen-audio
+    evaluator: mesh-router-evaluator
+    agg: mesh
+
+mesh-unified-speech-tts:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: full-libritts-tts-source
+    prompt: mesh-router-prompt
+    model: qwen3-omni-speech
+    post_process: [extract_audio]
+    evaluator: mesh-router-evaluator
+    agg: mesh

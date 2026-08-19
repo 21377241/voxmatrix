@@ -1,0 +1,8 @@
+audiocaps:
+  class: audio_evals.dataset.huggingface.Huggingface
+  args:
+    default_task: caption
+    name: TwinkStart/AudioCaps
+    split: test
+    local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/AudioCaps"
+    ref_col: caption

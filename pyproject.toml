@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "voxmatrix"
+version = "0.1.0"
+description = "Unified mesh evaluation platform for edge speech and audio models."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "VoxMatrix Contributors" }]
+keywords = ["audio", "speech", "evaluation", "benchmark", "LLM", "TTS", "ASR"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+]
+dynamic = ["dependencies"]
+
+[project.optional-dependencies]
+dev = [
+  "pre-commit>=3.0",
+  "pytest>=8.0",
+]
+
+[project.scripts]
+voxmatrix = "audio_evals.main:main"
+voxmatrix-prepare = "audio_evals.prepare_dataset:main"
+voxmatrix-suite = "audio_evals.session:main"
+# Compatibility aliases retained for existing automation.
+ultraeval-audio = "audio_evals.main:main"
+ultraeval-audio-prepare = "audio_evals.prepare_dataset:main"
+ultraeval-audio-suite = "audio_evals.session:main"
+
+[project.urls]
+Homepage = "https://github.com/yingyingxia666/VoxMatrix"
+Repository = "https://github.com/yingyingxia666/VoxMatrix.git"
+Issues = "https://github.com/yingyingxia666/VoxMatrix/issues"
+"Upstream provenance" = "https://github.com/OpenBMB/UltraEval-Audio"
+"Research paper" = "https://arxiv.org/abs/2601.01373"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["voxmatrix*", "audio_evals*", "mesh_eval*", "annotation*", "registry*"]
+exclude = ["tests*", "env*", "envs*", "raw*", "outputs*", "third_party*", "replication*"]
+
+[tool.setuptools.package-data]
+audio_evals = [
+  "**/*.yaml",
+  "**/*.yml",
+  "**/*.toml",
+  "**/*.md",
+  "**/*.txt",
+  "**/*.json",
+  "**/*.wav",
+  "**/*.npz",
+  "**/*.tiktoken",
+  "**/*.model",
+  "**/*.cpp",
+  "**/*.cu",
+  "**/*.h",
+  "**/*.hpp",
+  "**/LICENSE*",
+  "**/NOTICE*",
+  "**/DISCLAIMER",
+  "**/*MODEL_LICENSE*",
+]
+mesh_eval = ["config/*.yaml", "registry/**/*.yaml", "schema/*.json", "data/*.jsonl", "data/*.wav"]
+annotation = ["schema/*", "mappings/*.yaml", "knowledge/datasets/*.yaml", "prompts/*.txt", "templates/*"]
+registry = ["**/*.yaml"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

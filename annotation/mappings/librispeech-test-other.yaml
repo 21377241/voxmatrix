@@ -1,0 +1,16 @@
+extends: librispeech
+dataset_id: librispeech-test-other
+display_name: LibriSpeech test-other
+spec_dataset: librispeech
+knowledge_dataset: librispeech
+defaults:
+  condition:
+    acoustic: light_noise
+  metrics: [wer]
+field_mapping:
+  sample_id: {from: id, prefix: librispeech_test_other_}
+knowledge_overrides:
+  seed_facts:
+    typical_labels:
+      condition:
+        acoustic: light_noise

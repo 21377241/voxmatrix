@@ -1,0 +1,105 @@
+# 从「端侧语音benchmark结构设计方案」§13.1 抽取的正式映射期望
+# check_mapping_align.py 用此文件对照 annotation/mappings/*.yaml
+
+version: "2026-07-14"
+source_doc: 端侧语音benchmark结构设计方案(2).md
+section: "13.1"
+
+datasets:
+  aishell_1:
+    aliases: ["AISHELL-1", "AISHELL-1 / AISHELL-2"]
+    expected:
+      - task: speech_understanding
+        capability: asr
+        scenario: phone
+        use_bucket: formal_subscores
+        metrics_any_of: [[cer], [cer, wer]]
+        condition_hints: [clean, near_field]
+
+  aishell_2:
+    aliases: ["AISHELL-2", "AISHELL-1 / AISHELL-2"]
+    expected:
+      - task: speech_understanding
+        capability: asr
+        scenario: phone
+        use_bucket: formal_subscores
+        metrics_any_of: [[cer], [cer, wer]]
+
+  librispeech:
+    aliases: ["LibriSpeech"]
+    expected:
+      - task: speech_understanding
+        capability: asr
+        scenario: phone
+        use_bucket: formal_subscores
+        metrics_any_of: [[wer], [cer, wer]]
+        condition_hints: [clean, near_field, read speech]
+
+  voxceleb1:
+    aliases: ["VoxCeleb", "VoxCeleb / CN-Celeb"]
+    expected:
+      - task: speaker
+        capability: speaker_verification
+        use_bucket: formal_subscores
+
+  libritts:
+    aliases: ["LibriTTS"]
+    expected:
+      - task: speech_output
+        capability: tts_correctness
+        use_bucket: diagnostic_evidence
+
+  alimeeting:
+    aliases: ["AliMeeting"]
+    expected:
+      - task: speech_understanding
+        capability: asr
+        scenario: meeting
+        use_bucket: formal_subscores
+      - task: speaker
+        capability: diarization
+        scenario: meeting
+        use_bucket: formal_subscores
+      - task: speaker
+        capability: speaker_attribution
+        scenario: meeting
+        use_bucket: formal_subscores
+
+  slurp:
+    aliases: ["SLURP"]
+    expected:
+      - task: agent
+        capability: instruction_following
+        scenario: phone
+        use_bucket: diagnostic_evidence
+
+  wenetspeech:
+    aliases: ["WenetSpeech"]
+    expected:
+      - task: speech_understanding
+        capability: asr
+        scenario: phone
+        use_bucket: formal_subscores
+
+  fleurs:
+    aliases: ["FLEURS"]
+    expected:
+      - task: speech_understanding
+        capability: asr
+        scenario: phone
+        use_bucket: formal_subscores
+
+  magicdata_ramc:
+    aliases: ["MagicData-RAMC"]
+    expected:
+      - task: speech_understanding
+        capability: asr
+        scenario: phone
+        use_bucket: formal_subscores
+
+  covost2:
+    aliases: ["CoVoST2"]
+    expected:
+      - task: speech_understanding
+        capability: speech_translation
+        use_bucket: formal_subscores

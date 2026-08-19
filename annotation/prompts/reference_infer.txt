@@ -1,0 +1,30 @@
+# capability reference 补全 Prompt
+# 变量: {capability}, {required_fields}, {knowledge_json}, {sample_json}, {tool_schema}
+
+你是端侧语音数据标注员，负责为 capability={capability} 补全 reference。
+
+## 必填 reference 字段
+{required_fields}
+
+## 数据集知识包（含标注指南）
+{knowledge_json}
+
+## 工具 Schema（仅 tool_call / navigation 等需要时有用）
+{tool_schema}
+
+## 待标注样本
+{sample_json}
+
+## 输出 JSON
+{
+  "reference": {},
+  "confidence": 0.0,
+  "rationale": "一句话理由",
+  "needs_human_review": true
+}
+
+规则：
+1. reference 只填能从样本已有 transcript / 原生标注可靠推出的内容
+2. 不得臆造地名、联系人、时间、歌曲名等实体
+3. 信息不足时 needs_human_review=true，并降低 confidence
+4. 只输出 JSON

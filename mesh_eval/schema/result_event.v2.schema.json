@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ultraeval/result-event-v2.schema.json",
+  "title": "UltraEval ResultEvent V2",
+  "type": "object",
+  "required": ["schema_version", "type", "id", "sample_id", "dimensions", "resolved_protocol", "run_context", "data"],
+  "properties": {
+    "schema_version": {"const": "result-event/2.0"},
+    "type": {"enum": ["prompt", "inference", "post_process", "eval", "error"]},
+    "id": {"type": ["integer", "string"]},
+    "sample_id": {"type": "string"},
+    "dimensions": {"type": "object"},
+    "resolved_protocol": {"type": "object"},
+    "run_context": {"type": "object"},
+    "data": {"type": "object"}
+  },
+  "additionalProperties": false
+}

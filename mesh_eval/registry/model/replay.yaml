@@ -1,0 +1,5 @@
+mesh-replay:
+  class: mesh_eval.models.replay.ReplayModel
+  args:
+    is_chat: true
+

@@ -1,0 +1,54 @@
+# 数据集卡片模板
+# 每个开源数据集接入时必须填写
+
+dataset_id: <dataset_id>                    # 唯一标识，如 aishell_1
+display_name: <显示名称>
+version: <原始数据集版本>
+language: <zh | en | multilingual>
+license: <许可证>
+source_url: <下载地址>
+raw_path: <本地原始数据路径>
+ingested_at: <YYYY-MM-DD>
+maintainer: <负责人>
+
+# 该数据集可贡献的评测维度
+contributions:
+  - task: <task>
+    capability: <capability>
+    scenario: <scenario>
+    sample_count: <数量>
+    use_bucket: <formal_subscores | diagnostic_evidence | stress_test | coverage_debt>
+
+# 可确认的 Scenario / Condition
+confirmed_labels:
+  scenario: [<phone | home | vehicle | meeting | outdoor>]
+  condition:
+    acoustic: []
+    spatial: []
+    speaker: []
+    device: []
+    interaction: []
+
+# 缺失标签（阻碍升级 formal_subscores 的项）
+missing_labels:
+  - field: <字段路径>
+    priority: <P0 | P1 | P2>
+    remediation: <补标方案：人工 / LLM / 声学分析 / 自建>
+    estimated_effort: <人天估算>
+
+# 是否可进入 formal_subscores
+formal_ready: <true | false>
+formal_blockers: []
+
+# 原始数据格式说明
+raw_format:
+  audio: <wav | flac | mp3>
+  sample_rate: <Hz>
+  annotations: <transcript | rttm | json | csv>
+  annotation_fields: []
+
+# 映射规则文件
+mapping_file: annotation/mappings/<dataset_id>.yaml
+
+# 备注
+notes: |

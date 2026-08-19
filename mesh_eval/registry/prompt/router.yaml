@@ -1,0 +1,43 @@
+mesh-router-prompt:
+  class: mesh_eval.core.router.RouterPrompt
+  args:
+    registry_paths: [mesh_eval/registry]
+    default_prompt: asr
+    routes:
+      speech_understanding:asr:zh: qwen3-omni-asr-zh
+      speech_understanding:asr:en: qwen3-omni-asr-en
+      speech_understanding:asr: qwen3-omni-asr-en
+      speech_understanding/asr: qwen3-omni-asr-en
+      speech_understanding:speech_translation:zh: qwen3-omni-s2tt-zh2en
+      speech_understanding:speech_translation:en: qwen3-omni-s2tt-en2zh
+      speech_understanding:speech_translation: qwen3-omni-s2tt-zh2en
+      speech_understanding:audio_caption: qwen3-omni-audio-caption
+      asr:zh: qwen3-omni-asr-zh
+      asr:en: qwen3-omni-asr-en
+      asr: asr
+      task:asr: asr
+      qa: mmsu
+      agent:qa:text: mesh-open-qa
+      agent:qa:classification: mmau
+      agent:qa: mmsu
+      agent:instruction_following:structured_json: mesh-intent-slots
+      agent:instruction_following: mesh-instruction
+      agent:tool_call: mesh-tool-call
+      agent:navigation: mesh-tool-call
+      agent:calendar: mesh-tool-call
+      agent:reminder: mesh-tool-call
+      agent:phone_message: mesh-tool-call
+      agent:music_control: mesh-tool-call
+      agent:vehicle_control: mesh-tool-call
+      speech_understanding:audio_reasoning:text: mesh-open-qa
+      speech_understanding:audio_reasoning:classification: mmau
+      speech_understanding:paralinguistic: mesh-classification
+      speech_understanding:sound_event: mesh-classification
+      speech_understanding:acoustic_scene: mesh-classification
+      speaker:speaker_count: mesh-speaker
+      speaker:speaker_verification: mesh-speaker-verification
+      speaker:diarization: mesh-diarization
+      speaker:speaker_attribution: mesh-speaker-attribution
+      speaker:target_speaker: mesh-target-speaker
+      speech_qa: single_choice
+      task:speech_qa: single_choice

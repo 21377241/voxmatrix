@@ -1,0 +1,46 @@
+# VoxCeleb1 说话人验证映射
+dataset_id: voxceleb1
+display_name: VoxCeleb1
+language: en
+license: research
+
+contributions:
+  - task: speaker
+    capability: speaker_verification
+    scenario: phone
+    use_bucket: formal_subscores
+
+defaults:
+  task: speaker
+  capability: speaker_verification
+  scenario: phone
+  condition:
+    acoustic: clean
+    spatial: near_field
+    speaker: single_speaker
+    device: phone_mic
+    interaction: single_turn
+  metrics: [eer]
+  use_bucket: formal_subscores
+  split: test
+
+field_mapping:
+  input.audio_path:
+    from: audio_path_a
+  input.audio_path_b:
+    from: audio_path_b
+  reference.same_speaker:
+    from: same_speaker
+  sample_id:
+    from: id
+    prefix: voxceleb1_
+
+cost_policy:
+  homogeneous: true
+  skip_llm_label_if_verify_pass: true
+  audit_sample_rate: 0.1
+
+auto_complete: true
+missing_labels: []
+notes: |
+  由说话人目录构造同人/异人验证对，用于 speaker / speaker_verification 试点。

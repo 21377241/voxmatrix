@@ -1,0 +1,26 @@
+dataset_id: wenetspeech
+display_name: WenetSpeech
+sources:
+  - type: paper
+    title: "WenetSpeech: A 10000+ Hours Multi-domain Mandarin Corpus for Speech Recognition"
+    url: https://arxiv.org/abs/2110.03370
+    note: 官方论文，说明普通话、多领域和 test-net/test-meeting 划分
+seed_facts:
+  language: zh
+  style: multi-domain Mandarin speech
+  subsets: [test-net, test-meeting]
+  primary_capability: asr
+  typical_labels:
+    task: speech_understanding
+    capability: asr
+    scenario: phone
+    condition:
+      acoustic: light_noise
+      spatial: near_field
+      speaker: single_speaker
+      device: phone_mic
+      interaction: single_turn
+  reference_fields: [text]
+  metrics: [cer]
+  formal_ready: true
+

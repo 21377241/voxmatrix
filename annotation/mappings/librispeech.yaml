@@ -1,0 +1,110 @@
+# LibriSpeech 数据集映射规则
+# 参考: 端侧语音benchmark结构设计方案 §13.1
+
+dataset_id: librispeech
+display_name: LibriSpeech
+language: en
+license: CC-BY-4.0
+
+contributions:
+  - task: speech_understanding
+    capability: asr
+    scenario: phone
+    use_bucket: formal_subscores
+  - task: speech_understanding
+    capability: long_form_asr
+    scenario: phone
+    use_bucket: diagnostic_evidence
+    note: 仅 duration_sec >= long_form_duration_sec 时升级
+
+defaults:
+  task: speech_understanding
+  capability: asr
+  scenario: phone
+  condition:
+    acoustic: clean
+    spatial: near_field
+    speaker: single_speaker
+    device: phone_mic
+    interaction: single_turn
+  metrics: [wer]
+  use_bucket: formal_subscores
+  split: test
+
+field_mapping:
+  input.audio_path:
+    from: audio_path
+    transform: relative_path
+  reference.text:
+    from: text
+  sample_id:
+    from: id
+    prefix: librispeech_
+  split:
+    from: split
+
+# P1：子集策略（verify 会按 subset 分组核对）
+subset_policy:
+  long_form_duration_sec: 60
+  subsets:
+    train-clean-100:
+      condition:
+        acoustic: clean
+      capability: asr
+      notes: 高质量干净朗读
+    train-clean-360:
+      condition:
+        acoustic: clean
+      capability: asr
+    train-other-500:
+      condition:
+        acoustic: light_noise
+      capability: asr
+      notes: other 子集更嘈杂/口音更重
+    dev-clean:
+      condition:
+        acoustic: clean
+      capability: asr
+      split: dev
+    dev-other:
+      condition:
+        acoustic: light_noise
+      capability: asr
+      split: dev
+    test-clean:
+      condition:
+        acoustic: clean
+      capability: asr
+      split: test
+    test-other:
+      condition:
+        acoustic: light_noise
+      capability: asr
+      split: test
+
+# 兼容旧 condition_rules
+condition_rules:
+  - if: "subset_is_other == 1"
+    set:
+      condition.acoustic: light_noise
+
+capability_candidates:
+  - capability: asr
+    when: "duration_sec < 60（默认）"
+  - capability: long_form_asr
+    when: "duration_sec >= 60"
+
+# P1：成本策略 — 同质 ASR，verify 通过后不逐条 LLM，仅抽检 1%
+cost_policy:
+  homogeneous: true
+  skip_llm_label_if_verify_pass: true
+  audit_sample_rate: 0.01
+
+auto_complete: true
+missing_labels: []
+
+notes: |
+  LibriSpeech 为英文有声读物近场朗读 ASR。
+  最关键标签是 capability=asr（方案 §13.1 正式接入）。
+  clean→acoustic=clean；other→acoustic=light_noise。
+  单条 duration>=60s 才考虑 long_form_asr。

@@ -1,0 +1,9 @@
+extends: fleurs
+dataset_id: fleurs-en_us
+display_name: FLEURS en_us
+language: en
+defaults:
+  metrics: [wer]
+field_mapping:
+  sample_id: {from: id, prefix: fleurs_en_us_}
+

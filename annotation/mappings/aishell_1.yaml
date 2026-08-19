@@ -1,0 +1,51 @@
+# AISHELL-1 数据集映射规则
+# 参考: 端侧语音benchmark结构设计方案 §13.1
+
+dataset_id: aishell_1
+display_name: AISHELL-1
+language: zh
+license: Apache-2.0
+
+# 可贡献的评测维度
+contributions:
+  - task: speech_understanding
+    capability: asr
+    scenario: phone
+    use_bucket: formal_subscores
+
+# 数据集级默认标签（规则预标注）
+defaults:
+  task: speech_understanding
+  capability: asr
+  scenario: phone
+  condition:
+    acoustic: clean
+    spatial: near_field
+    speaker: single_speaker
+    device: phone_mic
+    interaction: single_turn
+  metrics: [cer]
+  use_bucket: formal_subscores
+  split: test
+
+# 原始字段 → manifest 字段映射
+field_mapping:
+  input.audio_path:
+    from: audio_filepath
+    transform: relative_path
+  reference.text:
+    from: text
+  sample_id:
+    from: id
+    prefix: aishell1_
+
+# P1：成本策略
+cost_policy:
+  homogeneous: true
+  skip_llm_label_if_verify_pass: true
+  audit_sample_rate: 0.01
+
+# 覆盖度备注
+notes: |
+  AISHELL-1 为近场朗读中文 ASR，标签完整度高。
+  可直接进入 formal_subscores，无需补标。

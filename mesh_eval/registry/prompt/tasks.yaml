@@ -1,0 +1,204 @@
+mesh-open-qa:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: "{{ question | default(instruction | default('Answer the question in the audio concisely.')) }}"
+
+mesh-external-qa:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: "{{ question | default('Listen to the audio and answer concisely.') }}"
+
+mesh-external-classification:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: "{{ question | default('Return only the best matching label.') }}"
+
+mesh-external-instruction:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: "{{ question | default('Follow the spoken instruction and return only the requested result.') }}"
+
+mesh-meeting-summary:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: "Summarize the meeting faithfully and concisely."
+
+mesh-contextual-audio:
+  class: mesh_eval.core.prompt.ContextualAudioPrompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: "{{ question | default('Respond to the spoken request.') }}"
+
+mesh-segment-asr-zh:
+  class: mesh_eval.core.prompt.AudioSegmentPrompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: "请将这段中文语音转换为纯文本。"
+
+mesh-segment-asr-en:
+  class: mesh_eval.core.prompt.AudioSegmentPrompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: "Transcribe the English audio segment into text."
+
+mesh-instruction:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: "Follow the spoken instruction. Return only the requested result."
+
+mesh-intent-slots:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: "Return JSON only, using the schema {\"intent\": \"...\", \"slots\": {...}}."
+
+mesh-tool-call:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: "Return the requested tool call as JSON with tool and arguments fields."
+
+mesh-classification:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: "{{ question | default('Return only the most appropriate label for this audio.') }}"
+
+mesh-speaker:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: "Analyze the speakers and return the requested result as JSON."
+
+mesh-speaker-verification:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: audio
+            value: "{{WavPath2}}"
+          - type: text
+            value: "Determine whether both recordings contain the same speaker. Return JSON only as {\"same_speaker\": true, \"score\": 0.0}, where score is confidence from 0 to 1 that they are the same speaker."
+
+mesh-target-speaker:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: audio
+            value: "{{WavPath2}}"
+          - type: text
+            value: "Treat the first recording as enrollment and the second as a command. Return JSON only as {\"should_execute\": true} when the command speaker matches enrollment, otherwise false."
+
+mesh-diarization:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: "Return speaker diarization as JSON only: {\"segments\": [{\"start\": 0.0, \"end\": 1.0, \"speaker\": \"speaker_1\"}]}."
+
+mesh-speaker-attribution:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: "Transcribe the meeting and assign each utterance to a speaker. Return chronological JSON only: {\"utterances\": [{\"speaker\": \"speaker_1\", \"text\": \"...\"}]}."
+
+mesh-multi-turn:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      multi_turn:
+        - role: user
+          contents:
+            - type: audio
+              value: "{{WavPath1}}"
+        - role: user
+          contents:
+            - type: audio
+              value: "{{WavPath2}}"

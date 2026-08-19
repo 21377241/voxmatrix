@@ -1,0 +1,245 @@
+# 端侧语音 Benchmark 标签枚举定义
+# 与 端侧语音benchmark结构设计方案(2).md 保持同步
+
+tasks:
+  - speech_understanding
+  - speaker
+  - agent
+  - speech_output
+  - runtime
+
+capabilities:
+  speech_understanding:
+    - asr
+    - long_form_asr
+    - speech_translation
+    - code_switch
+    - audio_reasoning
+    - audio_caption
+    - sound_event
+    - acoustic_scene
+    - paralinguistic
+  speaker:
+    - speaker_count
+    - speaker_verification
+    - diarization
+    - speaker_attribution
+    - target_speaker
+    - spoof_detection
+  agent:
+    - qa
+    - instruction_following
+    - tool_call
+    - navigation
+    - calendar
+    - reminder
+    - phone_message
+    - music_control
+    - vehicle_control
+    - translation_instruction
+    - multi_turn_dialogue
+    - clarification
+    - interruption
+    - meeting_summary
+    - meeting_qa
+    - timeline_query
+    - todo_extraction
+  speech_output:
+    - tts_correctness
+    - intelligibility
+    - naturalness
+    - speaker_similarity
+    - emotion_control
+    - style_following
+  runtime:
+    - latency
+    - first_token_latency
+    - rtf
+    - timeout_rate
+    - failure_rate
+    - memory_usage
+    - cpu_usage
+    - npu_usage
+
+scenarios:
+  - phone
+  - home
+  - vehicle
+  - meeting
+  - outdoor
+
+conditions:
+  acoustic:
+    - clean
+    - light_noise
+    - traffic_noise
+    - crowd_noise
+    - music_noise
+    - reverb
+    - wind_noise
+    - overlap_speech
+  spatial:
+    - near_field
+    - far_field
+    - driver
+    - passenger
+    - rear_seat
+    - cross_room
+  speaker:
+    - single_speaker
+    - multi_speaker
+    - authorized_user
+    - unauthorized_user
+    - child
+    - elderly
+    - accent
+    - dialect
+  device:
+    - phone_mic
+    - earphone_mic
+    - car_mic
+    - smart_speaker
+    - meeting_array
+    - bluetooth
+  interaction:
+    - single_turn
+    - multi_turn
+    - interruption
+    - correction
+    - clarification
+    - conflict_instruction
+
+use_buckets:
+  - formal_subscores
+  - diagnostic_evidence
+  - stress_test
+  - coverage_debt
+
+splits:
+  - train
+  - dev
+  - test
+  - heldout
+
+label_sources:
+  - native
+  - rule
+  - acoustic_model
+  - llm_draft
+  - knowledge_verified
+  - knowledge_revise
+  - knowledge_flagged
+  - human
+
+# capability → 默认 metrics 映射
+default_metrics:
+  asr: [cer, wer]
+  long_form_asr: [wer]
+  speech_translation: [bleu, chrf]
+  code_switch: [mer, entity_f1]
+  audio_reasoning: [accuracy]
+  audio_caption: [cider]
+  sound_event: [accuracy, macro_f1]
+  acoustic_scene: [accuracy]
+  paralinguistic: [accuracy, macro_f1]
+  speaker_count: [speaker_count_acc]
+  speaker_verification: [eer, auc]
+  diarization: [der]
+  speaker_attribution: [cpcer, attribution_acc]
+  target_speaker: [target_speaker_acc, mis_execution]
+  spoof_detection: [eer, auc]
+  qa: [exact_match, text_f1]
+  instruction_following: [intent_acc, slot_f1]
+  tool_call: [tool_acc, parameter_acc, parameter_f1, task_success]
+  navigation: [tool_acc, parameter_acc, task_success]
+  calendar: [tool_acc, parameter_acc, task_success]
+  reminder: [tool_acc, parameter_acc, task_success]
+  phone_message: [tool_acc, parameter_acc, task_success]
+  music_control: [tool_acc, parameter_acc, task_success]
+  vehicle_control: [tool_acc, parameter_acc, task_success]
+  translation_instruction: [bleu, chrf]
+  multi_turn_dialogue: [task_success]
+  clarification: [task_success]
+  interruption: [task_success]
+  meeting_summary: [rouge_l]
+  meeting_qa: [exact_match, text_f1]
+  timeline_query: [exact_match, text_f1]
+  todo_extraction: [slot_f1]
+  tts_correctness: [content_acc]
+  intelligibility: [intelligibility]
+  naturalness: [mos]
+  speaker_similarity: [sim]
+  emotion_control: [emotion_acc]
+  style_following: [style_acc]
+  latency: [latency_p50, latency_p90, latency_p95]
+  first_token_latency: [first_token_latency]
+  rtf: [rtf]
+  timeout_rate: [timeout_rate]
+  failure_rate: [failure_rate]
+  memory_usage: [memory_peak]
+  cpu_usage: [cpu_usage]
+  npu_usage: [npu_usage]
+
+# 只在输入兼容层接受别名；Manifest 与报告统一写右侧的标准名。
+metric_aliases:
+  em: exact_match
+  f1: text_f1
+  rouge: rouge_l
+  entity_error: entity_f1
+
+# 历史小样本与常见数据集 split 映射到四个标准 split。
+split_aliases:
+  validation: dev
+  valid: dev
+  eval: test
+  evaluation: test
+  all: test
+  mini: test
+  smoke: test
+  replay_mini: test
+  event_reuse_mini: test
+
+# capability → reference 必填字段
+required_reference:
+  asr: [text]
+  long_form_asr: [text]
+  speech_translation: [text]
+  code_switch: [text]
+  audio_reasoning: [answer]
+  audio_caption: [caption]
+  sound_event: [events]
+  acoustic_scene: [scene_label]
+  paralinguistic: [attributes]
+  speaker_count: [count]
+  speaker_verification: [same_speaker]
+  diarization: [segments]
+  speaker_attribution: [utterances]
+  target_speaker: [should_execute]
+  spoof_detection: [label]
+  qa: [answer]
+  instruction_following: [intent]
+  tool_call: [expected_output]
+  navigation: [expected_output]
+  calendar: [expected_output]
+  reminder: [expected_output]
+  phone_message: [expected_output]
+  music_control: [expected_output]
+  vehicle_control: [expected_output]
+  translation_instruction: [text]
+  multi_turn_dialogue: [turns]
+  clarification: [turns]
+  interruption: [turns]
+  meeting_summary: [summary]
+  meeting_qa: [answer]
+  timeline_query: [answer]
+  todo_extraction: [todos]
+  tts_correctness: [text]
+  intelligibility: [text]
+
+# formal_subscores 所需的 condition 维度
+required_conditions:
+  default: [acoustic, spatial, speaker, device, interaction]
+  speaker_verification: []
+  spoof_detection: []
+  tts_correctness: [acoustic, speaker]
+  intelligibility: [acoustic]

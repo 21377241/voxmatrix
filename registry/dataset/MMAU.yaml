@@ -1,0 +1,8 @@
+mmau-test-mini:
+  class: audio_evals.dataset.huggingface.Huggingface
+  args:
+    default_task: mmau
+    name: TwinkStart/MMAU
+    split: v05.15.25
+    local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/MMAU_c"
+    ref_col: answer

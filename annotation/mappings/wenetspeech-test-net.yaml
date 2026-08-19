@@ -1,0 +1,6 @@
+extends: wenetspeech
+dataset_id: wenetspeech-test-net
+display_name: WenetSpeech test-net
+field_mapping:
+  sample_id: {from: id, prefix: wenetspeech_test_net_}
+

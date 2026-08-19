@@ -1,0 +1,19 @@
+seed_tts_eval_en:
+  class: audio_evals.dataset.huggingface.Huggingface
+  args:
+    default_task: seed_tts_eval_en
+    name: TwinkStart/Seed-TTS-Eval
+    subset: en
+    split: train
+    local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/Seed-TTS-Eval_en_c"
+    ref_col: WavPath
+
+seed_tts_eval_zh:
+  class: audio_evals.dataset.huggingface.Huggingface
+  args:
+    default_task: seed_tts_eval_zh
+    name: TwinkStart/Seed-TTS-Eval
+    subset: zh
+    split: train
+    local_path: "${VOXMATRIX_HF_DATA_ROOT:-data/hf}/Seed-TTS-Eval_zh_c"
+    ref_col: WavPath

@@ -1,0 +1,8 @@
+dnsmos:
+  class: audio_evals.models.dnsmos.DNSMOS
+  args:
+    model_path: "${EVALUATION_UTILS_ROOT:-evaluation_utils}/models/dnsmos/sig_bak_ovr.onnx"
+    p_model_path: "${EVALUATION_UTILS_ROOT:-evaluation_utils}/models/dnsmos/p_sig_bak_ovr.onnx"
+    p808_model_path: "${EVALUATION_UTILS_ROOT:-evaluation_utils}/models/dnsmos/model_v8.onnx"
+    env_path: "${EVALUATION_UTILS_ROOT:-evaluation_utils}/envs/dnsmos"
+    requirements_path: ""

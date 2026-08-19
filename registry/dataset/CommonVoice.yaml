@@ -1,0 +1,36 @@
+cv-15-en:
+  class: audio_evals.dataset.huggingface.Huggingface
+  args:
+    default_task: asr
+    name: TwinkStart/CommonVoice_15
+    split: en
+    data_files:
+      en: data/en-*.parquet
+    ref_col: sentence
+cv-15-zh:
+  class: audio_evals.dataset.huggingface.Huggingface
+  args:
+    default_task: asr-zh
+    name: TwinkStart/CommonVoice_15
+    split: zh
+    data_files:
+      zh: data/zh-*.parquet
+    ref_col: sentence
+cv-15-fr:
+  class: audio_evals.dataset.huggingface.Huggingface
+  args:
+    default_task: asr
+    name: TwinkStart/CommonVoice_15
+    split: fr
+    data_files:
+      fr: data/fr-*.parquet
+    ref_col: sentence
+cv-15-yue:
+  class: audio_evals.dataset.huggingface.Huggingface
+  args:
+    default_task: asr-yue
+    name: TwinkStart/CommonVoice_15
+    split: yue
+    data_files:
+      yue: data/yue-*.parquet
+    ref_col: sentence

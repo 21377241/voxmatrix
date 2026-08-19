@@ -1,0 +1,20 @@
+schema_version: evaluation-suite-config/1.0
+run_id: example
+model: YOUR_REGISTERED_MODEL
+output_root: outputs/suite/example
+
+model_pool:
+  use_model_pool: auto
+  replicas: 0
+  gpus_per_replica: 1
+  inference_workers: 0
+  allow_gpu_sharing: false
+  model_ready_policy: auto
+
+benchmarks:
+  - benchmark_id: sample
+    dataset: sample
+    limit: 1
+    evaluation_workers: 1
+    # For a pre-materialized Hugging Face dataset, uncomment and edit:
+    # prepared_manifest: prepared/sample/manifest.jsonl

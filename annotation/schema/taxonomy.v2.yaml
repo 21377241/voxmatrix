@@ -1,0 +1,55 @@
+schema_version: "2.0"
+source_design: "端侧语音Benchmark框架结构可视化_0803"
+
+tasks:
+  speech_recognition_transcription:
+    code: T1
+    capabilities: [asr, long_form_asr, speech_translation, code_switch]
+  audio_speech_understanding:
+    code: T2
+    capabilities: [audio_reasoning, audio_caption, sound_event, acoustic_scene, paralinguistic_recognition, qa, meeting_summary, meeting_qa, timeline_query, todo_extraction]
+  speaker_attribution:
+    code: T3
+    capabilities: [speaker_count, speaker_verification, diarization, speaker_attribution, target_speaker, spoof_detection]
+  spoken_agentic_interaction:
+    code: T4
+    capabilities: [instruction_following, tool_call, navigation, calendar, reminder, phone_message, music_control, vehicle_control, translation_instruction, multi_turn_dialogue, clarification, interruption]
+  speech_generation_delivery:
+    code: T5
+    capabilities: [speech_generation]
+
+scenario:
+  primary: [home, vehicle, meeting, public, outdoor, unknown]
+  secondary:
+    home: [kitchen, living_room, bedroom, whole_home, unknown]
+    vehicle: [parked, urban_driving, highway_driving, cabin, unknown]
+    meeting: [conference_room, remote_meeting, hybrid_meeting, unknown]
+    public: [transit, retail, street, venue, unknown]
+    outdoor: [roadside, park, open_area, unknown]
+    unknown: [unknown]
+
+metadata:
+  core_fields: [device_type, recording_setup, noise_type, snr_bucket, speaker_count, overlap_level]
+  slice_fields: [device_type, recording_setup, noise_type, snr_bucket, speaker_count, overlap_level, language, language_mix, distance, motion_state, speaker_age_group, speaker_role, crowd_density, weather, authorization_state, window_state, hvac_state, media_state]
+  enums:
+    device_type: [phone, phone_mic, earphone_mic, car_mic, smart_speaker, meeting_array, bluetooth, studio_mic, unknown]
+    recording_setup: [near_field, far_field, multi_channel, synthetic, unknown]
+    noise_type: [clean, traffic, crowd, music, wind, vehicle_noise, speech, reverberation, other, unknown]
+    snr_bucket: [high, medium, low, unknown]
+    overlap_level: [none, mild, heavy, unknown]
+    distance: [near, medium, far, unknown]
+    motion_state: [stationary, moving, unknown]
+    authorization_state: [authorized, unauthorized, unknown]
+    window_state: [closed, driver_window_open, passenger_window_open, multiple_open, unknown]
+    hvac_state: [off, low, high, unknown]
+    media_state: [off, speech, music, unknown]
+
+provenance_sources: [dataset_native, subset_documented, verified_derived, acoustic_model, llm_draft, human, benchmark_fallback, legacy_adapter, unknown]
+use_buckets: [formal_subscores, diagnostic_evidence, stress_test, coverage_debt]
+splits: [train, dev, test, heldout]
+
+runtime:
+  is_task: false
+  measurement_protocol_required: true
+  fields: [latency_ms, first_token_latency_ms, first_audio_chunk_latency_ms, rtf, memory_peak_mb, cpu_usage, npu_usage, power_watts, timeout, failure]
+

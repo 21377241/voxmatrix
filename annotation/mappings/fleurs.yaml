@@ -1,0 +1,40 @@
+dataset_id: fleurs
+display_name: FLEURS
+language: multilingual
+license: CC-BY-4.0
+spec_dataset: fleurs
+knowledge_dataset: fleurs
+
+contributions:
+  - task: speech_understanding
+    capability: asr
+    scenario: phone
+    use_bucket: formal_subscores
+
+defaults:
+  task: speech_understanding
+  capability: asr
+  scenario: phone
+  condition:
+    acoustic: clean
+    spatial: near_field
+    speaker: single_speaker
+    device: phone_mic
+    interaction: single_turn
+  metrics: [wer]
+  use_bucket: formal_subscores
+  split: test
+
+field_mapping:
+  input.audio_path: {from: audio_path, transform: relative_path}
+  reference.text: {from: text}
+  sample_id: {from: id, prefix: fleurs_}
+
+cost_policy:
+  homogeneous: true
+  skip_llm_label_if_verify_pass: true
+  audit_sample_rate: 0.05
+
+auto_complete: true
+missing_labels: []
+

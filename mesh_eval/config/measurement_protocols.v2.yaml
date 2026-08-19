@@ -1,0 +1,34 @@
+schema_version: measurement-protocol-registry/2.0
+
+profiles:
+  ondevice_audio@1:
+    clock: monotonic_perf_counter
+    latency_boundary:
+      start: immediately_before_predictor_inference
+      stop: predictor_inference_return_or_raise
+      includes: [model_adapter_preprocess, model_execution, generation, isolated_process_ipc]
+      excludes: [dataset_load, prompt_construction, post_process, evaluator, aggregation]
+    request_modes: [unspecified, cold, warm]
+    concurrency_source: run_context.inference_workers
+    fields:
+      latency_ms: {type: duration, unit: ms, source: framework_wall_clock, aggregation: [p50, p90, p95]}
+      first_token_latency_ms: {type: duration, unit: ms, source: adapter_reported, aggregation: [p50, p90, p95]}
+      first_audio_chunk_latency_ms: {type: duration, unit: ms, source: adapter_reported, aggregation: [p50, p90, p95]}
+      rtf: {type: ratio, unit: ratio, source: framework_derived, aggregation: [mean]}
+      memory_peak_mb: {type: gauge, unit: MiB, source: adapter_or_device_sampler, aggregation: [p50, p90, p95]}
+      cpu_usage: {type: gauge, unit: percent, source: adapter_or_device_sampler, aggregation: [mean]}
+      npu_usage: {type: gauge, unit: percent, source: adapter_or_device_sampler, aggregation: [mean]}
+      power_watts: {type: gauge, unit: W, source: adapter_or_device_sampler, aggregation: [mean]}
+      timeout: {type: boolean, unit: flag, source: framework, aggregation: [rate]}
+      failure: {type: boolean, unit: flag, source: framework, aggregation: [rate]}
+      failure_stage: {type: taxonomy, unit: label, source: framework}
+      failure_type: {type: taxonomy, unit: label, source: framework}
+    reliability:
+      terminal_success: eval_event_with_failure_zero
+      terminal_failure: error_event_and_score_row_with_failure_one
+      timeout_is_failure: true
+      failure_stages: [prompt, inference, post_process, evaluation, recorder, unknown]
+      failure_types: [timeout, resource_exhausted, input_unavailable, contract_violation, infrastructure, model_runtime, internal]
+    notes:
+      - Cold/warm state, warm-up count, device identity and actual concurrency belong in run_context.
+      - Optional adapter/device fields remain missing when no trustworthy collector reports them.
