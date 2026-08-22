@@ -512,6 +512,14 @@ def to_runtime_sample(
         "measurement_protocol": resolved.get("runtime_profile", ""),
         "measurement_protocol_hash": resolved.get("runtime_profile_hash", ""),
     }
+    subset_profile = copy.deepcopy(canonical.get("subset_profile") or {})
+    if subset_profile:
+        from mesh_eval.core.subset_manifest import flatten_subset_profile
+
+        runtime["subset_profile"] = subset_profile
+        runtime.update(flatten_subset_profile(subset_profile))
+    if context.get("benchmark_id") not in (None, "", []):
+        runtime["benchmark_id"] = context["benchmark_id"]
     runtime[ref_col] = _reference_text(reference)
     primary = canonical["scenario"].get("primary")
     secondary = canonical["scenario"].get("secondary")
@@ -549,13 +557,25 @@ def result_event_v2(
         key: copy.deepcopy(runtime_sample[key])
         for key in (
             "sample_id",
+            "benchmark_id",
             "dataset_id",
             "task",
             "capability",
             "scenario",
             "metadata",
+            "subset_profile",
             "use_bucket",
             "split",
+            "subset_manifest_record_id",
+            "subset_manifest_schema_version",
+            "subset_manifest_sha256",
+            "source_benchmark_id",
+            "subset_id",
+            "source_protocol_id",
+            "source_metric_names",
+            "mapping_status",
+            "resource_status",
+            "annotation_confidence",
         )
         if key in runtime_sample
     }

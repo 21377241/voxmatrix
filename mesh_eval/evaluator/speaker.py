@@ -85,7 +85,12 @@ class DiarizationEvaluator(Evaluator):
             if mapped != ref:
                 error_time += duration
         der = error_time / reference_time if reference_time else 1.0
-        return {"der": der, "diarization_valid": 1}
+        return {
+            "der": der,
+            "der_error_duration": error_time,
+            "der_reference_duration": reference_time,
+            "diarization_valid": 1,
+        }
 
 
 class SpeakerCountEvaluator(Evaluator):

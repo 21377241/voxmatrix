@@ -30,7 +30,7 @@ scenario:
 
 metadata:
   core_fields: [device_type, recording_setup, noise_type, snr_bucket, speaker_count, overlap_level]
-  slice_fields: [device_type, recording_setup, noise_type, snr_bucket, speaker_count, overlap_level, language, language_mix, distance, motion_state, speaker_age_group, speaker_role, crowd_density, weather, authorization_state, window_state, hvac_state, media_state]
+  slice_fields: [device_type, device_type_subtype, recording_setup, recording_setup_subtype, noise_type, noise_type_subtype, snr_bucket, snr_bucket_subtype, speaker_count, speaker_count_bucket, overlap_level, overlap_level_subtype, language, language_mix, distance, distance_subtype, motion_state, motion_state_subtype, speaker_age_group, speaker_role, crowd_density, weather, authorization_state, authorization_state_subtype, window_state, window_state_subtype, hvac_state, hvac_state_subtype, media_state, media_state_subtype, scenario_subtype]
   enums:
     device_type: [phone, phone_mic, earphone_mic, car_mic, smart_speaker, meeting_array, bluetooth, studio_mic, unknown]
     recording_setup: [near_field, far_field, multi_channel, synthetic, unknown]
@@ -52,4 +52,3 @@ runtime:
   is_task: false
   measurement_protocol_required: true
   fields: [latency_ms, first_token_latency_ms, first_audio_chunk_latency_ms, rtf, memory_peak_mb, cpu_usage, npu_usage, power_watts, timeout, failure]
-

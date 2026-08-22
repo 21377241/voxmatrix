@@ -73,23 +73,36 @@
       "type": "object",
       "properties": {
         "device_type": {"type": ["string", "null"]},
+        "device_type_subtype": {"oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}, "minItems": 1}, {"type": "null"}]},
         "recording_setup": {"type": ["string", "null"]},
+        "recording_setup_subtype": {"oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}, "minItems": 1}, {"type": "null"}]},
         "noise_type": {"oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}, "minItems": 1}, {"type": "null"}]},
+        "noise_type_subtype": {"oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}, "minItems": 1}, {"type": "null"}]},
         "snr_bucket": {"type": ["string", "null"]},
+        "snr_bucket_subtype": {"oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}, "minItems": 1}, {"type": "null"}]},
         "speaker_count": {"type": ["integer", "null"], "minimum": 0},
+        "speaker_count_bucket": {"type": ["string", "null"]},
+        "scenario_subtype": {"type": ["string", "null"]},
         "overlap_level": {"type": ["string", "null"]},
+        "overlap_level_subtype": {"oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}, "minItems": 1}, {"type": "null"}]},
         "language": {"type": ["string", "null"]},
         "language_mix": {"type": ["string", "array", "null"]},
         "distance": {"type": ["string", "null"]},
+        "distance_subtype": {"oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}, "minItems": 1}, {"type": "null"}]},
         "motion_state": {"type": ["string", "null"]},
+        "motion_state_subtype": {"oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}, "minItems": 1}, {"type": "null"}]},
         "speaker_age_group": {"type": ["string", "null"]},
         "speaker_role": {"type": ["string", "null"]},
         "crowd_density": {"type": ["string", "null"]},
         "weather": {"type": ["string", "null"]},
         "authorization_state": {"type": ["string", "null"]},
+        "authorization_state_subtype": {"oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}, "minItems": 1}, {"type": "null"}]},
         "window_state": {"type": ["string", "null"]},
+        "window_state_subtype": {"oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}, "minItems": 1}, {"type": "null"}]},
         "hvac_state": {"type": ["string", "null"]},
-        "media_state": {"type": ["string", "null"]}
+        "hvac_state_subtype": {"oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}, "minItems": 1}, {"type": "null"}]},
+        "media_state": {"type": ["string", "null"]},
+        "media_state_subtype": {"oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}, "minItems": 1}, {"type": "null"}]}
       },
       "additionalProperties": true
     },
@@ -129,6 +142,24 @@
         "source": {"type": "string"}
       },
       "additionalProperties": true
+    },
+    "subset_profile": {
+      "type": "object",
+      "required": ["record_id", "source_benchmark_id", "subset_id", "split", "source_protocol_id", "mapping_status", "resource_status"],
+      "properties": {
+        "record_id": {"type": "string", "minLength": 1},
+        "catalog_schema_version": {"const": "2.0.0"},
+        "catalog_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "source_benchmark_id": {"type": "string", "minLength": 1},
+        "subset_id": {"type": "string", "minLength": 1},
+        "split": {"enum": ["train", "dev", "test", "heldout"]},
+        "source_protocol_id": {"type": "string", "minLength": 1},
+        "source_metrics": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "mapping_status": {"enum": ["direct", "adaptable", "insufficient"]},
+        "resource_status": {"enum": ["available", "unavailable", "gated"]},
+        "annotation_confidence": {"type": ["string", "number", "null"]}
+      },
+      "additionalProperties": false
     },
     "legacy": {"type": "object"},
     "conversion_warnings": {"type": "array", "items": {"type": "string"}},

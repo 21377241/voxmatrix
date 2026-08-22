@@ -5,6 +5,7 @@ import sacrebleu
 
 from audio_evals.agg.base import AggPolicy
 from audio_evals.lib.wer import compute_wer
+from mesh_eval.core.schema import normalize_metrics
 
 CONDITION_FIELDS = [
     "condition__acoustic",
@@ -13,6 +14,16 @@ CONDITION_FIELDS = [
     "condition__device",
     "condition__interaction",
 ]
+
+CAPTION_CORPUS_GROUPS = {
+    ("capability",),
+    ("task", "capability"),
+    ("dataset_id",),
+    ("benchmark_id",),
+    ("scenario__primary", "capability"),
+    ("scenario__primary", "scenario__secondary", "capability"),
+    ("scenario__primary", "metadata__scenario_subtype", "capability"),
+}
 
 
 def _v2_slice_fields() -> List[str]:
@@ -64,13 +75,19 @@ class MeshAgg(AggPolicy):
             "task",
             "capability",
             ["task", "capability"],
+            ["task", "capability", "benchmark_id"],
             "scenario",
             ["scenario", "task", "capability"],
+            ["scenario__primary", "capability"],
+            ["scenario__primary", "scenario__secondary", "capability"],
             "use_bucket",
             "split",
             "dataset_id",
             "benchmark_id",
             "language",
+            "subset_manifest_record_id",
+            "mapping_status",
+            "resource_status",
             ["task", "capability", "language"],
             ["task", "capability", "use_bucket"],
             *CONDITION_FIELDS,
@@ -115,9 +132,11 @@ class MeshAgg(AggPolicy):
             keys = group_spec if isinstance(group_spec, list) else [group_spec]
             groups = defaultdict(list)
             for item in score_detail:
-                group_key = tuple(str(item.get(key, "")) for key in keys)
-                if any(group_key):
-                    groups[group_key].append(item)
+                values = tuple(item.get(key) for key in keys)
+                if any(value in (None, "", [], {}) for value in values):
+                    continue
+                group_key = tuple(str(value) for value in values)
+                groups[group_key].append(item)
 
             group_name = "+".join(keys)
             for group_key, rows in groups.items():
@@ -130,7 +149,7 @@ class MeshAgg(AggPolicy):
                     f"{group_name}/{group_label}",
                     rows,
                     metric_fields,
-                    include_caption=group_name in {"dataset_id", "benchmark_id"},
+                    include_caption=tuple(keys) in CAPTION_CORPUS_GROUPS,
                 )
 
         return result
@@ -199,7 +218,33 @@ class MeshAgg(AggPolicy):
             self._write_caption_metrics(result, prefix, rows)
         self._write_classification_metrics(result, prefix, rows)
         self._write_verification_metrics(result, prefix, rows)
+        self._write_diarization_metrics(result, prefix, rows)
         self._write_runtime_metrics(result, prefix, rows)
+
+    @staticmethod
+    def _write_diarization_metrics(
+        result: Dict[str, Any], prefix: str, rows: List[Dict[str, Any]]
+    ) -> None:
+        der_rows = [row for row in rows if _is_number(row.get("der"))]
+        sufficient_statistics = [
+            (float(row["der_error_duration"]), float(row["der_reference_duration"]))
+            for row in der_rows
+            if _is_number(row.get("der_error_duration"))
+            and _is_number(row.get("der_reference_duration"))
+            and float(row["der_reference_duration"]) > 0
+        ]
+        if not sufficient_statistics or len(sufficient_statistics) != len(der_rows):
+            if der_rows:
+                result[f"{prefix}/der/sufficient_statistics_count"] = len(
+                    sufficient_statistics
+                )
+            return
+        error_duration = sum(item[0] for item in sufficient_statistics)
+        reference_duration = sum(item[1] for item in sufficient_statistics)
+        result[f"{prefix}/der"] = error_duration / reference_duration
+        result[f"{prefix}/der/sample_count"] = len(sufficient_statistics)
+        result[f"{prefix}/der/aggregation"] = "reference_duration_weighted"
+        result[f"{prefix}/der/reference_duration_seconds"] = reference_duration
 
     def _write_corpus_text_metrics(
         self, result: Dict[str, Any], prefix: str, rows: List[Dict[str, Any]]
@@ -470,6 +515,26 @@ class MeshAgg(AggPolicy):
 
     @staticmethod
     def _detect_metrics(score_detail: List[Dict[str, Any]]) -> List[str]:
+        numeric_keys = {
+            key
+            for item in score_detail
+            for key, value in item.items()
+            if _is_number(value)
+        }
+        requested = []
+        for item in score_detail:
+            for metric in normalize_metrics(item.get("metric_names")):
+                candidates = {
+                    "wer": ("wer%", "wer"),
+                    "cer": ("cer%", "cer"),
+                    "cpcer": ("cpcer%", "cpcer"),
+                }.get(metric, (metric,))
+                for candidate in candidates:
+                    if candidate not in requested and candidate in numeric_keys:
+                        requested.append(candidate)
+        if requested:
+            return requested
+
         ignored = {
             "id",
             "extract_fail",
@@ -491,14 +556,27 @@ class MeshAgg(AggPolicy):
             "power_watts",
             "timeout",
             "failure",
+            "der_error_duration",
+            "der_reference_duration",
+            "annotation_confidence",
         }
         ignored_prefixes = (
             "sample_count",
+            "metadata__",
+            "scenario__",
+            "condition__",
+            "subset_",
+            "source_",
+            "catalog_",
         )
         metrics = []
         for item in score_detail:
             for key, value in item.items():
-                if key in ignored or key.startswith(ignored_prefixes):
+                if (
+                    key in ignored
+                    or key.startswith(ignored_prefixes)
+                    or key.endswith("_valid")
+                ):
                     continue
                 if _is_number(value) and key not in metrics:
                     metrics.append(key)

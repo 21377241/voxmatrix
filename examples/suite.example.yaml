@@ -11,10 +11,32 @@ model_pool:
   allow_gpu_sharing: false
   model_ready_policy: auto
 
+# Optional subset-level routing metadata. Prepared samples must either carry
+# subset_profile.record_id or be joinable by benchmark/subset/split/capability.
+# subset_manifest:
+#   path: /path/to/benchmark_subset_manifest.jsonl
+#   benchmark_aliases:
+#     sample: manifest_benchmark_id
+#   exclude_capabilities: [meeting_summary, todo_extraction]
+#   allow_unmatched: false
+
+# Optional cross-benchmark report, generated from per-sample eval/error events.
+suite_aggregation:
+  enabled: true
+  report_format: both
+  min_slice_size: 5
+  exclude_capabilities: [meeting_summary, todo_extraction]
+
 benchmarks:
   - benchmark_id: sample
     dataset: sample
     limit: 1
     evaluation_workers: 1
+    # When subset_manifest is enabled, set these if the prepared rows do not
+    # already carry an exact subset_profile.record_id:
+    # manifest_benchmark_id: manifest_benchmark_id
+    # subset_id: test
+    # source_protocol_id: asr
+    # Alternatively: subset_record_id: exact_manifest_record_id
     # For a pre-materialized Hugging Face dataset, uncomment and edit:
     # prepared_manifest: prepared/sample/manifest.jsonl

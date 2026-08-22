@@ -10,10 +10,11 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import yaml
 
+from audio_evals.dataset.dataset import InMemoryDataset
 from audio_evals.dataset.prepared import PreparedAudioJsonl
 from audio_evals.eval_task import EvalTask
 from audio_evals.main import build_run_context, create_predictor, preload_dataset
@@ -71,6 +72,84 @@ def _load_config(path: str) -> Dict[str, Any]:
     return config
 
 
+def _subset_manifest_options(config: Dict[str, Any]):
+    raw = config.get("subset_manifest")
+    if raw in (None, "", False):
+        return None, None
+    if isinstance(raw, str):
+        raw = {"path": raw}
+    if not isinstance(raw, dict):
+        raise ValueError("subset_manifest must be a path or object")
+    path = str(raw.get("path") or "")
+    if not path:
+        raise ValueError("subset_manifest.path is required")
+    aliases = raw.get("benchmark_aliases") or {}
+    if not isinstance(aliases, dict):
+        raise ValueError("subset_manifest.benchmark_aliases must be an object")
+    excluded = {"meeting_summary", "todo_extraction"}
+    configured_exclusions = raw.get("exclude_capabilities") or []
+    if not isinstance(configured_exclusions, list) or not all(
+        isinstance(item, str) and item for item in configured_exclusions
+    ):
+        raise ValueError("subset_manifest.exclude_capabilities must be a string list")
+    excluded.update(configured_exclusions)
+
+    from mesh_eval.core.subset_manifest import SubsetManifestCatalog
+
+    catalog = SubsetManifestCatalog(
+        path,
+        excluded_capabilities=excluded,
+        benchmark_aliases=aliases,
+    )
+    return catalog, {
+        "excluded_capabilities": excluded,
+        "allow_unmatched": bool(raw.get("allow_unmatched", False)),
+    }
+
+
+def _enrich_preloaded_dataset(dataset, benchmark_id, spec, catalog, options):
+    from mesh_eval.core.subset_manifest import (
+        SubsetManifestError,
+        enrich_canonical_sample,
+    )
+
+    rows = []
+    excluded_count = 0
+    unmatched_count = 0
+    fixed_record_id = str(spec.get("subset_record_id") or "")
+    fixed_record = catalog.find(record_id=fixed_record_id) if fixed_record_id else None
+    for index, sample in enumerate(dataset.load()):
+        capability = str(sample.get("capability") or "")
+        if capability in options["excluded_capabilities"]:
+            excluded_count += 1
+            continue
+        try:
+            record = fixed_record or catalog.find_for_sample(
+                sample,
+                benchmark_id=str(
+                    spec.get("manifest_benchmark_id")
+                    or spec.get("source_benchmark_id")
+                    or ""
+                ),
+                subset_id=str(spec.get("subset_id") or ""),
+                source_protocol_id=str(spec.get("source_protocol_id") or ""),
+            )
+            rows.append(enrich_canonical_sample(sample, record, catalog))
+        except SubsetManifestError as exc:
+            if not options["allow_unmatched"]:
+                raise ValueError(
+                    f"benchmark {benchmark_id} sample {index} could not be joined "
+                    f"to subset manifest: {exc}"
+                ) from exc
+            rows.append(sample)
+            unmatched_count += 1
+    return (
+        InMemoryDataset.from_dataset(dataset, rows),
+        excluded_count,
+        unmatched_count,
+    )
+
+
 def _resolve_save_path(spec: Dict[str, Any], output_root: str, benchmark_id: str) -> str:
     save_path = str(spec.get("save") or "")
     if not save_path:
@@ -91,6 +170,7 @@ def prepare_benchmarks(
     if not isinstance(raw_benchmarks, list) or not raw_benchmarks:
         raise ValueError("suite config requires a non-empty benchmarks list")
     prepared: List[PreparedBenchmark] = []
+    subset_catalog, subset_options = _subset_manifest_options(config)
     seen_ids = set()
     for index, spec in enumerate(raw_benchmarks):
         if not isinstance(spec, dict):
@@ -152,6 +232,28 @@ def prepare_benchmarks(
             rand_size=rand_size,
             timeout=timeout,
         )
+        if subset_catalog is not None and spec.get("attach_subset_profile", True):
+            dataset, excluded_count, unmatched_count = _enrich_preloaded_dataset(
+                dataset,
+                benchmark_id,
+                spec,
+                subset_catalog,
+                subset_options,
+            )
+            logger.info(
+                "Attached subset profiles for benchmark %s: rows=%d excluded=%d "
+                "unmatched=%d",
+                benchmark_id,
+                len(dataset.rows),
+                excluded_count,
+                unmatched_count,
+            )
+            if not dataset.rows:
+                logger.info(
+                    "Skipping benchmark %s because no rows remain after subset filtering",
+                    benchmark_id,
+                )
+                continue
         save_path = _resolve_save_path(spec, output_root, benchmark_id)
         prepared.append(
             PreparedBenchmark(
@@ -165,6 +267,8 @@ def prepare_benchmarks(
                 evaluation_workers=evaluation_workers,
             )
         )
+    if not prepared:
+        raise ValueError("suite has no runnable benchmarks after subset filtering")
     return prepared
 
 
@@ -281,6 +385,49 @@ def _pool_options(config: Dict[str, Any]) -> SimpleNamespace:
     )
 
 
+def _suite_aggregation_options(
+    config: Dict[str, Any], output_root: str
+) -> Optional[Dict[str, Any]]:
+    raw = config.get("suite_aggregation")
+    if raw in (None, False):
+        return None
+    if raw is True:
+        raw = {}
+    if not isinstance(raw, dict):
+        raise ValueError("suite_aggregation must be a boolean or object")
+    if raw.get("enabled", True) is False:
+        return None
+    report_format = str(raw.get("report_format") or "both")
+    if report_format not in {"flat", "nested", "both"}:
+        raise ValueError("suite_aggregation.report_format must be flat, nested, or both")
+    min_slice_size = int(raw.get("min_slice_size", 5))
+    if min_slice_size < 1:
+        raise ValueError("suite_aggregation.min_slice_size must be >= 1")
+    excluded = raw.get("exclude_capabilities") or [
+        "meeting_summary",
+        "todo_extraction",
+    ]
+    metric_fields = raw.get("metric_fields") or []
+    if not isinstance(excluded, list) or not all(
+        isinstance(item, str) and item for item in excluded
+    ):
+        raise ValueError("suite_aggregation.exclude_capabilities must be a string list")
+    if not isinstance(metric_fields, list) or not all(
+        isinstance(item, str) and item for item in metric_fields
+    ):
+        raise ValueError("suite_aggregation.metric_fields must be a string list")
+    output = str(raw.get("output") or "suite-overall.json")
+    if not os.path.isabs(output):
+        output = os.path.join(output_root, output)
+    return {
+        "output": os.path.abspath(output),
+        "report_format": report_format,
+        "min_slice_size": min_slice_size,
+        "exclude_capabilities": excluded,
+        "metric_fields": metric_fields,
+    }
+
+
 def run_suite(config: Dict[str, Any]) -> Dict[str, Any]:
     for path in config.get("registry_paths") or []:
         registry.add_registry_paths([path])
@@ -296,6 +443,7 @@ def run_suite(config: Dict[str, Any]) -> Dict[str, Any]:
     )
     os.makedirs(output_root, exist_ok=True)
 
+    aggregation_options = _suite_aggregation_options(config, output_root)
     benchmarks = prepare_benchmarks(config, model_name, output_root)
     # This call happens exactly once after all datasets are ready.
     predictor, inference_workers, using_pool = create_predictor(
@@ -304,6 +452,31 @@ def run_suite(config: Dict[str, Any]) -> Dict[str, Any]:
     session = EvaluationSession(predictor, inference_workers)
     started_at = datetime.now(timezone.utc).isoformat()
     results = session.run(benchmarks)
+    suite_aggregation = None
+    if aggregation_options is not None:
+        from mesh_eval.scripts.reaggregate_events import aggregate_event_files
+
+        event_files = [
+            item["save"]
+            for item in results.values()
+            if item.get("status") == "ok" and item.get("save")
+        ]
+        aggregate = aggregate_event_files(
+            event_files,
+            excluded_capabilities=aggregation_options["exclude_capabilities"],
+            report_format=aggregation_options["report_format"],
+            min_slice_size=aggregation_options["min_slice_size"],
+            metric_fields=aggregation_options["metric_fields"],
+        )
+        _atomic_json(aggregation_options["output"], aggregate)
+        suite_aggregation = {
+            "status": "ok",
+            "output": aggregation_options["output"],
+            "report_format": aggregation_options["report_format"],
+            "sample_count": int(aggregate.get("sample_count") or 0),
+            "input_file_count": len(event_files),
+            "excluded_capabilities": aggregation_options["exclude_capabilities"],
+        }
     manifest = {
         "schema_version": "evaluation-session/1.0",
         "run_id": run_id,
@@ -317,6 +490,8 @@ def run_suite(config: Dict[str, Any]) -> Dict[str, Any]:
         ),
         "benchmarks": results,
     }
+    if suite_aggregation is not None:
+        manifest["suite_aggregation"] = suite_aggregation
     _atomic_json(os.path.join(output_root, "session.json"), manifest)
     return manifest
 

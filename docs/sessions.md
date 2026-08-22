@@ -91,6 +91,57 @@ Session 的顺序是：
 4. 写入各 Benchmark 结果与 `session.json`。
 5. 释放全部模型副本和子进程。
 
+## 按能力与场景聚合
+
+已经准备为 canonical V2 的逐样本 Manifest 可以在模型加载前关联 subset 清单，
+并在所有 Benchmark 结束后统一聚合：
+
+```yaml
+subset_manifest:
+  path: /path/to/benchmark_subset_manifest.jsonl
+  benchmark_aliases:
+    prepared_dataset_name: manifest_benchmark_id
+  exclude_capabilities: [meeting_summary, todo_extraction]
+  allow_unmatched: false
+
+suite_aggregation:
+  enabled: true
+  report_format: both
+  min_slice_size: 5
+  exclude_capabilities: [meeting_summary, todo_extraction]
+
+benchmarks:
+  - benchmark_id: example-asr
+    dataset: <registered_dataset>
+    prepared_manifest: prepared/example/manifest.jsonl
+    manifest_benchmark_id: manifest_benchmark_id
+    subset_id: test
+    source_protocol_id: asr
+```
+
+关联优先使用样本中的 `subset_profile.record_id`。没有该字段时使用
+`manifest_benchmark_id + subset_id + split + capability` 精确匹配；出现多匹配或
+冲突会停止运行。也可以在单一 Benchmark 配置中使用 `subset_record_id` 固定到
+一条清单记录。
+
+样本自身已有的场景与元数据优先。清单中比 canonical 枚举更细的标签不会被
+强行改写：二级场景保存在 `metadata.scenario_subtype`，非枚举元数据保存在对应
+的 `metadata.<field>_subtype`，区间式说话人数保存在
+`metadata.speaker_count_bucket`；这些字段同样可以作为切片维度。
+
+若不运行模型，只重聚合已有事件文件：
+
+```bash
+python mesh_eval/scripts/reaggregate_events.py \
+  outputs/suite/run-a/*.jsonl \
+  --report-format both \
+  --output outputs/suite/run-a/suite-overall.json
+```
+
+输出同时包含 `by_capability` 与
+`by_scenario.<primary>.by_capability`。场景内不同 Capability 不会合成一个未经
+定义的标量总分；`unknown` 场景保留为独立桶。
+
 因此，多 Benchmark 不会重复加载同一个模型。各 Benchmark 必须使用 Session
 顶层指定的同一模型，但可以覆盖 `task`、`prompt`、`evaluator`、`agg`
 和 `post_process`。

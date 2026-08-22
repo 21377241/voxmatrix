@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 
 from audio_evals import session
@@ -158,3 +159,76 @@ def test_two_phase_suite_infers_all_then_releases_once_before_evaluation(
     assert events == ["infer-0", "infer-1", "release", "eval-0", "eval-1"]
     assert set(results) == {"0", "1"}
 
+
+def test_suite_optionally_writes_cross_benchmark_aggregation(
+    monkeypatch, tmp_path
+):
+    released = []
+
+    class Predictor:
+        def release(self):
+            released.append(True)
+
+    task_cfg = SimpleNamespace(
+        prompt="prompt", evaluator="evaluator", post_process=[], agg="agg"
+    )
+    benchmarks = [
+        session.PreparedBenchmark(
+            benchmark_id="one",
+            dataset=object(),
+            task_cfg=task_cfg,
+            save_path=str(tmp_path / "one.jsonl"),
+            overall_path=str(tmp_path / "one-overall.json"),
+        )
+    ]
+
+    class RecordingEvalTask:
+        def __init__(self, **kwargs):
+            self.recorder = kwargs["recorder"]
+
+        def run(self, **kwargs):
+            self.recorder.add(
+                {
+                    "type": "eval",
+                    "id": 1,
+                    "data": {
+                        "task": "audio_speech_understanding",
+                        "capability": "acoustic_scene",
+                        "scenario__primary": "meeting",
+                        "accuracy": 1.0,
+                        "metric_names": "accuracy",
+                        "failure": 0,
+                        "timeout": 0,
+                    },
+                }
+            )
+            return ({"sample_count": 1}, [{}], ["ok"])
+
+    monkeypatch.setattr(session, "prepare_benchmarks", lambda *args: benchmarks)
+    monkeypatch.setattr(
+        session, "create_predictor", lambda *args: (Predictor(), 1, False)
+    )
+    monkeypatch.setattr(session, "EvalTask", RecordingEvalTask)
+    monkeypatch.setattr(session.registry, "get_prompt", lambda name: object())
+    monkeypatch.setattr(session.registry, "get_agg", lambda name: object())
+
+    manifest = session.run_suite(
+        {
+            "model": "fake",
+            "run_id": "aggregate",
+            "output_root": str(tmp_path),
+            "benchmarks": [{"dataset": "placeholder"}],
+            "use_model_pool": "off",
+            "suite_aggregation": {
+                "report_format": "nested",
+                "min_slice_size": 1,
+            },
+        }
+    )
+
+    assert released == [True]
+    aggregate_path = tmp_path / "suite-overall.json"
+    aggregate = json.loads(aggregate_path.read_text(encoding="utf-8"))
+    assert aggregate["sample_count"] == 1
+    assert aggregate["by_capability"]["acoustic_scene"]["accuracy"] == 1.0
+    assert manifest["suite_aggregation"]["output"] == str(aggregate_path)

@@ -316,6 +316,23 @@ def _event_dimensions(doc):
                 )
         if doc.get("provenance"):
             data["_slice_provenance"] = doc["provenance"]
+        from mesh_eval.core.subset_manifest import flatten_subset_profile
+
+        data.update(flatten_subset_profile(doc.get("subset_profile")))
+        for field in (
+            "subset_manifest_record_id",
+            "subset_manifest_schema_version",
+            "subset_manifest_sha256",
+            "source_benchmark_id",
+            "subset_id",
+            "source_protocol_id",
+            "source_metric_names",
+            "mapping_status",
+            "resource_status",
+            "annotation_confidence",
+        ):
+            if doc.get(field) not in (None, "", []):
+                data[field] = doc[field]
     for group, value in (doc.get("condition") or {}).items():
         data[f"condition__{group}"] = value
     return data

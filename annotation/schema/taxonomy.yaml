@@ -191,6 +191,7 @@ metric_aliases:
 split_aliases:
   validation: dev
   valid: dev
+  development: dev
   eval: test
   evaluation: test
   all: test
