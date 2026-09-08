@@ -4,7 +4,7 @@ smoke-task-aishell4-attr:
     dataset: smoke-aishell4-attr10
     prompt: mesh-speaker-attribution
     model: qwen3-omni-local
-    post_process: []
+    post_process: [mesh-speaker-attribution-normalize]
     evaluator: mesh-speaker-attribution
     agg: mesh
 
@@ -14,7 +14,7 @@ smoke-task-aishell5-attr:
     dataset: smoke-aishell5-attr10
     prompt: mesh-speaker-attribution
     model: qwen3-omni-local
-    post_process: []
+    post_process: [mesh-speaker-attribution-normalize]
     evaluator: mesh-speaker-attribution
     agg: mesh
 
@@ -24,7 +24,7 @@ smoke-task-alimeeting-attr:
     dataset: smoke-alimeeting-attr10
     prompt: mesh-speaker-attribution
     model: qwen3-omni-local
-    post_process: []
+    post_process: [mesh-speaker-attribution-normalize]
     evaluator: mesh-speaker-attribution
     agg: mesh
 
@@ -34,7 +34,7 @@ smoke-task-ami-attr:
     dataset: smoke-ami-attr10
     prompt: mesh-speaker-attribution
     model: qwen3-omni-local
-    post_process: []
+    post_process: [mesh-speaker-attribution-normalize]
     evaluator: mesh-speaker-attribution
     agg: mesh
 
@@ -54,6 +54,6 @@ smoke-task-chime6-attr:
     dataset: smoke-chime6-attr10
     prompt: mesh-speaker-attribution
     model: qwen3-omni-local
-    post_process: []
+    post_process: [mesh-speaker-attribution-normalize]
     evaluator: mesh-speaker-attribution
     agg: mesh

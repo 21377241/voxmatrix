@@ -306,15 +306,149 @@ class SpeakerVerificationEvaluator(Evaluator):
         }
 
 
-def _utterances(value: Any) -> List[Dict[str, Any]]:
-    if isinstance(value, str):
+_UTTERANCE_OBJECT_RE = re.compile(
+    r"\{[^{}]*?"
+    r"\"(?:speaker|speaker_id)\"\s*:\s*\"(?P<speaker>[^\"]+)\""
+    r"[^{}]*?"
+    r"\"(?:text|transcript)\"\s*:\s*\"(?P<text>(?:\\.|[^\"\\])*)\""
+    r"[^{}]*?\}"
+    r"|"
+    r"\{[^{}]*?"
+    r"\"(?:text|transcript)\"\s*:\s*\"(?P<text2>(?:\\.|[^\"\\])*)\""
+    r"[^{}]*?"
+    r"\"(?:speaker|speaker_id)\"\s*:\s*\"(?P<speaker2>[^\"]+)\""
+    r"[^{}]*?\}",
+    flags=re.DOTALL,
+)
+
+# Model often drops the "speaker" key name: {"speaker_1","text":"..."}
+_BAD_SPEAKER_KEY_RE = re.compile(
+    r'\{\s*"(?P<spk>(?:speaker[_-]?\d+|spk[_-]?\d+|[A-Za-z]{1,4}\d{2,}|P\d+))"\s*,\s*"text"\s*:',
+    flags=re.IGNORECASE,
+)
+
+
+def _repair_attribution_json_text(text: str) -> str:
+    repaired = text or ""
+    # Drop an unclosed markdown fence opener so bracket slicing can see the array.
+    repaired = re.sub(r"^```(?:json)?\s*", "", repaired.strip(), count=1, flags=re.IGNORECASE)
+    if repaired.endswith("```"):
+        repaired = repaired[: -3].rstrip()
+    repaired = _BAD_SPEAKER_KEY_RE.sub(
+        lambda m: '{"speaker": "' + m.group("spk") + '", "text":', repaired
+    )
+    return repaired
+
+
+def _partial_utterance_dicts(text: str) -> List[Dict[str, Any]]:
+    """Recover complete utterance objects from truncated / illegal JSON."""
+    repaired = _repair_attribution_json_text(text)
+    out: List[Dict[str, Any]] = []
+    for match in _UTTERANCE_OBJECT_RE.finditer(repaired):
+        speaker = match.group("speaker") or match.group("speaker2")
+        raw_text = match.group("text") if match.group("text") is not None else match.group("text2")
+        if speaker is None or raw_text is None:
+            continue
         try:
-            value = extract_json(value)
-        except (TypeError, ValueError):
-            return []
+            text_value = json.loads('"' + raw_text + '"')
+        except json.JSONDecodeError:
+            text_value = raw_text.encode("utf-8").decode("unicode_escape", errors="ignore")
+        out.append({"speaker": speaker, "text": text_value})
+    return out
+
+
+def _looks_like_truncated_attr_json(text: str) -> bool:
+    stripped = (text or "").strip()
+    if not stripped:
+        return False
+    if stripped.count("{") > stripped.count("}") or stripped.count("[") > stripped.count("]"):
+        return True
+    if stripped.startswith("```") and not stripped.rstrip().endswith("```"):
+        return True
+    if stripped.rstrip().endswith((",", ":", '"')):
+        return True
+    return False
+
+
+def _coerce_utterance_items(value: Any) -> List[Dict[str, Any]]:
     if isinstance(value, dict):
-        value = value.get("utterances", [])
-    return [item for item in (value or []) if isinstance(item, dict)]
+        if "utterances" in value:
+            value = value.get("utterances", [])
+        elif first_present(value.get("speaker"), value.get("speaker_id")) is not None and first_present(
+            value.get("text"), value.get("transcript")
+        ) is not None:
+            value = [value]
+        else:
+            # {"speaker_1": "hello", "speaker_2": "hi"} style — uncommon but cheap to accept
+            items = []
+            for key, text in value.items():
+                if key in {"utterances", "segments"}:
+                    continue
+                if isinstance(text, str) and text.strip():
+                    items.append({"speaker": str(key), "text": text})
+            value = items
+    items: List[Dict[str, Any]] = []
+    for index, item in enumerate(value or []):
+        if not isinstance(item, dict):
+            continue
+        speaker = first_present(item.get("speaker"), item.get("speaker_id"))
+        text = first_present(item.get("text"), item.get("transcript"))
+        if speaker is None or text is None:
+            continue
+        text_str = str(text).strip()
+        if not text_str:
+            continue
+        row = {
+            "id": str(first_present(item.get("id"), item.get("utterance_id"), index)),
+            "speaker": str(speaker).strip(),
+            "text": text_str,
+        }
+        items.append(row)
+    return items
+
+
+def normalize_speaker_attribution_prediction(value: Any) -> Dict[str, Any]:
+    """Parse / salvage attribution output into canonical {"utterances":[...]}."""
+    salvaged = 0
+    truncated = 0
+    parsed: Any = value
+    if isinstance(value, str):
+        truncated = int(_looks_like_truncated_attr_json(value))
+        if _BAD_SPEAKER_KEY_RE.search(value):
+            salvaged = 1
+        repaired = _repair_attribution_json_text(value)
+        try:
+            parsed = extract_json(repaired)
+            # Truncation often yields only the first object; prefer regex if it finds more.
+            if truncated:
+                recovered = _partial_utterance_dicts(value)
+                coerced = _coerce_utterance_items(parsed)
+                if len(recovered) > len(coerced):
+                    parsed = recovered
+                    salvaged = 1
+        except (TypeError, ValueError):
+            parsed = _partial_utterance_dicts(value)
+            salvaged = int(bool(parsed))
+            truncated = 1
+    utterances = _coerce_utterance_items(parsed)
+    if isinstance(value, str) and not utterances:
+        recovered = _partial_utterance_dicts(value)
+        if recovered:
+            utterances = _coerce_utterance_items(recovered)
+            salvaged = 1
+            truncated = max(truncated, int(_looks_like_truncated_attr_json(value)))
+    payload = {"utterances": utterances}
+    return {
+        "utterances": utterances,
+        "payload": payload,
+        "content": json.dumps(payload, ensure_ascii=False),
+        "attribution_salvaged": salvaged,
+        "attribution_truncated": truncated,
+    }
+
+
+def _utterances(value: Any) -> List[Dict[str, Any]]:
+    return normalize_speaker_attribution_prediction(value)["utterances"]
 
 
 class SpeakerAttributionEvaluator(Evaluator):
@@ -323,9 +457,19 @@ class SpeakerAttributionEvaluator(Evaluator):
     def _eval(self, pred: Any, label: Any, **kwargs: Any) -> Dict[str, Any]:
         reference = reference_object(label, kwargs)
         refs = _utterances(first_present(reference.get("utterances"), label))
-        preds = _utterances(pred)
+        normalized = normalize_speaker_attribution_prediction(pred)
+        preds = normalized["utterances"]
+        meta = {
+            "attribution_salvaged": int(normalized.get("attribution_salvaged") or 0),
+            "attribution_truncated": int(normalized.get("attribution_truncated") or 0),
+        }
         if not refs or not preds:
-            return {"attribution_acc": 0.0, "cpcer%": 100.0, "attribution_valid": 0}
+            return {
+                "attribution_acc": 0.0,
+                "cpcer%": 100.0,
+                "attribution_valid": 0,
+                **meta,
+            }
 
         ref_by_speaker: Dict[str, List[str]] = defaultdict(list)
         pred_by_speaker: Dict[str, List[str]] = defaultdict(list)
@@ -386,4 +530,5 @@ class SpeakerAttributionEvaluator(Evaluator):
             "attribution_acc": correct / compared if compared else 0.0,
             "cpcer%": best_cost * 100,
             "attribution_valid": 1,
+            **meta,
         }

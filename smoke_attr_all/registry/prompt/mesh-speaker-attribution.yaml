@@ -7,8 +7,15 @@ mesh-speaker-attribution:
           - type: audio
             value: "{{WavPath}}"
           - type: text
-            value: >-
+            value: |-
               Transcribe the meeting and assign each utterance to a speaker.
-              Return chronological JSON only:
-              {"utterances":[{"speaker":"speaker_1","text":"..."}]}.
-              Do not copy this example; use the real speech content and speakers.
+
+              Return JSON only (no markdown fences, no extra keys):
+              {"utterances":[{"speaker":"speaker_1","text":"..."}]}
+
+              Requirements:
+              - Top-level object MUST have key "utterances" (an array). Do not return a bare array.
+              - Every item MUST use keys "speaker" and "text" exactly (never {"speaker_1","text":...}).
+              - speaker ids are anonymous labels such as speaker_1, speaker_2, ...
+              - Keep chronological order; do not invent placeholder text.
+              - Do not wrap the JSON in ``` fences.
