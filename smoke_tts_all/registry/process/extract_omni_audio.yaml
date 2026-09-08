@@ -1,0 +1,3 @@
+extract-omni-audio-path:
+  class: smoke_tts_all.extract_omni_audio.ExtractOmniAudioPath
+  args: {}

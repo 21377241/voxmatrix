@@ -1,0 +1,12 @@
+mesh-sid-diagnostic:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: >-
+              Listen to the speech and return the speaker identity id as JSON only:
+              {"speaker_id":"idXXXXX"}.

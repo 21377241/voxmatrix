@@ -1,0 +1,96 @@
+smoke-aishell_1-asr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/aishell_1/manifest.jsonl
+    default_task: smoke-task-aishell_1
+    ref_col: text
+smoke-aishell_4-asr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/aishell_4/manifest.jsonl
+    default_task: smoke-task-aishell_4
+    ref_col: text
+smoke-aishell_4-sliced-asr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/aishell_4/manifest_sliced.jsonl
+    default_task: smoke-task-aishell_4-sliced
+    ref_col: text
+smoke-aishell_5-asr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/aishell_5/manifest.jsonl
+    default_task: smoke-task-aishell_5
+    ref_col: text
+smoke-alimeeting-asr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/alimeeting/manifest.jsonl
+    default_task: smoke-task-alimeeting
+    ref_col: text
+smoke-ami-asr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/ami/manifest.jsonl
+    default_task: smoke-task-ami
+    ref_col: text
+smoke-chime-asr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/chime/manifest.jsonl
+    default_task: smoke-task-chime
+    ref_col: text
+smoke-common_voice-asr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/common_voice/manifest.jsonl
+    default_task: smoke-task-common_voice
+    ref_col: text
+smoke-librispeech-asr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/librispeech/manifest.jsonl
+    default_task: smoke-task-librispeech
+    ref_col: text
+smoke-magicdata_ramc-asr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/magicdata_ramc/manifest.jsonl
+    default_task: smoke-task-magicdata_ramc
+    ref_col: text
+smoke-misp-asr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/misp/manifest.jsonl
+    default_task: smoke-task-misp
+    ref_col: text
+smoke-aishell_5-sliced-asr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/aishell_5/manifest_sliced.jsonl
+    default_task: smoke-task-aishell_5-sliced
+    ref_col: text
+smoke-alimeeting-sliced-asr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/alimeeting/manifest_sliced.jsonl
+    default_task: smoke-task-alimeeting-sliced
+    ref_col: text
+smoke-magicdata_ramc-sliced-asr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/magicdata_ramc/manifest_sliced.jsonl
+    default_task: smoke-task-magicdata_ramc-sliced
+    ref_col: text
+smoke-misp-sliced-asr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/misp/manifest_sliced.jsonl
+    default_task: smoke-task-misp-sliced
+    ref_col: text
+smoke-sbcsae-sliced-asr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/sbcsae/manifest_sliced.jsonl
+    default_task: smoke-task-sbcsae-sliced
+    ref_col: text

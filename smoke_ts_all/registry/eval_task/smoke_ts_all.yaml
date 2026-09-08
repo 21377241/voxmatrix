@@ -1,0 +1,9 @@
+smoke-task-aishell5-ts:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-aishell5-ts10
+    prompt: mesh-target-speaker
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: mesh-target-speaker
+    agg: mesh

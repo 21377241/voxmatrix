@@ -1,0 +1,25 @@
+mesh-diarization:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: |-
+              Listen to the audio and perform speaker diarization.
+
+              Return JSON only (no markdown, no extra keys):
+              {"segments":[{"start":<seconds>,"end":<seconds>,"speaker":"<id>"}]}
+
+              Requirements:
+              - This audio is {{audio_duration_seconds}} seconds long.
+              - start and end are floats in seconds, relative to the beginning of THIS audio (0 = start of the clip).
+              - Every segment MUST satisfy 0 <= start < end <= {{audio_duration_seconds}}. Never emit timestamps beyond the audio length.
+              - speaker ids are anonymous labels such as spk0, spk1, spk2, ...
+              - Include one segment for each contiguous speech region you hear; keep chronological order.
+              - Merge consecutive regions from the same speaker; do not chop speech into fixed 1-second slices.
+              - Stop once the timeline reaches the end of the audio; do not continue inventing segments.
+              - Do not output transcript text.
+              - Do not invent a single placeholder segment; the timestamps must match the speech in the audio.

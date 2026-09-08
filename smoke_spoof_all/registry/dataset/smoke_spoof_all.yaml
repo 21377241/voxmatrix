@@ -1,0 +1,6 @@
+smoke-mmsu-spoof10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_spoof_all/mmsu/manifest.jsonl
+    default_task: smoke-task-mmsu-spoof
+    ref_col: text

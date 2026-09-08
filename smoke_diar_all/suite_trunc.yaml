@@ -1,0 +1,31 @@
+schema_version: evaluation-suite-config/1.0
+run_id: smoke-diar-trunc-prompt-dur
+model: qwen3-omni-local
+output_root: /mnt/afs/users/wangyl/VoxMatrix/smoke_diar_all/results_trunc
+registry_paths:
+- /mnt/afs/users/wangyl/VoxMatrix/smoke_diar_all/registry
+model_pool:
+  use_model_pool: 'off'
+  replicas: 1
+  gpus_per_replica: 1
+  inference_workers: 1
+  allow_gpu_sharing: false
+  model_ready_policy: auto
+benchmarks:
+# 优先验证曾出现 JSON 截断的子集（跳过 misp）
+- benchmark_id: alimeeting
+  dataset: smoke-alimeeting-diar10
+  task: smoke-task-alimeeting-diar
+  prompt: mesh-diarization
+  evaluator: mesh-diarization
+  agg: mesh
+  limit: 10
+  evaluation_workers: 1
+- benchmark_id: chime_6
+  dataset: smoke-chime6-diar10
+  task: smoke-task-chime6-diar
+  prompt: mesh-diarization
+  evaluator: mesh-diarization
+  agg: mesh
+  limit: 10
+  evaluation_workers: 1

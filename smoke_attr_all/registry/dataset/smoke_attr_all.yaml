@@ -1,0 +1,41 @@
+smoke-aishell4-attr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_attr_all/aishell_4/manifest.jsonl
+    default_task: smoke-task-aishell4-attr
+    ref_col: text
+
+smoke-aishell5-attr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_attr_all/aishell_5/manifest.jsonl
+    default_task: smoke-task-aishell5-attr
+    ref_col: text
+
+smoke-alimeeting-attr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_attr_all/alimeeting/manifest.jsonl
+    default_task: smoke-task-alimeeting-attr
+    ref_col: text
+
+smoke-ami-attr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_attr_all/ami/manifest.jsonl
+    default_task: smoke-task-ami-attr
+    ref_col: text
+
+smoke-cnceleb-sid10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_attr_all/cn_celeb/manifest.jsonl
+    default_task: smoke-task-cnceleb-sid
+    ref_col: text
+
+smoke-chime6-attr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_attr_all/chime_6/manifest.jsonl
+    default_task: smoke-task-chime6-attr
+    ref_col: text

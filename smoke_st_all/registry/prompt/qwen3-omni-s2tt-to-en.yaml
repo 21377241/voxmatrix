@@ -1,0 +1,10 @@
+qwen3-omni-s2tt-to-en:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+    - role: user
+      contents:
+      - type: audio
+        value: '{{WavPath}}'
+      - type: text
+        value: 'Listen to the speech in the audio and translate it into English. Output only the translation without explanations.'

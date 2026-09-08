@@ -1,0 +1,46 @@
+smoke-task-wenetspeech:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-wenetspeech-asr10
+    prompt: qwen3-omni-asr-zh
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: cer
+    agg: wer-zh
+smoke-task-sbcsae:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-sbcsae-asr10
+    prompt: qwen3-omni-asr-en
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: wer
+    agg: wer
+smoke-task-easycom:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-easycom-asr10
+    prompt: qwen3-omni-asr-en
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: wer
+    agg: wer
+smoke-task-easycom-full:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-easycom-asr10
+    prompt: qwen3-omni-asr-en-full
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: wer
+    agg: wer
+smoke-task-easycom-fun-full:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-easycom-asr10
+    prompt: fun-audio-chat-asr-en-full
+    model: fun-audio-chat-local
+    post_process: []
+    evaluator: wer
+    agg: wer
+

@@ -1,0 +1,9 @@
+smoke-task-mmsu-spoof:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-mmsu-spoof10
+    prompt: mesh-spoof-open
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: mesh-classification
+    agg: mesh

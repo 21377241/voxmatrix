@@ -1,0 +1,9 @@
+smoke-task-libritts-tts:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-libritts-tts10
+    prompt: smoke-qwen3-omni-tts-en
+    model: qwen3-omni-speech-local
+    post_process: []
+    evaluator: smoke-seed-tts-eval-asr-wer-en
+    agg: smoke-mesh

@@ -1,0 +1,22 @@
+schema_version: evaluation-suite-config/1.0
+run_id: smoke-tts-libritts-10
+model: qwen3-omni-speech-local
+output_root: /mnt/afs/users/wangyl/VoxMatrix/smoke_tts_all/results
+registry_paths:
+- /mnt/afs/users/wangyl/VoxMatrix/smoke_tts_all/registry
+model_pool:
+  use_model_pool: 'off'
+  replicas: 1
+  gpus_per_replica: 1
+  inference_workers: 1
+  allow_gpu_sharing: false
+  model_ready_policy: auto
+benchmarks:
+- benchmark_id: libritts
+  dataset: smoke-libritts-tts10
+  task: smoke-task-libritts-tts
+  prompt: smoke-qwen3-omni-tts-en
+  evaluator: smoke-seed-tts-eval-asr-wer-en
+  agg: smoke-mesh
+  limit: 10
+  evaluation_workers: 1

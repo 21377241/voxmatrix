@@ -1,0 +1,22 @@
+schema_version: evaluation-suite-config/1.0
+run_id: smoke-misp-reslice-0831
+model: qwen3-omni-local
+output_root: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/results_misp_reslice
+registry_paths:
+- /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/registry
+model_pool:
+  use_model_pool: 'off'
+  replicas: 1
+  gpus_per_replica: 1
+  inference_workers: 1
+  allow_gpu_sharing: false
+  model_ready_policy: auto
+benchmarks:
+- benchmark_id: misp
+  dataset: smoke-misp-asr10
+  task: smoke-task-misp
+  prompt: qwen3-omni-asr-zh
+  evaluator: cer
+  agg: wer-zh
+  limit: 10
+  evaluation_workers: 1

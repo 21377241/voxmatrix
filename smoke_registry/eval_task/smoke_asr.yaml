@@ -1,0 +1,9 @@
+smoke-asr-en:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-ls10
+    prompt: qwen3-omni-asr-en
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: wer
+    agg: wer

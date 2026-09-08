@@ -1,0 +1,7 @@
+smoke-seed-tts-whisper:
+  class: audio_evals.models.whisper.SeedTTSWhisperModel
+  args:
+    path: /mnt/afs/models/whisper-large-v3
+    env_path: /mnt/afs/conda/envs/audioeval
+    requirements_path: ""
+    sample_params: {}

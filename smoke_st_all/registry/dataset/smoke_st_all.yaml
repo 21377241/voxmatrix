@@ -1,0 +1,24 @@
+smoke-covost2-zh-en-st10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_st_all/covost2_zh_en/manifest.jsonl
+    default_task: smoke-task-covost2-zh-en
+    ref_col: text
+smoke-covost2-en-zh-st10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_st_all/covost2_en_zh/manifest.jsonl
+    default_task: smoke-task-covost2-en-zh
+    ref_col: text
+smoke-mmsu-st10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_st_all/mmsu/manifest.jsonl
+    default_task: smoke-task-mmsu-st
+    ref_col: text
+smoke-mmsu-open-st10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_st_all/mmsu_open/manifest.jsonl
+    default_task: smoke-task-mmsu-open-st
+    ref_col: text

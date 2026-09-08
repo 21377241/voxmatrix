@@ -1,0 +1,30 @@
+smoke-aishell4-diar10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_diar_all/aishell_4/manifest.jsonl
+    default_task: smoke-task-aishell4-diar
+    ref_col: text
+smoke-alimeeting-diar10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_diar_all/alimeeting/manifest.jsonl
+    default_task: smoke-task-alimeeting-diar
+    ref_col: text
+smoke-ami-diar10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_diar_all/ami/manifest.jsonl
+    default_task: smoke-task-ami-diar
+    ref_col: text
+smoke-chime6-diar10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_diar_all/chime_6/manifest.jsonl
+    default_task: smoke-task-chime6-diar
+    ref_col: text
+smoke-misp-diar10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_diar_all/misp/manifest.jsonl
+    default_task: smoke-task-misp-diar
+    ref_col: text

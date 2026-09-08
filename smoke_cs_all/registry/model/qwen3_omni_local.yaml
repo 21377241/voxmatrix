@@ -1,0 +1,6 @@
+qwen3-omni-local:
+  class: audio_evals.models.qwen3_omni.Qwen3Omni
+  args:
+    path: /mnt/afs/models/Qwen3-Omni-30B-A3B-Instruct
+    env_path: /mnt/afs/users/wangyl/VoxMatrix/envs/qwen3-omni
+    requirements_path: ""

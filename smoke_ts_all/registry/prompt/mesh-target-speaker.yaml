@@ -1,0 +1,15 @@
+mesh-target-speaker:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: audio
+            value: "{{WavPath2}}"
+          - type: text
+            value: >-
+              Treat the first recording as enrollment and the second as a command.
+              Return JSON only as {"should_execute": true} when the command speaker
+              matches enrollment, otherwise {"should_execute": false}.

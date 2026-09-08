@@ -1,0 +1,14 @@
+mesh-speaker-attribution:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: >-
+              Transcribe the meeting and assign each utterance to a speaker.
+              Return chronological JSON only:
+              {"utterances":[{"speaker":"speaker_1","text":"..."}]}.
+              Do not copy this example; use the real speech content and speakers.

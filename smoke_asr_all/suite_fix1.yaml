@@ -1,0 +1,46 @@
+schema_version: evaluation-suite-config/1.0
+run_id: smoke-asr-fix1-sliced
+model: qwen3-omni-local
+output_root: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/results_fix1
+registry_paths:
+- /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/registry
+model_pool:
+  use_model_pool: 'off'
+  replicas: 1
+  gpus_per_replica: 1
+  inference_workers: 1
+  allow_gpu_sharing: false
+  model_ready_policy: auto
+benchmarks:
+- benchmark_id: aishell_4
+  dataset: smoke-aishell_4-asr10
+  task: smoke-task-aishell_4
+  prompt: qwen3-omni-asr-zh
+  evaluator: cer
+  agg: wer-zh
+  limit: 10
+  evaluation_workers: 1
+- benchmark_id: aishell_5
+  dataset: smoke-aishell_5-asr10
+  task: smoke-task-aishell_5
+  prompt: qwen3-omni-asr-zh
+  evaluator: cer
+  agg: wer-zh
+  limit: 10
+  evaluation_workers: 1
+- benchmark_id: alimeeting
+  dataset: smoke-alimeeting-asr10
+  task: smoke-task-alimeeting
+  prompt: qwen3-omni-asr-zh
+  evaluator: cer
+  agg: wer-zh
+  limit: 10
+  evaluation_workers: 1
+- benchmark_id: magicdata_ramc
+  dataset: smoke-magicdata_ramc-asr10
+  task: smoke-task-magicdata_ramc
+  prompt: qwen3-omni-asr-zh
+  evaluator: cer
+  agg: wer-zh
+  limit: 10
+  evaluation_workers: 1

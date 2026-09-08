@@ -1,0 +1,144 @@
+smoke-task-aishell_1:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-aishell_1-asr10
+    prompt: qwen3-omni-asr-zh
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: cer
+    agg: wer-zh
+smoke-task-aishell_4:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-aishell_4-asr10
+    prompt: qwen3-omni-asr-zh
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: cer
+    agg: wer-zh
+smoke-task-aishell_4-sliced:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-aishell_4-sliced-asr10
+    prompt: qwen3-omni-asr-zh
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: cer
+    agg: wer-zh
+smoke-task-aishell_5:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-aishell_5-asr10
+    prompt: qwen3-omni-asr-zh
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: cer
+    agg: wer-zh
+smoke-task-alimeeting:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-alimeeting-asr10
+    prompt: qwen3-omni-asr-zh
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: cer
+    agg: wer-zh
+smoke-task-ami:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-ami-asr10
+    prompt: qwen3-omni-asr-en
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: wer
+    agg: wer
+smoke-task-chime:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-chime-asr10
+    prompt: qwen3-omni-asr-en
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: wer
+    agg: wer
+smoke-task-common_voice:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-common_voice-asr10
+    prompt: qwen3-omni-asr-en
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: wer
+    agg: wer
+smoke-task-librispeech:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-librispeech-asr10
+    prompt: qwen3-omni-asr-en
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: wer
+    agg: wer
+smoke-task-magicdata_ramc:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-magicdata_ramc-asr10
+    prompt: qwen3-omni-asr-zh
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: cer
+    agg: wer-zh
+smoke-task-misp:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-misp-asr10
+    prompt: qwen3-omni-asr-zh
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: cer
+    agg: wer-zh
+smoke-task-aishell_5-sliced:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-aishell_5-sliced-asr10
+    prompt: qwen3-omni-asr-zh
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: cer
+    agg: wer-zh
+smoke-task-alimeeting-sliced:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-alimeeting-sliced-asr10
+    prompt: qwen3-omni-asr-zh
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: cer
+    agg: wer-zh
+smoke-task-magicdata_ramc-sliced:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-magicdata_ramc-sliced-asr10
+    prompt: qwen3-omni-asr-zh
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: cer
+    agg: wer-zh
+smoke-task-misp-sliced:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-misp-sliced-asr10
+    prompt: qwen3-omni-asr-zh
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: cer
+    agg: wer-zh
+smoke-task-sbcsae-sliced:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-sbcsae-sliced-asr10
+    prompt: qwen3-omni-asr-en
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: wer
+    agg: wer

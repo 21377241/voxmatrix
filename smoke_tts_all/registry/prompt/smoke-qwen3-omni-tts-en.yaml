@@ -1,0 +1,8 @@
+smoke-qwen3-omni-tts-en:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: text
+            value: "Repeat the following text once without adding any other words:\n\n\n {{text}}\n"

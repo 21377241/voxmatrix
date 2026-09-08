@@ -1,0 +1,22 @@
+schema_version: evaluation-suite-config/1.0
+run_id: smoke-attr-chime6-crop
+model: qwen3-omni-local
+output_root: /mnt/afs/users/wangyl/VoxMatrix/smoke_attr_all/results_chime6_crop
+registry_paths:
+- /mnt/afs/users/wangyl/VoxMatrix/smoke_attr_all/registry
+model_pool:
+  use_model_pool: 'off'
+  replicas: 1
+  gpus_per_replica: 1
+  inference_workers: 1
+  allow_gpu_sharing: false
+  model_ready_policy: auto
+benchmarks:
+- benchmark_id: chime_6
+  dataset: smoke-chime6-attr10
+  task: smoke-task-chime6-attr
+  prompt: mesh-speaker-attribution
+  evaluator: mesh-speaker-attribution
+  agg: mesh
+  limit: 10
+  evaluation_workers: 1

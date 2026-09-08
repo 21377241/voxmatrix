@@ -1,0 +1,6 @@
+smoke-seed-tts-eval-asr-wer-en:
+  class: audio_evals.evaluator.seed_tts_eval_asr_wer.SeedTTSEvalASRWER
+  args:
+    model_name: smoke-seed-tts-whisper
+    prompt_name: smoke-whisper-asr-en
+    lang: en

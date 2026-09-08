@@ -1,0 +1,45 @@
+smoke-task-aishell4-diar:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-aishell4-diar10
+    prompt: mesh-diarization
+    model: qwen3-omni-local
+    post_process: [mesh-diarization-normalize]
+    evaluator: mesh-diarization
+    agg: mesh
+smoke-task-alimeeting-diar:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-alimeeting-diar10
+    prompt: mesh-diarization
+    model: qwen3-omni-local
+    post_process: [mesh-diarization-normalize]
+    evaluator: mesh-diarization
+    agg: mesh
+smoke-task-ami-diar:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-ami-diar10
+    prompt: mesh-diarization
+    model: qwen3-omni-local
+    post_process: [mesh-diarization-normalize]
+    evaluator: mesh-diarization
+    agg: mesh
+smoke-task-chime6-diar:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-chime6-diar10
+    prompt: mesh-diarization
+    model: qwen3-omni-local
+    post_process: [mesh-diarization-normalize]
+    evaluator: mesh-diarization
+    agg: mesh
+smoke-task-misp-diar:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-misp-diar10
+    prompt: mesh-diarization
+    model: qwen3-omni-local
+    post_process: [mesh-diarization-normalize]
+    evaluator: mesh-diarization
+    agg: mesh

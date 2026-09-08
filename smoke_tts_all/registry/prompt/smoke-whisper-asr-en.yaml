@@ -1,0 +1,8 @@
+smoke-whisper-asr-en:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"

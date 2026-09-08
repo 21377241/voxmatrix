@@ -1,21 +1,98 @@
 import itertools
+import json
+import re
 from collections import defaultdict
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from audio_evals.evaluator.base import Evaluator
 from audio_evals.lib.wer import compute_wer
 from mesh_eval.evaluator.utils import canonical_scalar, coerce_bool, extract_json, first_present, reference_object
 
+_SEGMENT_OBJECT_RE = re.compile(
+    r"\{[^{}]*?"
+    r"\"(?:start|start_time|begin)\"\s*:\s*(?P<start>[-+0-9.eE]+)"
+    r"[^{}]*?"
+    r"\"(?:end|end_time)\"\s*:\s*(?P<end>[-+0-9.eE]+)"
+    r"[^{}]*?"
+    r"\"(?:speaker|speaker_id|label)\"\s*:\s*\"(?P<speaker>[^\"]+)\""
+    r"[^{}]*?\}",
+    flags=re.DOTALL,
+)
 
-def _segments(value: Any) -> List[Tuple[float, float, str]]:
-    if isinstance(value, str):
-        try:
-            value = extract_json(value)
-        except (TypeError, ValueError):
-            return []
+
+def _partial_segment_dicts(text: str) -> List[Dict[str, Any]]:
+    """Recover complete segment objects from truncated / messy JSON output."""
+    return [
+        {
+            "start": float(match.group("start")),
+            "end": float(match.group("end")),
+            "speaker": match.group("speaker"),
+        }
+        for match in _SEGMENT_OBJECT_RE.finditer(text or "")
+    ]
+
+
+def _audio_duration_seconds(kwargs: Dict[str, Any]) -> Optional[float]:
+    runtime = kwargs.get("runtime") if isinstance(kwargs.get("runtime"), dict) else {}
+    for source in (kwargs, runtime):
+        if not isinstance(source, dict):
+            continue
+        for key in ("audio_duration_seconds", "audio_duration"):
+            value = source.get(key)
+            if value is None:
+                continue
+            try:
+                duration = float(value)
+            except (TypeError, ValueError):
+                continue
+            if duration > 0:
+                return duration
+    return None
+
+
+def _clip_segments(
+    segments: List[Tuple[float, float, str]], max_time: Optional[float]
+) -> List[Tuple[float, float, str]]:
+    if max_time is None:
+        return segments
+    clipped: List[Tuple[float, float, str]] = []
+    for start, end, speaker in segments:
+        if start >= max_time:
+            continue
+        end = min(end, max_time)
+        if end > start:
+            clipped.append((max(0.0, start), end, speaker))
+    return clipped
+
+
+def _merge_adjacent_segments(
+    segments: List[Tuple[float, float, str]], gap: float = 1e-3
+) -> List[Tuple[float, float, str]]:
+    if not segments:
+        return []
+    ordered = sorted(segments, key=lambda item: (item[0], item[1], item[2]))
+    merged = [ordered[0]]
+    for start, end, speaker in ordered[1:]:
+        prev_start, prev_end, prev_speaker = merged[-1]
+        if speaker == prev_speaker and start <= prev_end + gap:
+            merged[-1] = (prev_start, max(prev_end, end), prev_speaker)
+        else:
+            merged.append((start, end, speaker))
+    return merged
+
+
+def _items_to_segments(value: Any) -> List[Tuple[float, float, str]]:
     if isinstance(value, dict):
-        value = value.get("segments", [])
-    result = []
+        if "segments" in value:
+            value = value.get("segments", [])
+        elif any(key in value for key in ("start", "start_time", "begin")) and any(
+            key in value for key in ("end", "end_time", "duration")
+        ):
+            # extract_json may return a single segment object when the array is truncated.
+            value = [value]
+        else:
+            value = value.get("segments", [])
+    result: List[Tuple[float, float, str]] = []
     for item in value or []:
         if not isinstance(item, dict):
             continue
@@ -27,6 +104,68 @@ def _segments(value: Any) -> List[Tuple[float, float, str]]:
         if start is not None and end is not None and speaker is not None and float(end) > float(start):
             result.append((float(start), float(end), canonical_scalar(speaker)))
     return result
+
+
+def _json_parseable(value: str) -> bool:
+    try:
+        extract_json(value)
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
+def _looks_like_truncated_diar_json(text: str) -> bool:
+    stripped = (text or "").strip()
+    if not stripped:
+        return False
+    if stripped.count("{") > stripped.count("}") or stripped.count("[") > stripped.count("]"):
+        return True
+    if stripped.startswith("```") and not stripped.rstrip().endswith("```"):
+        return True
+    return False
+
+
+def normalize_diarization_prediction(
+    value: Any, max_time: Optional[float] = None
+) -> Dict[str, Any]:
+    """Parse / salvage / clip diarization model output into canonical segments."""
+    salvaged = 0
+    truncated = 0
+    parsed: Any = value
+    if isinstance(value, str):
+        truncated = int(_looks_like_truncated_diar_json(value))
+        try:
+            parsed = extract_json(value)
+            # Truncated arrays often parse as the first complete object only — prefer regex salvage.
+            if truncated and isinstance(parsed, dict) and "segments" not in parsed:
+                recovered = _partial_segment_dicts(value)
+                if len(recovered) >= 1:
+                    parsed = recovered
+                    salvaged = 1
+        except (TypeError, ValueError):
+            parsed = _partial_segment_dicts(value)
+            salvaged = int(bool(parsed))
+            truncated = 1
+    segments = _merge_adjacent_segments(_clip_segments(_items_to_segments(parsed), max_time))
+    if isinstance(value, str) and not segments and not _json_parseable(value):
+        truncated = 1
+    payload = {
+        "segments": [
+            {"start": round(start, 3), "end": round(end, 3), "speaker": speaker}
+            for start, end, speaker in segments
+        ]
+    }
+    return {
+        "segments": segments,
+        "payload": payload,
+        "content": json.dumps(payload, ensure_ascii=False),
+        "diarization_salvaged": salvaged,
+        "diarization_truncated": truncated,
+    }
+
+
+def _segments(value: Any, max_time: Optional[float] = None) -> List[Tuple[float, float, str]]:
+    return normalize_diarization_prediction(value, max_time=max_time)["segments"]
 
 
 def _speaker_at(segments: List[Tuple[float, float, str]], point: float) -> str:
@@ -58,11 +197,29 @@ class DiarizationEvaluator(Evaluator):
 
     def _eval(self, pred: Any, label: Any, **kwargs: Any) -> Dict[str, Any]:
         reference = reference_object(label, kwargs)
-        ref_segments = _segments(first_present(reference.get("segments"), label))
-        pred_segments = _segments(pred)
+        max_time = _audio_duration_seconds(kwargs)
+        ref_segments = _segments(first_present(reference.get("segments"), label), max_time=max_time)
+        normalized = normalize_diarization_prediction(pred, max_time=max_time)
+        pred_segments = normalized["segments"]
+        empty_pred = not pred_segments
+        empty_ref = not ref_segments
+        # Empty prediction against non-empty reference is an engineering/parse failure,
+        # not a silent DER=1 with failure_rate=0.
+        parse_failure = int(empty_pred and not empty_ref)
+
         boundaries = sorted({point for start, end, _ in ref_segments + pred_segments for point in (start, end)})
         if len(boundaries) < 2:
-            return {"der": 1.0, "diarization_valid": 0}
+            return {
+                "der": 1.0,
+                "der_error_duration": sum(end - start for start, end, _ in ref_segments) if ref_segments else 0.0,
+                "der_reference_duration": sum(end - start for start, end, _ in ref_segments) if ref_segments else 0.0,
+                "diarization_valid": 0,
+                "diarization_salvaged": normalized["diarization_salvaged"],
+                "diarization_truncated": normalized["diarization_truncated"],
+                "failure": parse_failure,
+                "failure_stage": "evaluation" if parse_failure else "",
+                "failure_type": "diarization_empty_pred" if parse_failure else "",
+            }
         overlaps: Dict[Tuple[str, str], float] = {}
         intervals = []
         for left, right in zip(boundaries, boundaries[1:]):
@@ -89,7 +246,12 @@ class DiarizationEvaluator(Evaluator):
             "der": der,
             "der_error_duration": error_time,
             "der_reference_duration": reference_time,
-            "diarization_valid": 1,
+            "diarization_valid": 0 if parse_failure else 1,
+            "diarization_salvaged": normalized["diarization_salvaged"],
+            "diarization_truncated": normalized["diarization_truncated"],
+            "failure": parse_failure,
+            "failure_stage": "evaluation" if parse_failure else "",
+            "failure_type": "diarization_empty_pred" if parse_failure else "",
         }
 
 

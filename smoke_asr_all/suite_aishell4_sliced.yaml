@@ -1,0 +1,22 @@
+schema_version: evaluation-suite-config/1.0
+run_id: smoke-aishell4-utt-clips
+model: qwen3-omni-local
+output_root: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/results_utt_clips
+registry_paths:
+- /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/registry
+model_pool:
+  use_model_pool: 'off'
+  replicas: 1
+  gpus_per_replica: 1
+  inference_workers: 1
+  allow_gpu_sharing: false
+  model_ready_policy: auto
+benchmarks:
+- benchmark_id: aishell_4
+  dataset: smoke-aishell_4-sliced-asr10
+  task: smoke-task-aishell_4-sliced
+  prompt: qwen3-omni-asr-zh
+  evaluator: cer
+  agg: wer-zh
+  limit: 10
+  evaluation_workers: 1

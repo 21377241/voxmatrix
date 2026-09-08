@@ -1,0 +1,6 @@
+smoke-ls10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr10/manifest.jsonl
+    default_task: asr
+    ref_col: text

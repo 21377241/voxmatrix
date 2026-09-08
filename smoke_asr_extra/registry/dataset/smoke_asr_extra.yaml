@@ -1,0 +1,18 @@
+smoke-wenetspeech-asr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_extra/wenetspeech/manifest.jsonl
+    default_task: smoke-task-wenetspeech
+    ref_col: text
+smoke-sbcsae-asr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_extra/sbcsae/manifest.jsonl
+    default_task: smoke-task-sbcsae
+    ref_col: text
+smoke-easycom-asr10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_extra/easycom/manifest.jsonl
+    default_task: smoke-task-easycom
+    ref_col: text

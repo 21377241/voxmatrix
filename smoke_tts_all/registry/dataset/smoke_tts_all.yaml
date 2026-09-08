@@ -1,0 +1,6 @@
+smoke-libritts-tts10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_tts_all/libritts/manifest.jsonl
+    default_task: smoke-task-libritts-tts
+    ref_col: text

@@ -1,0 +1,7 @@
+mesh-speaker-attribution:
+  class: mesh_eval.evaluator.speaker.SpeakerAttributionEvaluator
+  args: {}
+
+mesh-classification:
+  class: mesh_eval.evaluator.classification.ClassificationEvaluator
+  args: {}

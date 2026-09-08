@@ -1,0 +1,59 @@
+smoke-task-aishell4-attr:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-aishell4-attr10
+    prompt: mesh-speaker-attribution
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: mesh-speaker-attribution
+    agg: mesh
+
+smoke-task-aishell5-attr:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-aishell5-attr10
+    prompt: mesh-speaker-attribution
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: mesh-speaker-attribution
+    agg: mesh
+
+smoke-task-alimeeting-attr:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-alimeeting-attr10
+    prompt: mesh-speaker-attribution
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: mesh-speaker-attribution
+    agg: mesh
+
+smoke-task-ami-attr:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-ami-attr10
+    prompt: mesh-speaker-attribution
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: mesh-speaker-attribution
+    agg: mesh
+
+smoke-task-cnceleb-sid:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-cnceleb-sid10
+    prompt: mesh-sid-diagnostic
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: mesh-classification
+    agg: mesh
+
+smoke-task-chime6-attr:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: smoke-chime6-attr10
+    prompt: mesh-speaker-attribution
+    model: qwen3-omni-local
+    post_process: []
+    evaluator: mesh-speaker-attribution
+    agg: mesh

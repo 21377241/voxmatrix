@@ -1,0 +1,6 @@
+smoke-aishell5-ts10:
+  class: audio_evals.dataset.dataset.JsonlFile
+  args:
+    f_name: /mnt/afs/users/wangyl/VoxMatrix/smoke_ts_all/aishell_5/manifest.jsonl
+    default_task: smoke-task-aishell5-ts
+    ref_col: text

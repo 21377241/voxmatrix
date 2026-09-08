@@ -1,0 +1,54 @@
+schema_version: evaluation-suite-config/1.0
+run_id: smoke-asr-utt-clips-5
+model: qwen3-omni-local
+output_root: /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/results_utt_clips
+registry_paths:
+- /mnt/afs/users/wangyl/VoxMatrix/smoke_asr_all/registry
+model_pool:
+  use_model_pool: 'off'
+  replicas: 1
+  gpus_per_replica: 1
+  inference_workers: 1
+  allow_gpu_sharing: false
+  model_ready_policy: auto
+benchmarks:
+- benchmark_id: aishell_5
+  dataset: smoke-aishell_5-sliced-asr10
+  task: smoke-task-aishell_5-sliced
+  prompt: qwen3-omni-asr-zh
+  evaluator: cer
+  agg: wer-zh
+  limit: 10
+  evaluation_workers: 1
+- benchmark_id: alimeeting
+  dataset: smoke-alimeeting-sliced-asr10
+  task: smoke-task-alimeeting-sliced
+  prompt: qwen3-omni-asr-zh
+  evaluator: cer
+  agg: wer-zh
+  limit: 10
+  evaluation_workers: 1
+- benchmark_id: magicdata_ramc
+  dataset: smoke-magicdata_ramc-sliced-asr10
+  task: smoke-task-magicdata_ramc-sliced
+  prompt: qwen3-omni-asr-zh
+  evaluator: cer
+  agg: wer-zh
+  limit: 10
+  evaluation_workers: 1
+- benchmark_id: misp
+  dataset: smoke-misp-sliced-asr10
+  task: smoke-task-misp-sliced
+  prompt: qwen3-omni-asr-zh
+  evaluator: cer
+  agg: wer-zh
+  limit: 10
+  evaluation_workers: 1
+- benchmark_id: sbcsae
+  dataset: smoke-sbcsae-sliced-asr10
+  task: smoke-task-sbcsae-sliced
+  prompt: qwen3-omni-asr-en
+  evaluator: wer
+  agg: wer
+  limit: 10
+  evaluation_workers: 1
