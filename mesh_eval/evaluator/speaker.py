@@ -5,7 +5,7 @@ from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 
 from audio_evals.evaluator.base import Evaluator
-from audio_evals.lib.wer import compute_wer
+from audio_evals.lib.wer import compute_wer, is_filler_only_reference
 from mesh_eval.evaluator.utils import canonical_scalar, coerce_bool, extract_json, first_present, reference_object
 
 _SEGMENT_OBJECT_RE = re.compile(
@@ -471,19 +471,39 @@ class SpeakerAttributionEvaluator(Evaluator):
                 **meta,
             }
 
+        language = str(kwargs.get("language") or "zh")
+        language = "zh" if language.startswith("zh") else "en"
+
+        # Drop event-only / filler gold utts ([laughs], [noise], uh/um-only, …).
+        # Otherwise EN normalize → empty ref → compute_wer raises contract_violation.
         ref_by_speaker: Dict[str, List[str]] = defaultdict(list)
         pred_by_speaker: Dict[str, List[str]] = defaultdict(list)
+        dropped_ref_utts = 0
+        scored_refs: List[Dict[str, Any]] = []
         for item in refs:
             speaker = canonical_scalar(first_present(item.get("speaker"), item.get("speaker_id")))
-            ref_by_speaker[speaker].append(str(first_present(item.get("text"), item.get("transcript"), "")))
+            text = str(first_present(item.get("text"), item.get("transcript"), ""))
+            if is_filler_only_reference(text, language):
+                dropped_ref_utts += 1
+                continue
+            ref_by_speaker[speaker].append(text)
+            scored_refs.append(item)
         for item in preds:
             speaker = canonical_scalar(first_present(item.get("speaker"), item.get("speaker_id")))
             pred_by_speaker[speaker].append(str(first_present(item.get("text"), item.get("transcript"), "")))
 
+        meta["attribution_ref_utt_dropped"] = dropped_ref_utts
+
+        if not ref_by_speaker:
+            return {
+                "attribution_acc": 0.0,
+                "cpcer%": 100.0,
+                "attribution_valid": 0,
+                **meta,
+            }
+
         ref_speakers = sorted(ref_by_speaker)
         pred_speakers = sorted(pred_by_speaker)
-        language = str(kwargs.get("language") or "zh")
-        language = "zh" if language.startswith("zh") else "en"
         speaker_count = max(len(pred_speakers), len(ref_speakers))
         padded_preds = pred_speakers + [
             f"__missing_pred_{index}"
@@ -500,9 +520,10 @@ class SpeakerAttributionEvaluator(Evaluator):
             for pred_speaker, ref_speaker in zip(padded_preds, assignment):
                 pred_text = " ".join(pred_by_speaker.get(pred_speaker, []))
                 ref_text = " ".join(ref_by_speaker.get(ref_speaker, []))
-                if not ref_text:
-                    costs.append(float(bool(pred_text)))
-                elif not pred_text:
+                # Empty / normalize-empty ref: do not call compute_wer (would raise).
+                if (not ref_text) or is_filler_only_reference(ref_text, language):
+                    costs.append(float(bool(pred_text.strip())))
+                elif not pred_text.strip():
                     costs.append(1.0)
                 else:
                     costs.append(compute_wer([ref_text], [pred_text], language=language))
@@ -515,7 +536,7 @@ class SpeakerAttributionEvaluator(Evaluator):
             str(first_present(item.get("utterance_id"), item.get("id"), index)): canonical_scalar(
                 first_present(item.get("speaker"), item.get("speaker_id"))
             )
-            for index, item in enumerate(refs)
+            for index, item in enumerate(scored_refs)
         }
         correct = 0
         compared = 0

@@ -15,6 +15,7 @@ from audio_evals.agg.base import AggPolicy
 from audio_evals.base import ScoreUnit
 from audio_evals.dataset.dataset import Dataset
 from audio_evals.evaluator.base import Evaluator
+from audio_evals.lib.wer import FillerOnlyReferenceSkipped
 from audio_evals.models.model import Model
 from audio_evals.process.base import Process
 from audio_evals.prompt.base import Prompt
@@ -500,6 +501,19 @@ class EvalTask:
                 eval_kwargs["runtime"] = runtime
             try:
                 score = dict(self.evaluator(output, reference, **eval_kwargs))
+            except FillerOnlyReferenceSkipped as exc:
+                skip_data = {
+                    "ref": reference,
+                    "pred": output,
+                    "skipped": 1,
+                    "skip_reason": exc.reason,
+                }
+                for field, value in runtime.items():
+                    skip_data.setdefault(field, value)
+                for field, value in _event_dimensions(kwargs).items():
+                    skip_data.setdefault(field, value)
+                self._record_event("skipped", event_id, skip_data, kwargs)
+                return None, output
             except Exception as exc:
                 _tag_exception(exc, "evaluation")
                 raise
@@ -523,13 +537,15 @@ class EvalTask:
             score, ans = self._eval(
                 i, real_prompt, doc.get(self.dataset.ref_col, ""), **doc
             )
-            return i, score, ans, 0
+            if score is None:
+                return i, None, ans, 0, 1
+            return i, score, ans, 0, 0
         except Exception as exc:
             error_traceback = traceback.format_exc()
             error_data = _failure_score(doc, exc, error_traceback)
             self._record_event("error", self._event_id(i), error_data, doc)
             print(error_traceback)
-            return i, error_data, None, 1
+            return i, error_data, None, 1, 0
 
     def _inference_only(self, i, doc):
         """仅执行推理；后处理延迟到模型释放后的第二阶段。"""
@@ -602,6 +618,21 @@ class EvalTask:
             else:
                 try:
                     score = dict(self.evaluator(output, reference, **doc))
+                except FillerOnlyReferenceSkipped as exc:
+                    skip_data = {
+                        "ref": reference,
+                        "pred": output,
+                        "skipped": 1,
+                        "skip_reason": exc.reason,
+                    }
+                    for field, value in _recorded_runtime(doc).items():
+                        skip_data.setdefault(field, value)
+                    for field, value in _event_dimensions(doc).items():
+                        skip_data.setdefault(field, value)
+                    self._record_event(
+                        "skipped", self._event_id(i), skip_data, doc
+                    )
+                    return i, None, output, 0, 1
                 except Exception as exc:
                     _tag_exception(exc, "evaluation")
                     raise
@@ -612,7 +643,7 @@ class EvalTask:
             score.setdefault("failure", 0)
             score.setdefault("timeout", 0)
             self._record_event("eval", self._event_id(i), score, doc)
-            return i, score, output, 0
+            return i, score, output, 0, 0
         except Exception as exc:
             error_traceback = traceback.format_exc()
             error_data = _failure_score(doc, exc, error_traceback)
@@ -623,7 +654,7 @@ class EvalTask:
                 doc,
             )
             print(error_traceback)
-            return i, error_data, output, 1
+            return i, error_data, output, 1, 0
 
     def _release_predictor(self):
         """释放推理模型占用的 GPU 显存"""
@@ -751,6 +782,7 @@ class EvalTask:
         res = list(inference_state.get("error_scores") or [None] * len(quiz))
         answers = [None] * len(quiz)
         eval_error_count = 0
+        skip_count = 0
         inference_results = inference_state["results"]
         inference_docs = inference_state["docs"]
         inference_error_count = inference_state["error_count"]
@@ -771,8 +803,9 @@ class EvalTask:
                 for i, output, doc in eval_tasks
             ]
             for future in tqdm(as_completed(future_to_index), total=len(eval_tasks), desc="Evaluation"):
-                index, score, output, has_error = future.result()
+                index, score, output, has_error, skipped = future.result()
                 eval_error_count += has_error
+                skip_count += skipped
                 if score is not None:
                     res[index] = score
                     if not has_error and output is not None:
@@ -794,6 +827,8 @@ class EvalTask:
         final_res["fail_rate(%d)"] = failure_rate * 100
         final_res["inference_fail_count"] = inference_error_count
         final_res["eval_fail_count"] = eval_error_count
+        final_res["skipped_count"] = skip_count
+        final_res["skip_rate"] = skip_count / len(quiz) if quiz else 0.0
         return final_res, res, answers
 
     @lru_cache(maxsize=None)
@@ -832,6 +867,7 @@ class EvalTask:
         res = [None] * len(quiz)
         answers = [None] * len(quiz)
         error_count = 0
+        skip_count = 0
         from audio_evals.registry import registry
         self.evaluator = registry.get_evaluator(self.evaluator)
 
@@ -841,8 +877,9 @@ class EvalTask:
                 executor.submit(self._run, i, doc) for i, doc in enumerate(quiz)
             ]
             for future in tqdm(as_completed(future_to_index), total=len(quiz)):
-                index, score, ans, has_error = future.result()
+                index, score, ans, has_error, skipped = future.result()
                 error_count += has_error
+                skip_count += skipped
                 if score is not None:
                     res[index] = score
                 if not has_error and ans is not None:
@@ -861,4 +898,6 @@ class EvalTask:
         failure_rate = error_count / len(quiz) if quiz else 0.0
         final_res["failure_rate"] = failure_rate
         final_res["fail_rate(%d)"] = failure_rate * 100
+        final_res["skipped_count"] = skip_count
+        final_res["skip_rate"] = skip_count / len(quiz) if quiz else 0.0
         return final_res, res, answers

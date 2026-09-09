@@ -1,5 +1,9 @@
 from audio_evals.evaluator.base import Evaluator
-from audio_evals.lib.wer import compute_wer
+from audio_evals.lib.wer import (
+    FillerOnlyReferenceSkipped,
+    compute_wer,
+    get_reference_skip_reason,
+)
 
 
 class WER(Evaluator):
@@ -11,6 +15,9 @@ class WER(Evaluator):
         pred, label = str(pred), str(label)
         if self.ignore_case:
             pred, label = pred.lower(), label.lower()
+        skip_reason = get_reference_skip_reason(label, self.lang)
+        if skip_reason:
+            raise FillerOnlyReferenceSkipped(label, self.lang, reason=skip_reason)
         return {
             "wer%": compute_wer([label], [pred], language=self.lang) * 100,
         }
@@ -24,6 +31,9 @@ class CER(Evaluator):
         pred, label = str(pred), str(label)
         if self.ignore_case:
             pred, label = pred.lower(), label.lower()
+        skip_reason = get_reference_skip_reason(label, "zh")
+        if skip_reason:
+            raise FillerOnlyReferenceSkipped(label, "zh", reason=skip_reason)
         return {"cer%": compute_wer([label], [pred], language="zh") * 100}
 
 
