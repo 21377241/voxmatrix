@@ -40,6 +40,13 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping, Sequence
 
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    # ``python tools/capability_t4_smoke.py ...`` otherwise exposes only the
+    # tools directory on sys.path and cannot import the production evaluators.
+    sys.path.insert(0, str(REPO_ROOT))
+
+
 MANIFEST_PATH = Path(
     "/mnt/afs/users/wangyl/benchmark_annotation_audit/native_v2_pipeline/outputs/"
     "benchmark_subset_manifest.jsonl"
@@ -334,12 +341,15 @@ def _slurp_slots(row: Mapping[str, Any]) -> dict[str, Any]:
     tokens = row.get("tokens") or []
     entities = row.get("entities") or []
     surfaces = [str(item.get("surface", "")) for item in tokens]
-    slots: dict[str, str] = {}
+    grouped: dict[str, list[str]] = {}
     for entity in entities:
         span = entity.get("span") or []
         values = [surfaces[int(i)] for i in span if int(i) < len(surfaces)]
-        slots[str(entity.get("type"))] = " ".join(values)
-    return slots
+        grouped.setdefault(str(entity.get("type")), []).append(" ".join(values))
+    return {
+        key: values[0] if len(values) == 1 else values
+        for key, values in grouped.items()
+    }
 
 
 def _load_slurp(capability: str) -> list[dict[str, Any]]:
@@ -1194,7 +1204,13 @@ def _call_list(value: Any) -> list[tuple[str | None, dict[str, Any]]]:
     return [_extract_call(value)]
 
 
-def _score(row: Mapping[str, Any], prediction: str) -> dict[str, Any]:
+def _legacy_score(row: Mapping[str, Any], prediction: str) -> dict[str, Any]:
+    """Historical 2026-09-03 heuristics retained only for audit provenance.
+
+    New evaluations use :func:`_score` below.  In particular, this function's
+    question-mark clarification heuristic, lexical dialogue scores and
+    IHBench token overlap are not valid benchmark metrics.
+    """
     parsed = _parse_json_output(prediction)
     expected = row.get("expected") or {}
     metric = str(row.get("metric") or "")
@@ -1472,6 +1488,261 @@ def _score(row: Mapping[str, Any], prediction: str) -> dict[str, Any]:
     return score
 
 
+def _not_evaluated(
+    reason: Any, evaluator: str, metrics: Sequence[str] = ()
+) -> dict[str, Any]:
+    result = {
+        "status": "not_evaluated",
+        "not_evaluated": 1,
+        "not_evaluated_reason": str(reason),
+        "evaluator_protocol": evaluator,
+        "value": None,
+    }
+    if metrics:
+        result["metric_names"] = list(metrics)
+    return result
+
+
+def _finalize_score(
+    result: Mapping[str, Any],
+    *,
+    metrics: Sequence[str],
+    evaluator: str,
+    primary: str = "",
+) -> dict[str, Any]:
+    score = dict(result)
+    score.setdefault("status", "evaluated")
+    score.setdefault("not_evaluated", 0)
+    score["metric_names"] = list(metrics)
+    score["evaluator_protocol"] = evaluator
+    score["value"] = score.get(primary) if primary else None
+    return score
+
+
+def _rubric_score(
+    prediction: str,
+    reference: Mapping[str, Any],
+    *,
+    metrics: Sequence[str],
+    require_audio: bool = False,
+) -> dict[str, Any]:
+    """Use the production rubric bridge and preserve its fail-closed state."""
+    from mesh_eval.evaluator.agent import AgentRubricEvaluator
+
+    evaluator = AgentRubricEvaluator(require_audio=require_audio)
+    try:
+        result = evaluator(
+            prediction,
+            dict(reference),
+            metrics=list(metrics),
+        )
+    except RuntimeError as exc:
+        # A replay without a configured external judge is expected on the
+        # shared CPU environment.  It must not turn into a made-up numeric
+        # score, but the remaining locally scorable rows should still finish.
+        return _not_evaluated(exc, "mesh-agent-rubric", metrics)
+    return _finalize_score(
+        result,
+        metrics=metrics,
+        evaluator="mesh-agent-rubric",
+        primary="rubric_score",
+    )
+
+
+def _score(row: Mapping[str, Any], prediction: str) -> dict[str, Any]:
+    """Replay a sampled prediction through the production T4 evaluators.
+
+    The custom sampling manifest predates the runtime-sample/2.0 adapters, so
+    this bridge only translates its immutable ``expected``/``meta`` fields.
+    Metric implementations are the same classes registered by the main mesh.
+    """
+    from mesh_eval.evaluator.agent import (
+        ClarificationEvaluator,
+        IFEvalAdapter,
+        IHBenchEvaluator,
+        ToolTriggerEvaluator,
+    )
+    from mesh_eval.evaluator.structured import (
+        IntentEvaluator,
+        SlotF1Evaluator,
+        ToolCallEvaluator,
+    )
+
+    capability = str(row.get("capability") or "")
+    benchmark = str(row.get("benchmark") or "")
+    expected = row.get("expected") or {}
+    reference = row.get("reference") or {}
+    meta = row.get("meta") or {}
+
+    if capability == "instruction_following" and benchmark in {
+        "fluent_speech_commands",
+        "slurp",
+    }:
+        reference_obj = dict(reference or expected)
+        result = IntentEvaluator()(prediction, "", reference_obj=reference_obj)
+        result.update(
+            SlotF1Evaluator()(prediction, "", reference_obj=reference_obj)
+        )
+        return _finalize_score(
+            result,
+            metrics=["intent_acc", "slot_f1"],
+            evaluator="mesh-intent|mesh-slot-f1",
+            primary="intent_acc",
+        )
+
+    if capability == "instruction_following" and benchmark == "voicebench":
+        if not isinstance(expected, Mapping):
+            return _not_evaluated(
+                "IFEval reference is missing",
+                "mesh-ifeval",
+                ["constraint_satisfaction"],
+            )
+        result = IFEvalAdapter()(
+            prediction,
+            "",
+            reference_obj={
+                "prompt": expected.get("prompt") or meta.get("prompt"),
+                "instruction_id_list": expected.get("instruction_ids")
+                or meta.get("instruction_ids"),
+                "kwargs": expected.get("kwargs") or meta.get("kwargs"),
+            },
+        )
+        return _finalize_score(
+            result,
+            metrics=["constraint_satisfaction"],
+            evaluator="mesh-ifeval",
+            primary="constraint_satisfaction",
+        )
+
+    if capability == "instruction_following" and benchmark in {
+        "vocalbench",
+        "vocalbench_zh",
+    }:
+        qid = str(row.get("native_id") or "")
+        match = re.search(r"(\d+)$", qid)
+        requires_audio = bool(match and int(match.group(1)) < 200)
+        return _rubric_score(
+            prediction,
+            {
+                "rubric": {
+                    "instruction": meta.get("question"),
+                    "category": meta.get("category"),
+                    "subcategory": meta.get("sub_category"),
+                },
+                "requires_audio_output": requires_audio,
+            },
+            metrics=["constraint_satisfaction"],
+            require_audio=requires_audio,
+        )
+
+    if capability == "tool_call" and benchmark == "stepeval_audio_toolcall":
+        result = ToolTriggerEvaluator()(prediction, expected)
+        return _finalize_score(
+            result,
+            metrics=[
+                "trigger_correct",
+                "trigger_precision",
+                "trigger_recall",
+                "tool_type_accuracy",
+                "parameter_judge_accuracy",
+            ],
+            evaluator="mesh-tool-trigger",
+            primary="trigger_correct",
+        )
+
+    if capability == "tool_call":
+        result = ToolCallEvaluator()(
+            prediction,
+            "",
+            reference_obj={"expected_output": expected},
+        )
+        return _finalize_score(
+            result,
+            metrics=[
+                "tool_acc",
+                "parameter_acc",
+                "parameter_f1",
+                "call_exact_match",
+            ],
+            evaluator="mesh-tool-call",
+            primary="call_exact_match",
+        )
+
+    if capability == "clarification":
+        result = ClarificationEvaluator()(prediction, expected)
+        return _finalize_score(
+            result,
+            metrics=[
+                "clarification_accuracy",
+                "clarification_precision",
+                "clarification_recall",
+                "clarification_f1",
+            ],
+            evaluator="mesh-clarification",
+            primary="clarification_accuracy",
+        )
+
+    if capability == "multi_turn_dialogue":
+        rubric_reference: dict[str, Any] = {}
+        requires_audio = benchmark == "mtalk_bench"
+        if benchmark == "audioagentbench_suite":
+            rubric_reference = {
+                "answer": expected.get("answer") if isinstance(expected, Mapping) else None,
+                "rubric": "Use the full dialogue context and answer the latest turn correctly.",
+            }
+        elif benchmark in {"vocalbench", "vocalbench_zh"}:
+            rubric_reference = {
+                "answer": expected.get("answer") if isinstance(expected, Mapping) else None,
+                "rubric": meta.get("question"),
+            }
+        elif benchmark == "voicebench":
+            rubric_reference = {
+                "turns": expected.get("turns") if isinstance(expected, Mapping) else [],
+                "rubric": reference.get("reference") if isinstance(reference, Mapping) else None,
+            }
+        elif benchmark == "mtalk_bench":
+            rubric_reference = {
+                "rubric": meta.get("rubric_prompt_specific")
+                or meta.get("rubric_prompt_general"),
+                "requires_audio_output": True,
+                "required_audio_outputs": len(row.get("audio_paths") or []) or 1,
+            }
+        return _rubric_score(
+            prediction,
+            rubric_reference,
+            metrics=["llm_judge"],
+            require_audio=requires_audio,
+        )
+
+    if capability == "interruption" and benchmark == "ihbench":
+        expected_obj = expected if isinstance(expected, Mapping) else {}
+        reference_obj = reference if isinstance(reference, Mapping) else {}
+        ih_reference = {
+            "baseline": reference_obj.get("baseline"),
+            "task_fulfillment_rubric": expected_obj.get("tf_rubric")
+            or reference_obj.get("tf_rubric"),
+            "response_quality_rubrics": expected_obj.get("rq_rubrics")
+            or reference_obj.get("rq_rubrics"),
+        }
+        try:
+            result = IHBenchEvaluator()(prediction, ih_reference)
+        except RuntimeError as exc:
+            return _not_evaluated(
+                exc, "mesh-ihbench", ["tf_win_score", "rq_pass"]
+            )
+        return _finalize_score(
+            result,
+            metrics=["tf_win_score", "rq_pass"],
+            evaluator="mesh-ihbench",
+            primary="tf_win_score",
+        )
+
+    return _not_evaluated(
+        f"no production T4 evaluator bridge for {capability}::{benchmark}",
+        "unmapped",
+    )
+
+
 def prepare(args: argparse.Namespace) -> None:
     work = Path(args.work_root).resolve()
     work.mkdir(parents=True, exist_ok=True)
@@ -1534,6 +1805,9 @@ def infer(args: argparse.Namespace) -> None:
 
 
 def evaluate(args: argparse.Namespace) -> None:
+    from mesh_eval.agg.mesh import MeshAgg
+    from mesh_eval.core.schema import normalize_metrics
+
     work = Path(args.work_root).resolve()
     samples = {row["sample_id"]: row for row in _read_jsonl(work / "samples.jsonl")}
     pred_rows: list[dict[str, Any]] = []
@@ -1547,14 +1821,63 @@ def evaluate(args: argparse.Namespace) -> None:
         if not pred:
             audited.append({"sample_id": sample_id, "capability": sample["capability"], "benchmark": sample["benchmark"], "error": "missing prediction", "score": {"status": "missing"}})
             continue
-        scored = _score(sample, str(pred.get("prediction") or ""))
+        if pred.get("error"):
+            scored = _not_evaluated(
+                f"inference failed: {pred['error']}", "inference_error"
+            )
+        else:
+            scored = _score(sample, str(pred.get("prediction") or ""))
         audited.append({"sample_id": sample_id, "capability": sample["capability"], "benchmark": sample["benchmark"], "native_id": sample["native_id"], "prediction": pred.get("prediction"), "error": pred.get("error"), "reference": sample.get("reference"), "expected": sample.get("expected"), "meta": sample.get("meta"), "score": scored})
     _write_jsonl(work / "audited.jsonl", audited)
     summary: dict[str, Any] = {}
     for key, group in _groupby(audited, lambda r: (r["capability"], r["benchmark"])):
         values = [r["score"].get("value") for r in group if isinstance(r.get("score", {}).get("value"), (int, float))]
-        summary[f"{key[0]}::{key[1]}"] = {"sample_count": len(group), "predicted": sum(not r.get("error") for r in group), "errors": sum(bool(r.get("error")) for r in group), "numeric_values": len(values), "mean_value": round(sum(values) / len(values), 4) if values else None, "statuses": dict(Counter(r.get("score", {}).get("status") for r in group))}
-    _write_json(work / "summary.json", {"schema_version": "t4-smoke-summary/1", "summary": summary, "sample_count": len(audited), "missing_predictions": sum(r.get("error") == "missing prediction" for r in audited)})
+        score_rows = [dict(r.get("score") or {}) for r in group]
+        aggregate = MeshAgg(group_by=[], min_slice_size=1)(score_rows)
+        requested_metrics: list[str] = []
+        for score in score_rows:
+            for metric in normalize_metrics(score.get("metric_names")):
+                if metric not in requested_metrics:
+                    requested_metrics.append(metric)
+        metric_summary = {}
+        for metric in requested_metrics:
+            metric_summary[metric] = {
+                "mean": aggregate.get(f"overall/{metric}"),
+                "sample_count": aggregate.get(
+                    f"overall/{metric}/sample_count", 0
+                ),
+            }
+        group_summary = {
+            "sample_count": len(group),
+            "predicted": sum(not r.get("error") for r in group),
+            "errors": sum(bool(r.get("error")) for r in group),
+            "evaluated": sum(
+                r.get("score", {}).get("status") == "evaluated" for r in group
+            ),
+            "not_evaluated": sum(
+                r.get("score", {}).get("status") == "not_evaluated"
+                for r in group
+            ),
+            "numeric_values": len(values),
+            "mean_value": round(sum(values) / len(values), 4) if values else None,
+            "metrics": metric_summary,
+            "statuses": dict(
+                Counter(r.get("score", {}).get("status") for r in group)
+            ),
+            "not_evaluated_reasons": dict(
+                Counter(
+                    str(r.get("score", {}).get("not_evaluated_reason"))
+                    for r in group
+                    if r.get("score", {}).get("not_evaluated_reason")
+                )
+            ),
+        }
+        for decision in ("clarification", "trigger"):
+            aggregation = aggregate.get(f"overall/{decision}/aggregation")
+            if aggregation:
+                group_summary[f"{decision}_aggregation"] = aggregation
+        summary[f"{key[0]}::{key[1]}"] = group_summary
+    _write_json(work / "summary.json", {"schema_version": "t4-smoke-summary/2", "evaluator_protocol": "production_mesh_t4@1", "legacy_heuristics_used": False, "summary": summary, "sample_count": len(audited), "missing_predictions": sum(r.get("error") == "missing prediction" for r in audited)})
     print(_json_dump({"summary": summary, "audited": str(work / "audited.jsonl")}))
 
 

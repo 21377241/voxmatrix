@@ -50,7 +50,21 @@ metrics:
   tool_acc: {category: agent, evaluator: mesh-tool-call, status: ready_cpu}
   parameter_acc: {category: agent, evaluator: mesh-tool-call, status: ready_cpu}
   parameter_f1: {category: agent, evaluator: mesh-tool-call, status: ready_cpu}
+  call_exact_match: {category: agent, evaluator: mesh-tool-call, status: ready_cpu}
+  call_exact: {category: agent, evaluator: mesh-tool-call, status: ready_cpu}
   task_success: {category: agent, evaluator: mesh-action-match, status: ready_cpu}
+  clarification_accuracy: {category: agent, evaluator: mesh-clarification, status: ready_cpu}
+  clarification_precision: {category: agent, evaluator: mesh-clarification, status: ready_cpu, aggregation: mesh}
+  clarification_recall: {category: agent, evaluator: mesh-clarification, status: ready_cpu, aggregation: mesh}
+  clarification_f1: {category: agent, evaluator: mesh-clarification, status: ready_cpu, aggregation: mesh}
+  trigger_correct: {category: agent, evaluator: mesh-tool-trigger, status: ready_cpu}
+  trigger_precision: {category: agent, evaluator: mesh-tool-trigger, status: ready_cpu, aggregation: mesh}
+  trigger_recall: {category: agent, evaluator: mesh-tool-trigger, status: ready_cpu, aggregation: mesh}
+  tool_type_accuracy: {category: agent, evaluator: mesh-tool-trigger, status: ready_cpu}
+  parameter_judge_accuracy: {category: agent, evaluator: mesh-tool-trigger, status: requires_api, dependencies: [LLM judge service, network access, official StepEval parameter rubric]}
+  tf_win_score: {category: agent, evaluator: mesh-ihbench, status: requires_api, dependencies: [OPENAI_API_KEY or LLMCenterUserToken, network access, IHBench TF comparison rubric]}
+  rq_pass: {category: agent, evaluator: mesh-ihbench, status: requires_api, dependencies: [OPENAI_API_KEY or LLMCenterUserToken, network access, IHBench RQ rubric]}
+  rq_score: {category: agent, evaluator: mesh-ihbench, status: requires_api, dependencies: [OPENAI_API_KEY or LLMCenterUserToken, network access, IHBench RQ rubric]}
   response_acc: {category: edge, evaluator: mesh-response-gate, status: ready_cpu}
   false_accept: {category: edge, evaluator: mesh-response-gate, status: ready_cpu}
   false_reject: {category: edge, evaluator: mesh-response-gate, status: ready_cpu}

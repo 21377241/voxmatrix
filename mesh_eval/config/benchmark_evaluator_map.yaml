@@ -811,7 +811,7 @@ benchmarks:
     language: en
     scenario: home
     condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: smart_speaker, interaction: single_turn}
-    metrics: [tool_acc, parameter_acc, parameter_f1, task_success]
+    metrics: [tool_acc, parameter_acc, parameter_f1, call_exact_match]
     evaluators: [mesh-tool-call]
     prompt: mesh-tool-call
     use_bucket: diagnostic_evidence
@@ -829,7 +829,7 @@ benchmarks:
     language: en
     scenario: phone
     condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
-    metrics: [tool_acc, parameter_acc, parameter_f1, task_success]
+    metrics: [tool_acc, parameter_acc, parameter_f1, call_exact_match]
     evaluators: [mesh-tool-call]
     prompt: mesh-tool-call
     use_bucket: diagnostic_evidence
@@ -1060,7 +1060,7 @@ benchmarks:
     evaluators: [mesh-text-f1]
     prompt: mesh-contextual-audio
     use_bucket: diagnostic_evidence
-    data: {local_path: "${VOXMATRIX_AUDIO_AGENT_ROOT:-data/AudioAgentBench}", split: test, view: dialogue}
+    data: {local_path: "${VOXMATRIX_AUDIO_AGENT_ROOT:-/mnt/afs/eval_data/benchmarks/AudioAgentBench}", split: test, view: dialogue}
     requirements: [offline dialogue proxy; no live tool runtime]
     smoke_status: native_metadata_ready
 
@@ -1074,11 +1074,11 @@ benchmarks:
     language: en
     scenario: home
     condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: smart_speaker, interaction: multi_turn}
-    metrics: [tool_acc, parameter_acc, parameter_f1, task_success]
+    metrics: [tool_acc, parameter_acc, parameter_f1, call_exact_match]
     evaluators: [mesh-tool-call]
     prompt: mesh-contextual-audio
     use_bucket: diagnostic_evidence
-    data: {local_path: "${VOXMATRIX_AUDIO_AGENT_ROOT:-data/AudioAgentBench}", split: test, view: tool_call}
+    data: {local_path: "${VOXMATRIX_AUDIO_AGENT_ROOT:-/mnt/afs/eval_data/benchmarks/AudioAgentBench}", split: test, view: tool_call}
     requirements: [offline expected-call scoring; no live tool execution]
     smoke_status: native_metadata_ready
 
@@ -1088,15 +1088,15 @@ benchmarks:
     registry_dataset: audio-agent-bench-clarification
     task: agent
     capability: clarification
-    answer_type: text
+    answer_type: structured_json
     language: en
     scenario: home
     condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: smart_speaker, interaction: clarification}
-    metrics: [text_f1]
-    evaluators: [mesh-text-f1]
-    prompt: mesh-contextual-audio
+    metrics: [clarification_accuracy, clarification_precision, clarification_recall, clarification_f1]
+    evaluators: [mesh-clarification]
+    prompt: mesh-clarification-decision
     use_bucket: diagnostic_evidence
-    data: {local_path: "${VOXMATRIX_AUDIO_AGENT_ROOT:-data/AudioAgentBench}", split: test, view: clarification}
+    data: {local_path: "${VOXMATRIX_AUDIO_AGENT_ROOT:-/mnt/afs/eval_data/benchmarks/AudioAgentBench}", split: test, view: clarification}
     requirements: [manually reviewed diagnostic subset]
     smoke_status: native_metadata_ready
 
@@ -1110,10 +1110,316 @@ benchmarks:
     language: en
     scenario: phone
     condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: interruption}
-    metrics: [text_f1]
-    evaluators: [mesh-text-f1]
+    metrics: [tf_win_score, rq_pass]
+    evaluators: [mesh-ihbench]
     prompt: mesh-contextual-audio
     use_bucket: diagnostic_evidence
-    data: {local_path: "${VOXMATRIX_IHBENCH_ROOT:-data/IHBench}", split: test, view: offline_recovery}
+    data: {local_path: "${VOXMATRIX_IHBENCH_ROOT:-/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/IHBench}", split: test, view: offline_recovery}
     requirements: [offline recovery proxy; streaming stop latency remains unsupported]
     smoke_status: parquet_audio_ready_offline_proxy
+
+  t4-if-fluent_speech_commands:
+    display_name: T4 Instruction Following - Fluent Speech Commands
+    group: t4_capability_audit
+    registry_dataset: t4-fsc-instruction-following
+    task: agent
+    capability: instruction_following
+    answer_type: structured_json
+    language: en
+    scenario: home
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: smart_speaker, interaction: single_turn}
+    metrics: [intent_acc, slot_f1]
+    evaluators: [mesh-intent, mesh-slot-f1]
+    prompt: mesh-intent-slots
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FSC_ROOT:-/mnt/afs/eval_data/04_dialogue_slu/fluent_speech_commands_dataset}/data/test_data.csv", split: test}
+    requirements: [native intent/slot ontology injected by adapter; diagnostic SLU proxy]
+    smoke_status: full_manifest_ready
+
+  t4-if-slurp:
+    display_name: T4 Instruction Following - SLURP
+    group: t4_capability_audit
+    registry_dataset: t4-slurp-instruction-following
+    task: agent
+    capability: instruction_following
+    answer_type: structured_json
+    language: en
+    scenario: home
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [intent_acc, slot_f1]
+    evaluators: [mesh-intent, mesh-slot-f1]
+    prompt: mesh-intent-slots
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_SLURP_ROOT:-/mnt/afs/oss_data/datasets/04_dialogue_slu/SLURP_repo}/dataset/slurp/test.jsonl", split: test}
+    requirements: [native intent/slot ontology injected by adapter; diagnostic SLU proxy]
+    smoke_status: full_manifest_ready
+
+  t4-if-vocalbench:
+    display_name: T4 Instruction Following - VocalBench
+    group: t4_capability_audit
+    registry_dataset: t4-vocalbench-instruction-following
+    task: agent
+    capability: instruction_following
+    answer_type: text
+    language: en
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [constraint_satisfaction]
+    evaluators: [mesh-agent-rubric]
+    prompt: mesh-agent-rubric
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_VOCALBENCH_ROOT:-/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench}", split: test}
+    requirements: [official rubric judge; audio output for first 200 instruction rows]
+    smoke_status: requires_api_or_generated_audio
+
+  t4-if-vocalbench-zh:
+    display_name: T4 Instruction Following - VocalBench-zh
+    group: t4_capability_audit
+    registry_dataset: t4-vocalbench-zh-instruction-following
+    task: agent
+    capability: instruction_following
+    answer_type: text
+    language: zh
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [constraint_satisfaction]
+    evaluators: [mesh-agent-rubric]
+    prompt: mesh-agent-rubric
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_VOCALBENCH_ZH_ROOT:-/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench-zh}", split: test}
+    requirements: [official rubric judge; audio output for first 200 instruction rows]
+    smoke_status: requires_api_or_generated_audio
+
+  t4-if-voicebench:
+    display_name: T4 Instruction Following - VoiceBench IFEval
+    group: t4_capability_audit
+    registry_dataset: t4-voicebench-ifeval
+    task: agent
+    capability: instruction_following
+    answer_type: text
+    language: en
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [constraint_satisfaction]
+    evaluators: [mesh-ifeval]
+    prompt: mesh-agent-rubric
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_VOICEBENCH_ROOT:-/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/AudioBench/VoiceBench}", split: test}
+    requirements: [official IFEval checker]
+    smoke_status: native_audio_ready
+
+  t4-tool-audioagentbench:
+    display_name: T4 Tool Call - AudioAgentBench
+    group: t4_capability_audit
+    registry_dataset: audio-agent-bench-tool-call
+    task: agent
+    capability: tool_call
+    answer_type: structured_json
+    language: en
+    scenario: home
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: smart_speaker, interaction: multi_turn}
+    metrics: [tool_acc, parameter_acc, parameter_f1, call_exact_match]
+    evaluators: [mesh-tool-call]
+    prompt: mesh-tool-call
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_AUDIO_AGENT_ROOT:-/mnt/afs/eval_data/benchmarks/AudioAgentBench}", split: test, view: tool_call}
+    requirements: [expected-call proxy; no live tool execution]
+    smoke_status: native_metadata_ready
+
+  t4-tool-fluent_speech_commands:
+    display_name: T4 Tool Call - Fluent Speech Commands
+    group: t4_capability_audit
+    registry_dataset: t4-fsc-tool-call
+    task: agent
+    capability: tool_call
+    answer_type: structured_json
+    language: en
+    scenario: home
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: smart_speaker, interaction: single_turn}
+    metrics: [tool_acc, parameter_acc, parameter_f1, call_exact_match]
+    evaluators: [mesh-tool-call]
+    prompt: mesh-tool-call
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_FSC_ROOT:-/mnt/afs/eval_data/04_dialogue_slu/fluent_speech_commands_dataset}/data/test_data.csv", split: test, view: tool_call}
+    requirements: [ontology-to-tool diagnostic proxy; no live tool execution]
+    smoke_status: full_manifest_ready
+
+  t4-tool-slurp:
+    display_name: T4 Tool Call - SLURP
+    group: t4_capability_audit
+    registry_dataset: t4-slurp-tool-call
+    task: agent
+    capability: tool_call
+    answer_type: structured_json
+    language: en
+    scenario: home
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: single_turn}
+    metrics: [tool_acc, parameter_acc, parameter_f1, call_exact_match]
+    evaluators: [mesh-tool-call]
+    prompt: mesh-tool-call
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_SLURP_ROOT:-/mnt/afs/oss_data/datasets/04_dialogue_slu/SLURP_repo}/dataset/slurp/test.jsonl", split: test, view: tool_call}
+    requirements: [ontology-to-tool diagnostic proxy; no live tool execution]
+    smoke_status: full_manifest_ready
+
+  t4-tool-stepeval:
+    display_name: T4 Tool Call - StepEval Audio Toolcall
+    group: t4_capability_audit
+    registry_dataset: t4-stepeval-audio-toolcall
+    task: agent
+    capability: tool_call
+    answer_type: structured_json
+    language: zh
+    scenario: home
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: multi_turn}
+    metrics: [trigger_correct, trigger_precision, trigger_recall, tool_type_accuracy, parameter_judge_accuracy]
+    evaluators: [mesh-tool-trigger]
+    prompt: mesh-tool-call
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_STEPEVAL_ROOT:-/mnt/afs/eval_data/benchmarks/StepEval-Audio-Toolcall}", split: test}
+    requirements: [positive/negative trigger protocol; official parameter judge for formal score]
+    smoke_status: native_audio_ready
+
+  t4-dialogue-audioagentbench:
+    display_name: T4 Multi-turn Dialogue - AudioAgentBench
+    group: t4_capability_audit
+    registry_dataset: audio-agent-bench-dialogue
+    task: agent
+    capability: multi_turn_dialogue
+    answer_type: text
+    language: en
+    scenario: home
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: smart_speaker, interaction: multi_turn}
+    metrics: [llm_judge]
+    evaluators: [mesh-agent-rubric]
+    prompt: mesh-contextual-audio
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_AUDIO_AGENT_ROOT:-/mnt/afs/eval_data/benchmarks/AudioAgentBench}", split: test, view: dialogue}
+    requirements: [judge credentials; no lexical score as official result]
+    smoke_status: requires_api
+
+  t4-dialogue-mtalk:
+    display_name: T4 Multi-turn Dialogue - MTalk-Bench
+    group: t4_capability_audit
+    registry_dataset: t4-mtalk-bench
+    task: agent
+    capability: multi_turn_dialogue
+    answer_type: audio
+    language: en
+    scenario: home
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: multi_turn}
+    metrics: [llm_judge]
+    evaluators: [mesh-agent-rubric]
+    prompt: mesh-contextual-audio
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_MTALK_ROOT:-/mnt/afs/eval_data/benchmarks/MTalk-Bench}", split: test}
+    requirements: [speech-to-speech output every turn; rubric/arena judge; no single-model ELO]
+    smoke_status: requires_generated_audio_and_api
+
+  t4-dialogue-vocalbench:
+    display_name: T4 Multi-turn Dialogue - VocalBench
+    group: t4_capability_audit
+    registry_dataset: t4-vocalbench-multi-turn
+    task: agent
+    capability: multi_turn_dialogue
+    answer_type: text
+    language: en
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: multi_turn}
+    metrics: [llm_judge]
+    evaluators: [mesh-agent-rubric]
+    prompt: mesh-contextual-audio
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_VOCALBENCH_ROOT:-/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench}", split: test}
+    requirements: [official multi-round judge]
+    smoke_status: requires_api
+
+  t4-dialogue-vocalbench-zh:
+    display_name: T4 Multi-turn Dialogue - VocalBench-zh
+    group: t4_capability_audit
+    registry_dataset: t4-vocalbench-zh-multi-turn
+    task: agent
+    capability: multi_turn_dialogue
+    answer_type: text
+    language: zh
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: multi_turn}
+    metrics: [llm_judge]
+    evaluators: [mesh-agent-rubric]
+    prompt: mesh-contextual-audio
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_VOCALBENCH_ZH_ROOT:-/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench-zh}", split: test}
+    requirements: [official multi-round judge]
+    smoke_status: requires_api
+
+  t4-dialogue-voicebench:
+    display_name: T4 Multi-turn Dialogue - VoiceBench MTBench
+    group: t4_capability_audit
+    registry_dataset: t4-voicebench-mtbench
+    task: agent
+    capability: multi_turn_dialogue
+    answer_type: text
+    language: en
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: multi_turn}
+    metrics: [llm_judge]
+    evaluators: [mesh-agent-rubric]
+    prompt: mesh-contextual-audio
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_VOICEBENCH_ROOT:-/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/AudioBench/VoiceBench}", split: test}
+    requirements: [two audio turns; contextual judge credentials]
+    smoke_status: requires_api
+
+  t4-clarification-audioagentbench:
+    display_name: T4 Clarification - AudioAgentBench
+    group: t4_capability_audit
+    registry_dataset: audio-agent-bench-clarification
+    task: agent
+    capability: clarification
+    answer_type: structured_json
+    language: en
+    scenario: home
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: smart_speaker, interaction: clarification}
+    metrics: [clarification_accuracy, clarification_precision, clarification_recall, clarification_f1]
+    evaluators: [mesh-clarification]
+    prompt: mesh-clarification-decision
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_AUDIO_AGENT_ROOT:-/mnt/afs/eval_data/benchmarks/AudioAgentBench}", split: test, view: clarification}
+    requirements: [reviewed positive and negative cases]
+    smoke_status: native_metadata_ready
+
+  t4-clarification-ear:
+    display_name: T4 Clarification - EAR WDYL
+    group: t4_capability_audit
+    registry_dataset: t4-ear-wdyl
+    task: agent
+    capability: clarification
+    answer_type: structured_json
+    language: en
+    scenario: phone
+    condition: {acoustic: light_noise, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: clarification}
+    metrics: [clarification_accuracy, clarification_precision, clarification_recall, clarification_f1]
+    evaluators: [mesh-clarification]
+    prompt: mesh-clarification-decision
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_EAR_ROOT:-/mnt/afs/eval_data/benchmarks/EAR}", split: test}
+    requirements: [answerable-derived decision; no claim about question quality]
+    smoke_status: native_audio_ready
+
+  t4-interruption-ihbench:
+    display_name: T4 Interruption - IHBench
+    group: t4_capability_audit
+    registry_dataset: ihbench-interruption-offline
+    task: agent
+    capability: interruption
+    answer_type: text
+    language: en
+    scenario: phone
+    condition: {acoustic: clean, spatial: near_field, speaker: single_speaker, device: phone_mic, interaction: interruption}
+    metrics: [tf_win_score, rq_pass]
+    evaluators: [mesh-ihbench]
+    prompt: mesh-contextual-audio
+    use_bucket: diagnostic_evidence
+    data: {local_path: "${VOXMATRIX_IHBENCH_ROOT:-/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/IHBench}", split: test}
+    requirements: [streaming event harness and official TF/RQ judge for formal score]
+    smoke_status: offline_adapter_requires_streaming_and_api

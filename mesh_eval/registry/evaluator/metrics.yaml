@@ -46,6 +46,26 @@ mesh-tool-call:
   class: mesh_eval.evaluator.structured.ToolCallEvaluator
   args: {}
 
+mesh-clarification:
+  class: mesh_eval.evaluator.agent.ClarificationEvaluator
+  args: {}
+
+mesh-tool-trigger:
+  class: mesh_eval.evaluator.agent.ToolTriggerEvaluator
+  args: {}
+
+mesh-agent-rubric:
+  class: mesh_eval.evaluator.agent.AgentRubricEvaluator
+  args: {}
+
+mesh-ifeval:
+  class: mesh_eval.evaluator.agent.IFEvalAdapter
+  args: {}
+
+mesh-ihbench:
+  class: mesh_eval.evaluator.agent.IHBenchEvaluator
+  args: {}
+
 mesh-slot-f1:
   class: mesh_eval.evaluator.structured.SlotF1Evaluator
   args: {}

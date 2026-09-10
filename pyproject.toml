@@ -70,7 +70,7 @@ audio_evals = [
   "**/DISCLAIMER",
   "**/*MODEL_LICENSE*",
 ]
-mesh_eval = ["config/*.yaml", "registry/**/*.yaml", "schema/*.json", "data/*.jsonl", "data/*.wav"]
+mesh_eval = ["config/*.yaml", "registry/**/*.yaml", "schema/*.json", "data/*.json", "data/*.jsonl", "data/*.wav"]
 annotation = ["schema/*", "mappings/*.yaml", "knowledge/datasets/*.yaml", "prompts/*.txt", "templates/*"]
 registry = ["**/*.yaml"]
 

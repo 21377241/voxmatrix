@@ -81,6 +81,7 @@ def _tool_args(value: Any) -> Any:
     function = value.get("function") if isinstance(value.get("function"), dict) else {}
     explicit = first_present(
         value.get("arguments"),
+        value.get("args"),
         value.get("parameters"),
         value.get("slots"),
         function.get("arguments"),
@@ -90,7 +91,7 @@ def _tool_args(value: Any) -> Any:
     return {
         key: item
         for key, item in value.items()
-        if key not in {"tool", "name", "action", "type", "function", "intent"}
+        if key not in {"tool", "name", "action", "type", "function", "intent", "args"}
     }
 
 
@@ -110,7 +111,36 @@ def _parse_tool_prediction(value: Any) -> Any:
             flags=re.IGNORECASE,
         )
         if tagged:
-            calls = [extract_json(item) for item in tagged]
+            calls = []
+            for item in tagged:
+                # Qwen/StepEval's native format is:
+                # ``function\n<name>\n<json arguments>``.  It is not JSON
+                # by itself, so extracting the first/last braces loses the
+                # function name and used to make every StepEval call invalid.
+                lines = [line.strip() for line in item.splitlines() if line.strip()]
+                if lines and lines[0].lower() in {"function", "tool", "func"} and len(lines) >= 3:
+                    name = lines[1]
+                    payload = "\n".join(lines[2:])
+                    args = extract_json(payload)
+                    calls.append({"name": name, "arguments": args})
+                else:
+                    # Some native StepEval/Qwen outputs put the marker and
+                    # function name on one line, for example
+                    # ``function timbre_rag {"query": "..."}``.
+                    inline = re.match(
+                        r"^(?:function|tool|func)\s+([\w.:-]+)\s*([\s\S]+)$",
+                        item.strip(),
+                        flags=re.IGNORECASE,
+                    )
+                    if inline:
+                        calls.append(
+                            {
+                                "name": inline.group(1),
+                                "arguments": extract_json(inline.group(2)),
+                            }
+                        )
+                    else:
+                        calls.append(extract_json(item))
             return calls[0] if len(calls) == 1 else calls
     return extract_json(value)
 
@@ -128,7 +158,8 @@ class ToolCallEvaluator(Evaluator):
                 "tool_acc": 0,
                 "parameter_acc": 0.0,
                 "parameter_f1": 0.0,
-                "task_success": 0,
+                "call_exact_match": 0,
+                "call_exact": 0,
             }
         parsed_calls = _tool_calls(parsed)
         expected_calls = _tool_calls(expected)
@@ -143,12 +174,17 @@ class ToolCallEvaluator(Evaluator):
         )
         _, _, parameter_f1 = f1_from_items(pred_args, ref_args)
         parameter_acc = int(pred_args == ref_args)
+        call_exact = int(tool_acc and parameter_acc)
         return {
             "json_valid": 1,
             "tool_acc": tool_acc,
             "parameter_acc": parameter_acc,
             "parameter_f1": parameter_f1,
-            "task_success": int(tool_acc and parameter_acc),
+            # Exact expected-call match is deliberately distinct from a
+            # live side-effect/task-success metric.  No tool is executed in
+            # this evaluator, so emitting ``task_success`` would overclaim.
+            "call_exact_match": call_exact,
+            "call_exact": call_exact,
         }
 
 
@@ -200,5 +236,9 @@ class ActionMatchEvaluator(ToolCallEvaluator):
 
     def _eval(self, pred: Any, label: Any, **kwargs: Any) -> Dict[str, Any]:
         result = super()._eval(pred, label, **kwargs)
-        result["action_match"] = result["task_success"]
+        # This evaluator is explicitly an action proxy, so it may expose the
+        # legacy ``task_success`` name.  ToolCallEvaluator itself never does:
+        # it has no evidence that a side effect was executed.
+        result["action_match"] = result.get("call_exact_match", 0)
+        result["task_success"] = result["action_match"]
         return result

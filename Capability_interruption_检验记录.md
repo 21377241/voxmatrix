@@ -1,12 +1,23 @@
 # Capability：interruption（打断恢复）
 
 负责人：丙（T4）  
-日期：2026-09-03  
+日期：2026-09-03（初检）；2026-09-10（生产链路复验）
 模型：Qwen3-Omni-30B-A3B-Instruct（`qwen3-omni-local`）  
 Job：12550–12557（v2，170 条全量）；12567（MTalk 修正重跑，10 条）  
 产物：`tools/capability_t4_smoke.py`、`tools/run_capability_t4_infer.sh`；`/mnt/afs/users/shizs/capability_t4_run_20260903/{samples.jsonl,preflight.json,audited.jsonl,summary.json,predictions-v2-*.jsonl,predictions-v3-mtalk.jsonl}`
 
 本记录覆盖 IHBench 10 条。抽样包含 filler、topic_switch、correction、normal、pushback 五类；所有历史/打断音频均物化为可读 wav，10/10 prediction，inference error=0。当前 batch 只做离线恢复文本 proxy，不声称完成实时打断评测。
+
+## 2026-09-10 生产链路复验
+
+- 真实 adapter smoke：IHBench 从原生 `baseline.parquet`/`conversations.parquet` 加载 10 条；10/10 V2 schema、完整历史音频、TF/RQ rubrics、Prompt 和 evaluator route 通过。
+- 生产 evaluator 只接受官方口径的结构化 judge 结果：`tf_win∈{0,0.5,1}` 且 `rq_pass∈{0,1}`，两字段缺一即报错；不会再计算或回填 token F1。
+- 旧 10 条 Qwen 预测回放结果为 `tf_win_score=not_evaluated`、`rq_pass=not_evaluated`（0/10 有数值），原因是当前环境没有 `OPENAI_API_KEY`/`LLMCenterUserToken`。旧 `recovery tokenF1=0.3810` 已降级为历史回归信息，不是 IHBench 指标。
+- 单测以 fake judge 验证 TF/RQ 字段传递、取值范围和“不得出现 lexical F1”；真实 adapter smoke 验证评测输入链。回放证据与 SHA256 同 instruction_following 记录。
+
+指标合理性结论：离线 TF/RQ judge 链已经正确且 fail-closed，但本轮仍不能声称评了实时打断能力，因为没有流式 speech onset、停止播放、取消工具、resume latency 等事件。丙-IN-02 的指标错配已解决；丙-IN-01 的 streaming harness 属于仍未满足的运行时依赖，因此正式 capability 结论仍为“本轮不评”。
+
+> 下文 2026-09-03 的 token-F1 表格只保留为问题样例，不能作为修复后数值。
 
 ## 统一 template
 
@@ -15,7 +26,7 @@ Job：12550–12557（v2，170 条全量）；12567（MTalk 修正重跑，10 �
 - **选择题是否改为问答**：否。IHBench 是开放式实时交互，不改成选择题。
 - **多音频 / 多轮约定**：保留 interruption turn 之前的 assistant transcript 与 user audio；当前离线 batch 只生成最终文本，没有播放流/取消信号。
 
-## 主指标
+## 主指标（2026-09-03 初检口径）
 
 - **推荐主指标**：官方 `tf_win_rate`（打断/继续处理是否正确）+ `rq_pass_rate`（恢复质量 rubric），并分 interruption_type 报告；同时记录 detection、stop、cancel、resume latency。
 - **数据流**：实时音频流与播放状态 → 检测事件 → 停止/切换 → 新响应；本轮仅把历史与打断音频离线送入模型，再将 pred 与 baseline 做 token F1，故 `recovery tokenF1=0.381` 仅为 proxy。
@@ -25,7 +36,7 @@ Job：12550–12557（v2，170 条全量）；12567（MTalk 修正重跑，10 �
 |---|---|---:|---|
 | ihbench | baseline token F1（offline recovery proxy） | 均值 0.3810；10/10 有值 | 本轮不评正式分 |
 
-## 各 benchmark 核验
+## 各 benchmark 核验（2026-09-03 样本明细）
 
 ### ihbench
 

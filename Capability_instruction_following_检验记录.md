@@ -1,12 +1,30 @@
 # Capability：instruction_following（指令遵循）
 
 负责人：丙（T4）  
-日期：2026-09-03  
+日期：2026-09-03（初检）；2026-09-10（生产链路复验）
 模型：Qwen3-Omni-30B-A3B-Instruct（`qwen3-omni-local`）  
 Job：12550–12557（v2，170 条全量）；12567（MTalk 修正重跑，10 条）  
 产物：`tools/capability_t4_smoke.py`、`tools/run_capability_t4_infer.sh`；`/mnt/afs/users/shizs/capability_t4_run_20260903/{samples.jsonl,preflight.json,audited.jsonl,summary.json,predictions-v2-*.jsonl,predictions-v3-mtalk.jsonl}`
 
 本记录按任务说明 §4 只覆盖 fluent_speech_commands、SLURP、VocalBench、VocalBench-zh、VoiceBench。每集固定抽 10 条（共 50 条），音频预检 50/50 存在；最终 prediction 50/50，inference error=0。VocalBench/VoiceBench 的本地分数是诊断值，不能与正式 LLM judge 分数混合。
+
+## 2026-09-10 生产链路复验
+
+- 真实 adapter smoke：上述 5 个格各从原生 test 标注只读加载 10 条，共 50 条；50/50 为 `runtime-sample/2.0`，音频存在、schema 校验通过、Prompt 可渲染，且 metrics/evaluators 与 benchmark map 完全一致。
+- Qwen3-Omni 预测复用：只回放 2026-09-03 已产生的 50 条预测，不重新生成或修改 benchmark 数据。回放使用生产 evaluator，不再使用 `tools/capability_t4_smoke.py` 的旧启发式 scorer。
+- 证据：`/tmp/voxmatrix-t4-production-replay-20260910-final.OKSYj9/{audited.jsonl,summary.json}`；`summary.json` SHA256 为 `b68c92b07e0f201e755e4e84e636b0dca76111473cb1fa797ca8832568026545`。临时目录不是正式数据资产，复现入口为 `tests/test_t4_agent.py` 和 `tools/capability_t4_smoke.py evaluate`。
+
+| benchmark | 修复后生产指标（10 条旧预测回放） | 结论 |
+|---|---:|---|
+| fluent_speech_commands | `intent_acc=0.0000`；字段级 `slot_f1=0.1700` | 可复算的 SLU diagnostic；不是通用 IF 主分 |
+| slurp | `intent_acc=0.0000`；字段级 `slot_f1=0.2000` | 可复算的 SLU diagnostic；不是通用 IF 主分 |
+| vocalbench | `constraint_satisfaction=not_evaluated`（4 条缺生成音频；6 条缺 rubric judge） | 不再输出局部启发式伪分 |
+| vocalbench_zh | `constraint_satisfaction=not_evaluated`（4 条缺生成音频；6 条缺 rubric judge） | 不再输出局部启发式伪分 |
+| voicebench | canonical IFEval strict prompt pass rate `0.6000`（10/10） | 使用完整 `reference_obj` 与官方 checker；旧 `0.7000` 作废 |
+
+指标合理性结论：FSC/SLURP 的低分来自模型没有遵循注入的 native ontology，字段级 F1 不再对序列化 JSON 做 token overlap；VoiceBench 的 0.6 在 `[0,1]` 且逐条 strict checker 可追溯；VocalBench 的语气、语速、语音复述及语义约束在缺音频或 judge 时没有数值。丙-IF-01 的 ontology/prompt/字段级 scorer 已解决；丙-IF-02/03 涉及生成音频、audio-capable judge 或 gold 规范，链路已 fail-closed，外部条件本轮仍未满足；丙-IF-04 的 canonical IFEval 读取与 parquet 数值类型问题已解决。
+
+> 下文逐条表格保留 2026-09-03 初检证据，其中“当前指标”均是历史启发式值，仅用于解释问题样例；不得覆盖上表的修复后结果或作为正式榜分。
 
 ## 统一 template
 
@@ -15,7 +33,7 @@ Job：12550–12557（v2，170 条全量）；12567（MTalk 修正重跑，10 �
 - **选择题是否改为问答**：否。本轮 5 个抽样格均为开放回答或结构化 JSON，没有把官方选择题改作主分；若后续接入 MCQ，只保留 diagnostic。
 - **多音频 / 多轮约定**：无；每条仅一个用户音频，历史对话不进入本 capability。
 
-## 主指标
+## 主指标（2026-09-03 初检口径）
 
 - **推荐主指标**：VocalBench、VocalBench-zh、VoiceBench 应使用逐条 rubric/LLM judge 的 constraint-pass rate（需同时检查语义、格式、语气、语速和多步完整性）；FSC/SLURP 的 intent accuracy + schema-aware slot F1 只能作为 SLU diagnostic。
 - **数据流**：音频 + prompt → Qwen3-Omni → pred；结构化轨先解析 JSON，再将 intent 与 gold exact-match、slots 做字段级 F1；开放轨将 pred 送入 checker/judge，与问题约束及 reference/rubric 对齐后聚合。
@@ -29,7 +47,7 @@ Job：12550–12557（v2，170 条全量）；12567（MTalk 修正重跑，10 �
 | vocalbench_zh | local constraint checks | 8 条有数值；均值 0.625；2 条仅 unsupported | 否（缺官方 judge） |
 | voicebench | partial IFEval checker | 均值 0.7000（10/10 有数值） | 否（仅 checker 子集） |
 
-## 各 benchmark 核验
+## 各 benchmark 核验（2026-09-03 样本明细）
 
 ### fluent_speech_commands
 

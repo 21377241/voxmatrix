@@ -31,7 +31,21 @@ mesh-router-evaluator:
       tool_acc: mesh-tool-call
       parameter_acc: mesh-tool-call
       parameter_f1: mesh-tool-call
+      call_exact_match: mesh-tool-call
+      call_exact: mesh-tool-call
       task_success: mesh-action-match
+      clarification_accuracy: mesh-clarification
+      clarification_precision: mesh-clarification
+      clarification_recall: mesh-clarification
+      clarification_f1: mesh-clarification
+      trigger_correct: mesh-tool-trigger
+      trigger_precision: mesh-tool-trigger
+      trigger_recall: mesh-tool-trigger
+      tool_type_accuracy: mesh-tool-trigger
+      parameter_judge_accuracy: mesh-tool-trigger
+      tf_win_score: mesh-ihbench
+      rq_pass: mesh-ihbench
+      rq_score: mesh-ihbench
       response_acc: mesh-response-gate
       false_accept: mesh-response-gate
       false_reject: mesh-response-gate
@@ -87,6 +101,8 @@ mesh-router-evaluator:
         - mesh-intent
         - mesh-slot-f1
       agent:tool_call: mesh-tool-call
+      agent:clarification: mesh-clarification
+      agent:interruption: mesh-ihbench
       agent:navigation: mesh-action-match
       agent:calendar: mesh-action-match
       agent:reminder: mesh-action-match

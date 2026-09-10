@@ -1,12 +1,29 @@
 # Capability：tool_call（工具调用）
 
 负责人：丙（T4）  
-日期：2026-09-03  
+日期：2026-09-03（初检）；2026-09-10（生产链路复验）
 模型：Qwen3-Omni-30B-A3B-Instruct（`qwen3-omni-local`）  
 Job：12550–12557（v2，170 条全量）；12567（MTalk 修正重跑，10 条）  
 产物：`tools/capability_t4_smoke.py`、`tools/run_capability_t4_infer.sh`；`/mnt/afs/users/shizs/capability_t4_run_20260903/{samples.jsonl,preflight.json,audited.jsonl,summary.json,predictions-v2-*.jsonl,predictions-v3-mtalk.jsonl}`
 
 本记录覆盖 AudioAgentBench Suite、fluent_speech_commands、SLURP、StepEval-Audio-Toolcall 共 40 条。抽样均为 test/native index 的确定性等距选择；40/40 音频可定位，40/40 prediction，inference error=0。AudioAgentBench、FSC/SLURP、StepEval 均为离线 schema/expected-call proxy，不等价于真实工具执行成功。
+
+## 2026-09-10 生产链路复验
+
+- 真实 adapter smoke：4 个格各加载 10 条，共 40 条；40/40 V2 schema、音频、Prompt 和 registry route 通过。AudioAgentBench、FSC、SLURP 均向模型提供完整合法 JSON tool schema；StepEval 提供官方工具名并在 evaluator 中对齐 `search↔web_search`、`timbre_rag↔timbre` 工具族。
+- 生产 parser 同时覆盖 Qwen 多行 `<tool_call>function\nname\n{...}</tool_call>`、单行 `<tool_call>function name {...}</tool_call>`、普通 JSON 和有序多调用列表。
+- 回放证据与 SHA256 同 instruction_following 记录；所有数值来自 2026-09-03 的 40 条 Qwen 预测经修复后 evaluator 重算。
+
+| benchmark | 修复后生产指标（10 条） | 解释 |
+|---|---:|---|
+| audioagentbench_suite | `tool_acc=0.4000`；`parameter_acc=0.2000`；`parameter_f1=0.2500`；`call_exact_match=0.2000` | expected-call 离线匹配；无真实副作用 |
+| fluent_speech_commands | `tool_acc=1.0000`；`parameter_acc=0.0000`；`parameter_f1=0.4333`；`call_exact_match=0.0000` | 固定 `control_device` 工具名命中，但参数未遵循 native ontology |
+| slurp | `tool_acc=1.0000`；`parameter_acc=0.0000`；`parameter_f1=0.0000`；`call_exact_match=0.0000` | 固定 `execute_slurp_intent` 命中，intent/scenario/slot 均未 exact 对齐 |
+| stepeval_audio_toolcall | `trigger_correct=0.9000`；P/R=`0.8333/1.0000`；正样本 `tool_type_accuracy=0.8000`（5 条） | TP=5、FP=1、FN=0；由充分统计量聚合 |
+
+StepEval 的 `parameter_judge_accuracy` 为 `not_evaluated_official_judge_missing`（0/5 有数值）；`parameter_exact_match` 只保留为 proxy，不冒充官方 judge。`ToolCallEvaluator` 只输出 `call_exact_match`，不再把“JSON 与 ref 相同”写成 `task_success`。因此所有指标都在合法范围内、分母可追溯，且没有把离线匹配解释成工具已执行。丙-TC-02 的统一 schema/ontology 注入与丙-TC-03 的解析/别名问题已解决；丙-TC-01 的真实工具沙箱仍是外部运行时边界。
+
+> 下文逐条表格保留 2026-09-03 初检 scorer 的历史值；修复后结果以上表为准。
 
 ## 统一 template
 
@@ -15,7 +32,7 @@ Job：12550–12557（v2，170 条全量）；12567（MTalk 修正重跑，10 �
 - **选择题是否改为问答**：否。本轮没有将 MCQ 当工具调用主形态；StepEval 的 positive/negative 是触发/不触发协议，不是选择题。
 - **多音频 / 多轮约定**：AudioAgentBench 保留目标轮之前的上下文音频及 assistant 历史文本；StepEval 保留会话历史；FSC/SLURP 为单音频。模型输入不附加 native 转写，避免文本泄露。
 
-## 主指标
+## 主指标（2026-09-03 初检口径）
 
 - **推荐主指标**：按顺序报告 `call_exact`（有序 tool name + canonical 参数完全一致）、tool selection accuracy、schema-aware parameter F1；StepEval 另报 positive trigger/type/parameter 与 negative false-trigger，不能压成单一 exact。
 - **数据流**：音频/历史 → Qwen3-Omni → 解析 JSON 或兼容的 `<tool_call>` → 规范化 call 列表 → 与 expected name/args 对齐。参数 F1 是诊断重叠，不能替代执行结果。
@@ -28,7 +45,7 @@ Job：12550–12557（v2，170 条全量）；12567（MTalk 修正重跑，10 �
 | slurp | tool selection + parameter F1 | tool 10/10；parameter F1 0.5133；exact 0/10 | 否（ontology projection） |
 | stepeval_audio_toolcall | trigger/type diagnostic | trigger 8/10；positive type 4/5；正负均覆盖 | 否（离线触发 proxy） |
 
-## 各 benchmark 核验
+## 各 benchmark 核验（2026-09-03 样本明细）
 
 ### audioagentbench_suite
 

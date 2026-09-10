@@ -123,6 +123,7 @@ def test_distribution_declares_mesh_annotation_and_registry_resources():
     assert 'voxmatrix = "audio_evals.main:main"' in pyproject
     assert 'ultraeval-audio = "audio_evals.main:main"' in pyproject
     assert 'mesh_eval = ["config/*.yaml"' in pyproject
+    assert '"data/*.json"' in pyproject
     assert 'annotation = ["schema/*"' in pyproject
     assert 'registry = ["**/*.yaml"]' in pyproject
     assert '"**/*.wav"' in pyproject
@@ -133,7 +134,7 @@ def test_voxmatrix_public_facade_and_legacy_packages_import():
     import mesh_eval
     import voxmatrix
 
-    assert voxmatrix.__version__ == "0.0.0"
+    assert voxmatrix.__version__ == "0.1.0"
     assert audio_evals is not None
     assert mesh_eval is not None
 

@@ -275,11 +275,26 @@ class CapabilityProtocolRegistry:
             raise ProtocolResolutionError(
                 f"sample task/capability does not match protocol {protocol_id}"
             )
-        _validate_input(sample, str(protocol["input_schema"]))
+        hints = sample.get("evaluation_hints") or {}
+        structural_overrides = {}
+        for field in ("input_schema", "output_schema", "parser", "required_reference"):
+            if hints.get(field) not in (None, "", []):
+                if self.formal:
+                    raise ProtocolResolutionError(
+                        f"formal protocol does not allow sample-level {field} override"
+                    )
+                structural_overrides[field] = hints[field]
+        effective_input_schema = str(
+            structural_overrides.get("input_schema") or protocol["input_schema"]
+        )
+        effective_required_reference = structural_overrides.get(
+            "required_reference", protocol.get("required_reference") or []
+        )
+        _validate_input(sample, effective_input_schema)
         reference = sample.get("reference") or {}
         missing_reference = [
             field
-            for field in protocol.get("required_reference") or []
+            for field in effective_required_reference
             if _get_path(reference, field) in (None, "", [])
         ]
         if missing_reference and self.formal:
@@ -293,8 +308,13 @@ class CapabilityProtocolRegistry:
         resolved["runtime_profile"] = runtime_profile
         resolved["runtime_profile_hash"] = measurement["hash"]
         resolved["resolution_source"] = "protocol_registry"
-        hints = sample.get("evaluation_hints") or {}
         overrides = {}
+        for target, value in structural_overrides.items():
+            resolved[target] = value
+            overrides[target] = {
+                "source": str(hints.get("source") or "sample_evaluation_hint"),
+                "value": value,
+            }
         for source, target in (
             ("prompt", "prompt"),
             ("metrics", "metrics"),

@@ -1,12 +1,24 @@
 # Capability：clarification（澄清追问）
 
 负责人：丙（T4）  
-日期：2026-09-03  
+日期：2026-09-03（初检）；2026-09-10（生产链路复验）
 模型：Qwen3-Omni-30B-A3B-Instruct（`qwen3-omni-local`）  
 Job：12550–12557（v2，170 条全量）；12567（MTalk 修正重跑，10 条）  
 产物：`tools/capability_t4_smoke.py`、`tools/run_capability_t4_infer.sh`；`/mnt/afs/users/shizs/capability_t4_run_20260903/{samples.jsonl,preflight.json,audited.jsonl,summary.json,predictions-v2-*.jsonl,predictions-v3-mtalk.jsonl}`
 
 本记录覆盖 AudioAgentBench Suite 与 EAR WDYL 共 20 条。目标是判断信息缺失/歧义时是否追问，而不是把所有噪声重复请求都算业务澄清。20/20 音频存在、prediction 完整、inference error=0；当前数值均为离线 decision proxy。
+
+## 2026-09-10 生产链路复验
+
+- 真实 adapter smoke：2 个格各加载 10 条，共 20 条；20/20 V2 schema、音频、Prompt 与 evaluator route 通过。AudioAgentBench 不再从问号启发式造标签，而是只读仓库内 `mesh_eval/data/audioagentbench_clarification_review.v1.json` 的 28 条人工复核记录（10 正、18 负）；每个语义轮标签覆盖两位录音说话人，dialogue view 同时排除这些样本。
+- 审核标签不写回原始 benchmark；`input_text`/`golden_text` 的 SHA256 与当前 native metadata 绑定。缺标签、schema 非法、正负类不全或 native 内容漂移均明确失败，不再静默产出空 clarification view。复核中发现外部临时 sidecar 的 `grocery-bench:5` 仍引用旧 golden；当前 native golden 为 “How many dozens would you like?”，故按缺数量改为正例并固定 digest。
+- 统一输出协议改为显式 JSON：`{"should_clarify": boolean, "response": string}`。自然语言里出现问号、`which` 或“请问”不再自动算作澄清决策。
+- 2026-09-03 的 20 条旧预测都是自然语言，修复后回放均 `clarification_parse_valid=0`，因此 AudioAgentBench 与 EAR 的 `clarification_accuracy/P/R/F1` 均为 `0.0000`；正例上的非法输出分别贡献 FN=4 和 FN=5，而不是从分母消失。
+- P/R/F1 由 TP/FP/FN 充分统计量聚合；零预测正例时严格返回 0。回放证据与 SHA256 同 instruction_following 记录。
+
+指标合理性结论：旧 `decision=8/10` 与 `5/10` 来自问号词法猜测，已经作废。新的 0 分反映旧模型输出没有遵循显式决策协议，并不声称追问文本质量为 0。丙-CL-01 的人工正负标签、prompt、解析、漂移校验与聚合链已解决；这些标签仅作为 `diagnostic_evidence`，不冒充 AudioAgentBench 官方标签。丙-CL-02 的 EAR `answerable→should_clarify` 可作为决策 proxy，但追问内容质量仍因缺官方 question/gold/rubric 而不可评。
+
+> 下文逐条 `ask=` 与 text-F1 是 2026-09-03 历史启发式证据，仅用于说明当时为什么会虚高。
 
 ## 统一 template
 
@@ -15,7 +27,7 @@ Job：12550–12557（v2，170 条全量）；12567（MTalk 修正重跑，10 �
 - **选择题是否改为问答**：否。本轮没有 MCQ；追问必须是自然语言问题，不用 A/B/C/D 代替。
 - **多音频 / 多轮约定**：AudioAgentBench 保留目标轮前历史音频和 assistant history；EAR 为单段含/不含关键字的噪声音频。模型输入不附加 native transcript。
 
-## 主指标
+## 主指标（2026-09-03 初检口径）
 
 - **推荐主指标**：`clarification_decision`（should-ask precision/recall/F1，按真正歧义与可回答分层）+ 追问质量/答案正确性的 contextual judge。
 - **数据流**：音频/历史 → pred；用标注的 should_clarify 与 pred 中是否提出定向问题对齐，得到 binary decision；有 golden answer 时另算 text F1。
@@ -26,7 +38,7 @@ Job：12550–12557（v2，170 条全量）；12567（MTalk 修正重跑，10 �
 | audioagentbench_suite | native-golden decision + text F1 | decision 8/10；text F1 均值 0.4687 | 否（标签混合/离线） |
 | ear_wdyl | answerable→should-ask decision | decision 5/10；无 text F1 | 否（官方字段不完整） |
 
-## 各 benchmark 核验
+## 各 benchmark 核验（2026-09-03 样本明细）
 
 ### audioagentbench_suite
 
@@ -102,9 +114,9 @@ Job：12550–12557（v2，170 条全量）；12567（MTalk 修正重跑，10 �
 clarification view 同时包含 ambiguous_entity、取消/工具执行和可直接回答轮。当前从 golden_text 是否含问句推 should_clarify，无法区分“应澄清哪一个实体”和“应直接执行”；样本 2 的取消请求被模型直接处理而 proxy 判错，样本 5 的可回答 flour 请求被模型追加问句而判错。
 
 解决方案
-- 建议动作：在 manifest 中增加显式 `should_clarify`、缺失槽位、候选实体和有效问题 rubric；按业务澄清与噪声重听分轨，使用 judge 检查问题是否最小且可行动。
-- 若涉及数据：不修改原始数据；仅提出字段、ontology、rubric 或评测实现方案。
-- 方案是否确定：方案待定（需 AudioAgentBench 标注方确认标签）
+- 建议动作：评测侧已增加显式 `should_clarify` 人工审核资产，按业务澄清与可直接回答的困难负例分轨；二分类决策使用严格 JSON 与 TP/FP/TN/FN。后续如需评“问题是否最小且可行动”，仍须增加有效问题 rubric 和 judge。
+- 若涉及数据：未修改原始数据或正式 manifest；审核资产只保存 turn key、诊断标签及 native 文本 digest，且在加载时校验漂移。
+- 方案是否确定：**评测链路已解决**；审核标签仍标记为 diagnostic evidence，待 AudioAgentBench 标注方确认后方可升级为官方指标。
 
 ### 问题 丙-CL-02
 
@@ -138,3 +150,4 @@ EAR 当前 manifest 只有 condition、masked_word、answerable 等字段，没�
 
 - 本 capability 20/20 prediction、error=0；所有音频路径由 `samples.jsonl` 预检。
 - 代理规则只用于发现口径问题，不修改 EAR/AudioAgentBench 原始字段。
+- AudioAgentBench 审核资产缺失或与 native metadata 不一致时 fail closed；不会回退到问号启发式。

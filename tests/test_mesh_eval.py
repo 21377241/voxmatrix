@@ -182,7 +182,8 @@ def test_structured_and_edge_evaluators():
     )
     assert score["tool_acc"] == 1
     assert score["parameter_acc"] == 1
-    assert score["task_success"] == 1
+    assert score["call_exact_match"] == 1
+    assert "task_success" not in score
 
     calls = [
         {"tool": "register", "arguments": {"id": "one"}},
@@ -196,7 +197,8 @@ def test_structured_and_edge_evaluators():
     assert multi_score["json_valid"] == 1
     assert multi_score["tool_acc"] == 1
     assert multi_score["parameter_acc"] == 1
-    assert multi_score["task_success"] == 1
+    assert multi_score["call_exact_match"] == 1
+    assert "task_success" not in multi_score
 
     response = ResponseGateEvaluator()("false", "", edge={"should_respond": False})
     assert response["response_acc"] == 1
@@ -256,8 +258,11 @@ def test_full_eval_proxy_and_alimeeting_reconstruction(tmp_path):
         "spoken_agentic_interaction/tool_call@1"
     )
     assert proxy["reference_obj"]["expected_output"] == {
-        "tool": "calendar_set",
-        "arguments": {"day": "monday"},
+        "tool": "execute_slurp_intent",
+        "arguments": {
+            "intent": "calendar_set",
+            "slots": {"day": "monday"},
+        },
     }
 
     alimeeting_manifest = tmp_path / "alimeeting" / "final" / "manifest.jsonl"
@@ -1598,10 +1603,14 @@ def test_ihbench_loader_materializes_embedded_audio(monkeypatch, tmp_path):
     loaded = dataset.load()[0]
 
     assert Path(loaded["WavPath"]).read_bytes() == payload
+    assert loaded["reference_obj"]["conversation_context"] == [
+        {"role": "assistant", "content": "partial answer"},
+        {"role": "user", "content": ""},
+    ]
     assert loaded["input"]["messages"][1]["contents"][0]["value"] == "partial answer"
     assert loaded["reference_obj"]["answer"] == "continue now"
     assert loaded["offline_proxy"] == (
-        "baseline_text_similarity_without_streaming_stop_latency"
+        "native_tf_rq_rubric_without_streaming_timing"
     )
 
 

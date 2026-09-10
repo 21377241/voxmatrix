@@ -213,6 +213,7 @@ class MeshAgg(AggPolicy):
             if values:
                 result[f"{prefix}/{metric}"] = _mean(values)
                 result[f"{prefix}/{metric}/sample_count"] = len(values)
+        self._write_agent_decision_metrics(result, prefix, rows)
         self._write_corpus_text_metrics(result, prefix, rows)
         if include_caption:
             self._write_caption_metrics(result, prefix, rows)
@@ -220,6 +221,58 @@ class MeshAgg(AggPolicy):
         self._write_verification_metrics(result, prefix, rows)
         self._write_diarization_metrics(result, prefix, rows)
         self._write_runtime_metrics(result, prefix, rows)
+
+    @staticmethod
+    def _write_agent_decision_metrics(
+        result: Dict[str, Any], prefix: str, rows: List[Dict[str, Any]]
+    ) -> None:
+        """Aggregate binary agent decisions from TP/FP/FN sufficient stats."""
+        clarification = [
+            row
+            for row in rows
+            if all(_is_number(row.get(key)) for key in (
+                "clarification_tp", "clarification_fp", "clarification_fn"
+            ))
+        ]
+        if clarification:
+            tp = sum(float(row["clarification_tp"]) for row in clarification)
+            fp = sum(float(row["clarification_fp"]) for row in clarification)
+            fn = sum(float(row["clarification_fn"]) for row in clarification)
+            precision = tp / (tp + fp) if tp + fp else 0.0
+            recall = tp / (tp + fn) if tp + fn else 0.0
+            f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+            for name, value in (
+                ("clarification_precision", precision),
+                ("clarification_recall", recall),
+                ("clarification_f1", f1),
+            ):
+                result[f"{prefix}/{name}"] = value
+                result[f"{prefix}/{name}/sample_count"] = len(clarification)
+            result[f"{prefix}/clarification_tp"] = tp
+            result[f"{prefix}/clarification_fp"] = fp
+            result[f"{prefix}/clarification_fn"] = fn
+            result[f"{prefix}/clarification/aggregation"] = "sufficient_statistics"
+
+        trigger = [
+            row
+            for row in rows
+            if all(_is_number(row.get(key)) for key in (
+                "trigger_tp", "trigger_fp", "trigger_fn"
+            ))
+        ]
+        if trigger:
+            tp = sum(float(row["trigger_tp"]) for row in trigger)
+            fp = sum(float(row["trigger_fp"]) for row in trigger)
+            fn = sum(float(row["trigger_fn"]) for row in trigger)
+            precision = tp / (tp + fp) if tp + fp else 0.0
+            recall = tp / (tp + fn) if tp + fn else 0.0
+            for name, value in (("trigger_precision", precision), ("trigger_recall", recall)):
+                result[f"{prefix}/{name}"] = value
+                result[f"{prefix}/{name}/sample_count"] = len(trigger)
+            result[f"{prefix}/trigger_tp"] = tp
+            result[f"{prefix}/trigger_fp"] = fp
+            result[f"{prefix}/trigger_fn"] = fn
+            result[f"{prefix}/trigger/aggregation"] = "sufficient_statistics"
 
     @staticmethod
     def _write_diarization_metrics(
@@ -559,6 +612,16 @@ class MeshAgg(AggPolicy):
             "der_error_duration",
             "der_reference_duration",
             "annotation_confidence",
+            "clarification_tp",
+            "clarification_fp",
+            "clarification_tn",
+            "clarification_fn",
+            "trigger_tp",
+            "trigger_fp",
+            "trigger_tn",
+            "trigger_fn",
+            "clarification_parse_valid",
+            "trigger_parse_valid",
         }
         ignored_prefixes = (
             "sample_count",

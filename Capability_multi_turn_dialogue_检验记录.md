@@ -1,12 +1,23 @@
 # Capability：multi_turn_dialogue（多轮对话）
 
 负责人：丙（T4）  
-日期：2026-09-03  
+日期：2026-09-03（初检）；2026-09-10（生产链路复验）
 模型：Qwen3-Omni-30B-A3B-Instruct（`qwen3-omni-local`）  
 Job：12550–12557（v2，170 条全量）；12567（MTalk 修正重跑，10 条）  
 产物：`tools/capability_t4_smoke.py`、`tools/run_capability_t4_infer.sh`；`/mnt/afs/users/shizs/capability_t4_run_20260903/{samples.jsonl,preflight.json,audited.jsonl,summary.json,predictions-v2-*.jsonl,predictions-v3-mtalk.jsonl}`
 
 本记录覆盖 AudioAgentBench Suite、MTalk-Bench、VocalBench、VocalBench-zh、VoiceBench 共 50 条。每集固定抽 10 条；多轮历史按原生顺序构造，50/50 prediction，inference error=0。正式 contextual judge/ELO 只在有 assistant reference/rubric 与评测服务时成立。
+
+## 2026-09-10 生产链路复验
+
+- 真实 adapter smoke：5 个格各加载 10 条，共 50 条；50/50 V2 schema、音频路径、完整历史、Prompt 渲染和 evaluator route 通过。AudioAgentBench dialogue view 已排除 clarification 样本；MTalk 按 `(type, number)` 分组；VoiceBench 的首轮 system 指令与两轮音频按顺序进入 `multi_turn`。
+- Qwen3-Omni adapter 现在保留每一轮的 `audio_responses`，并保持与 turn 一一对应；缺任一轮语音时，MTalk 的 `required_audio_outputs` 检查会拒绝评分。
+- 旧预测生产回放结果：5 个 benchmark 的 `llm_judge` 均为 `not_evaluated`（50/50），没有继续输出 ROUGE-L/token-F1 或伪造 ELO。AudioAgentBench、VocalBench、VocalBench-zh、VoiceBench 各 10 条缺外部 rubric judge；MTalk 10 条均缺生成音频，其中 6 条缺 1/1、4 条缺 2/2。
+- 回放证据：`/tmp/voxmatrix-t4-production-replay-20260910-final.OKSYj9/summary.json`，SHA256 `b68c92b07e0f201e755e4e84e636b0dca76111473cb1fa797ca8832568026545`。
+
+指标合理性结论：当前没有可合法报告的多轮正式数值；这是正确的 fail-closed 结果，而不是链路失败。文本相似度不能判断状态保持、跨轮约束、事实一致性或语音风格，单模型响应也不能产生 MTalk ELO。丙-MD-01/03 已从错误的 lexical 主分切换到 rubric judge；丙-MD-02/04 的缺 reference/judge 边界已显式化；正式数值仍需 audio-capable judge、凭据及 MTalk 对比候选。
+
+> 下文 2026-09-03 的 F1/ROUGE-L 数值只保留为问题发现时的回归基线，不是修复后的 capability 分。
 
 ## 统一 template
 
@@ -15,7 +26,7 @@ Job：12550–12557（v2，170 条全量）；12567（MTalk 修正重跑，10 �
 - **选择题是否改为问答**：否。所有本轮格均按开放式多轮回答处理；没有将 VoiceBench/MTalk 的 rubric 改成选择题。
 - **多音频 / 多轮约定**：AudioAgentBench 保留目标轮前最多 16 个 user audio + assistant history；MTalk 按 `(number,type)` 分组，仅送 user audio，避免拼接 ambient/paralinguistic/semantic 变体；VocalBench 用文本 context + 目标音频；VoiceBench MTBench 的 `audio1`、`audio2` 两段均实际进入 prompt，native transcripts 只留 metadata。
 
-## 主指标
+## 主指标（2026-09-03 初检口径）
 
 - **推荐主指标**：首选逐轮 contextual LLM judge（实体/指代/目标完成/连贯性/安全性）及有真实任务后端的 task_success；可复算时报告 token F1/ROUGE-L 作为诊断，不把 lexical overlap 当正式能力分。
 - **数据流**：有序 audio/history → Qwen3-Omni → latest response；AudioAgentBench 与 golden_text 做 offline token F1，VocalBench 两集做 ROUGE-L + token F1，MTalk/VoiceBench 交给原生 rubric/judge。
@@ -29,7 +40,7 @@ Job：12550–12557（v2，170 条全量）；12567（MTalk 修正重跑，10 �
 | vocalbench_zh | ROUGE-L + token F1 | ROUGE-L 0；token F1 近 0 | 否（语言/tokenization 风险） |
 | voicebench | 原生 MTBench judge | reference 多数为空；10/10 双音频已送入 | 本轮不评正式分 |
 
-## 各 benchmark 核验
+## 各 benchmark 核验（2026-09-03 样本明细）
 
 ### audioagentbench_suite
 
