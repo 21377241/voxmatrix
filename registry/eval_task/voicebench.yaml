@@ -29,7 +29,7 @@ voice_bench_ifeval:
 voice_bench_bbh:
   class: audio_evals.base.EvalTaskCfg
   args:
-    dataset: voice_bench_ifeval
+    dataset: voice_bench_bbh
     prompt: direct-aqa
     model: qwen-audio-chat
     evaluator: bbh
@@ -38,7 +38,7 @@ voice_bench_bbh:
 voice_bench_harm:
   class: audio_evals.base.EvalTaskCfg
   args:
-    dataset: voice_bench_ifeval
+    dataset: voice_bench_advbench
     prompt: direct-aqa
     model: qwen-audio-chat
     evaluator: harm
