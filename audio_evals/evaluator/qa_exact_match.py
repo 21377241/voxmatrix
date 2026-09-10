@@ -46,7 +46,8 @@ class QAExactMatchEvaluator(Evaluator):
 
         return {
             "match": 1 if match else 0,
-            "pred": label if match else pred,
+            # Keep the model output in pred for auditability; never overwrite with ref.
+            "pred": pred,
             "ref": label,
         }
 
@@ -81,18 +82,44 @@ def _normalize(text):
     return unicodedata.normalize('NFD', text)
 
 
+_PUNCT_TABLE = str.maketrans("", "", string.punctuation + "。，、；：？！「」『』（）【】《》—…·")
+
+
+def _collapse_for_containment(text: str) -> str:
+    """Lowercase + strip punctuation/whitespace for character-level containment."""
+    text = _normalize(str(text)).lower()
+    text = text.translate(_PUNCT_TABLE)
+    return "".join(text.split())
+
+
+def has_answer_char_containment(answers, text) -> bool:
+    """True if any answer string is a substring of text after light normalization.
+
+    Needed for CJK: SimpleTokenizer keeps a whole Chinese sentence as one token,
+    so token-span matching cannot find a short answer inside a long sentence.
+    """
+    haystack = _collapse_for_containment(text)
+    if not haystack:
+        return False
+    for answer in answers:
+        needle = _collapse_for_containment(answer)
+        if needle and needle in haystack:
+            return True
+    return False
+
+
 def has_answer(answers, text, tokenizer) -> bool:
     """Check if a document contains an answer string."""
-    text = _normalize(text)
-    text = tokenizer.tokenize(text, uncased=True)
+    text_norm = _normalize(text)
+    text_tokens = tokenizer.tokenize(text_norm, uncased=True)
 
     for answer in answers:
-        answer = _normalize(answer)
-        answer = tokenizer.tokenize(answer, uncased=True)
-        for i in range(0, len(text) - len(answer) + 1):
-            if answer == text[i: i + len(answer)]:
+        answer_tokens = tokenizer.tokenize(_normalize(answer), uncased=True)
+        for i in range(0, len(text_tokens) - len(answer_tokens) + 1):
+            if answer_tokens and answer_tokens == text_tokens[i : i + len(answer_tokens)]:
                 return True
-    return False
+    # Fallback for CJK / unsegmented spans where token matching fails.
+    return has_answer_char_containment(answers, text)
 
 
 class QAExistMatchEvaluator(Evaluator):
@@ -106,6 +133,7 @@ class QAExistMatchEvaluator(Evaluator):
 
         return {
             "match": 1 if match else 0,
-            "pred": label if match else pred,
+            # Keep the model output in pred for auditability; never overwrite with ref.
+            "pred": pred,
             "ref": label,
         }

@@ -2,3 +2,13 @@ qa-exist-match:
   class: audio_evals.evaluator.qa_exact_match.QAExistMatchEvaluator
   args: {}
 
+uro-basic-content:
+  class: audio_evals.evaluator.uro_basic.UROBasicContentEvaluator
+  args:
+    judge_model_name: gpt4o-mini
+
+vocalbench-qa-split:
+  class: audio_evals.evaluator.vocalbench_split.VocalBenchQASplitEvaluator
+  args:
+    judge_model_name: gpt4o-mini
+

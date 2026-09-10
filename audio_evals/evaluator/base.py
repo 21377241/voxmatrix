@@ -54,7 +54,8 @@ class ExistMatch(Evaluator):
         if label in pred:
             match = 1
 
-        return {"match": match, "pred": label if match else pred, "ref": label}
+        # Keep the model output in pred for auditability; never overwrite with ref.
+        return {"match": match, "pred": pred, "ref": label}
 
 
 class PrefixMatch(Evaluator):
