@@ -1,3 +1,8 @@
 extract-omni-audio-path:
-  class: smoke_tts_all.extract_omni_audio.ExtractOmniAudioPath
+  class: audio_evals.process.tts.ExtractOmniAudioPath
+  args: {}
+
+# Alias matching main registry naming used by seed_tts_eval tasks.
+extract_audio:
+  class: audio_evals.process.tts.ExtractOmniAudioPath
   args: {}

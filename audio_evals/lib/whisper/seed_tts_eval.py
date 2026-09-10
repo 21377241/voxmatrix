@@ -24,12 +24,24 @@ if __name__ == "__main__":
     )
     config = parser.parse_args()
 
-    # Initialize model
+    # Initialize model — keep weights and features on the same dtype to avoid
+    # "Input type (float) and bias type (c10::Half)" when CUDA defaults differ.
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    model = WhisperForConditionalGeneration.from_pretrained(config.path)
-    model.to(device)
+    torch_dtype = torch.float32
+    model = WhisperForConditionalGeneration.from_pretrained(
+        config.path,
+        torch_dtype=torch_dtype,
+    )
+    model.to(device=device, dtype=torch_dtype)
+    model.eval()
     processor = WhisperProcessor.from_pretrained(config.path)
-    logger.info(f"Using Whisper model from: {config.path} on device: {device}")
+    logger.info(
+        f"Using Whisper model from: {config.path} on device: {device} dtype={torch_dtype}"
+    )
+
+    def _features_to_model(input_features):
+        return input_features.to(device=device, dtype=torch_dtype)
+
     while True:
         try:
             prompt = input()
@@ -60,7 +72,7 @@ if __name__ == "__main__":
                     input_features = processor(
                         chunk, sampling_rate=16000, return_tensors="pt"
                     ).input_features
-                    input_features = input_features.to(device)
+                    input_features = _features_to_model(input_features)
                     forced_decoder_ids = processor.get_decoder_prompt_ids(
                         language=x.get("generate_kwargs", {}).get("language", "english"), task="transcribe"
                     )
@@ -78,13 +90,14 @@ if __name__ == "__main__":
                 input_features = processor(
                     wav, sampling_rate=16000, return_tensors="pt"
                 ).input_features
-                input_features = input_features.to(device)
+                input_features = _features_to_model(input_features)
                 forced_decoder_ids = processor.get_decoder_prompt_ids(
                     language=x.get("generate_kwargs", {}).get("language", "english"), task="transcribe"
                 )
-                predicted_ids = model.generate(
-                    input_features, forced_decoder_ids=forced_decoder_ids
-                )
+                with torch.no_grad():
+                    predicted_ids = model.generate(
+                        input_features, forced_decoder_ids=forced_decoder_ids
+                    )
                 transcription = processor.batch_decode(
                     predicted_ids, skip_special_tokens=True
                 )[0]

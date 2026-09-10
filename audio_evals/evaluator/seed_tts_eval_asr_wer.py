@@ -53,6 +53,9 @@ class SeedTTSEvalASRWER(Evaluator):
         self.lang = lang
 
     def _eval(self, pred, label, **kwargs) -> Dict[str, any]:
+        from audio_evals.process.tts import ExtractOmniAudioPath
+
+        pred = ExtractOmniAudioPath()(pred)
         pred = str(pred)
         label_text = kwargs["text"]
         assert os.path.exists(pred), "must be a valid audio file, but got {}".format(

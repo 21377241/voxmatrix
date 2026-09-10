@@ -4,6 +4,6 @@ smoke-task-libritts-tts:
     dataset: smoke-libritts-tts10
     prompt: smoke-qwen3-omni-tts-en
     model: qwen3-omni-speech-local
-    post_process: []
+    post_process: [extract-omni-audio-path]
     evaluator: smoke-seed-tts-eval-asr-wer-en
     agg: smoke-mesh

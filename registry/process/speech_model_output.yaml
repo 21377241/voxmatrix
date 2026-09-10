@@ -1,7 +1,6 @@
 extract_audio:
-  class: audio_evals.process.base.JsonExtract
-  args:
-    extract_key: audio
+  class: audio_evals.process.tts.ExtractOmniAudioPath
+  args: {}
 
 extract_text:
   class: audio_evals.process.base.JsonExtract
