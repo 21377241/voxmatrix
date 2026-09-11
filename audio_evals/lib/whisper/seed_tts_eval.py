@@ -32,7 +32,8 @@ if __name__ == "__main__":
         config.path,
         torch_dtype=torch_dtype,
     )
-    model.to(device=device, dtype=torch_dtype)
+    # Move after load; keep dtype fixed to float32 to avoid Half/float mismatch.
+    model = model.to(device)
     model.eval()
     processor = WhisperProcessor.from_pretrained(config.path)
     logger.info(

@@ -1,7 +1,7 @@
 schema_version: evaluation-suite-config/1.0
-run_id: smoke-attr-all-10
+run_id: smoke-attr-all-10-fix
 model: qwen3-omni-local
-output_root: /mnt/afs/users/wangyl/VoxMatrix/smoke_attr_all/results
+output_root: /mnt/afs/users/wangyl/VoxMatrix/smoke_attr_all/results_fix
 registry_paths:
 - /mnt/afs/users/wangyl/VoxMatrix/smoke_attr_all/registry
 model_pool:

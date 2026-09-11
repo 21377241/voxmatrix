@@ -20,3 +20,5 @@ benchmarks:
   agg: smoke-mesh
   limit: 10
   evaluation_workers: 1
+  # Omni speech fills the GPU; release it before Whisper ASR scoring.
+  two_phase: true
