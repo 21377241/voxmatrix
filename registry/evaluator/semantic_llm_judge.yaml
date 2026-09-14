@@ -1,0 +1,23 @@
+semantic-llm-judge:
+  class: audio_evals.evaluator.semantic_llm_judge.SemanticLLMJudgeEvaluator
+  args:
+    judge_model_name: gpt4o-mini
+    mm_judge_model_name: gpt4o-mini-audio
+    n_samples: 1
+    default_template: text
+
+semantic-llm-judge-text:
+  class: audio_evals.evaluator.semantic_llm_judge.SemanticLLMJudgeEvaluator
+  args:
+    judge_model_name: gpt4o-mini
+    mm_judge_model_name: gpt4o-mini-audio
+    n_samples: 1
+    default_template: text
+
+semantic-llm-judge-mm:
+  class: audio_evals.evaluator.semantic_llm_judge.SemanticLLMJudgeEvaluator
+  args:
+    judge_model_name: gpt4o-mini
+    mm_judge_model_name: gpt4o-mini-audio
+    n_samples: 1
+    default_template: multimodal

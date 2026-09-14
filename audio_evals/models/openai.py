@@ -38,6 +38,7 @@ class GPT(APIModel):
             )
         else:
             self.client = OpenAI()
+        self.last_usage: Dict[str, Any] = {}
 
     def _inference(self, prompt: PromptStruct, **kwargs) -> str:
 
@@ -50,6 +51,15 @@ class GPT(APIModel):
         response = self.client.chat.completions.create(
             model=self.model_name, messages=messages, **kwargs
         )
+        usage = getattr(response, "usage", None)
+        self.last_usage = {
+            "prompt_tokens": getattr(usage, "prompt_tokens", None) if usage else None,
+            "completion_tokens": getattr(usage, "completion_tokens", None)
+            if usage
+            else None,
+            "total_tokens": getattr(usage, "total_tokens", None) if usage else None,
+            "model": self.model_name,
+        }
 
         return response.choices[0].message.content
 
@@ -109,7 +119,11 @@ class AdvancedGPT(APIModel):
 
         if api_key is None:
             api_key = os.environ["OPENAI_API_KEY"]
+        env_base = os.environ.get("OPENAI_BASE_URL", "").strip()
+        if env_base and base_url == "https://api.openai.com/v1":
+            base_url = env_base
         self.client = OpenAI(base_url=base_url, api_key=api_key)
+        self.last_usage: Dict[str, Any] = {}
 
     # OpenAI audio API only supports wav and mp3 formats
     SUPPORTED_AUDIO_FORMATS = {".wav", ".mp3"}
@@ -270,17 +284,30 @@ class AdvancedGPT(APIModel):
         request_params = {
             "model": self.model_name,
             "messages": messages,
-            "modalities": self.modalities,
         }
+        # Some OpenAI-compatible proxies reject modalities; allow omit via env.
+        if os.environ.get("ADVANCED_GPT_OMIT_MODALITIES", "").strip() != "1":
+            request_params["modalities"] = self.modalities
 
         # Add audio configuration if audio output is requested
         if "audio" in self.modalities:
             request_params["audio"] = {"voice": self.voice, "format": self.audio_format}
 
-        # Merge with additional kwargs
+        # Merge with additional kwargs (drop unsupported sampling knobs for audio models)
+        for key in ("frequency_penalty", "presence_penalty", "stop"):
+            kwargs.pop(key, None)
         request_params.update(kwargs)
 
         response = self.client.chat.completions.create(**request_params)
+        usage = getattr(response, "usage", None)
+        self.last_usage = {
+            "prompt_tokens": getattr(usage, "prompt_tokens", None) if usage else None,
+            "completion_tokens": getattr(usage, "completion_tokens", None)
+            if usage
+            else None,
+            "total_tokens": getattr(usage, "total_tokens", None) if usage else None,
+            "model": self.model_name,
+        }
 
         # Process response
         message = response.choices[0].message

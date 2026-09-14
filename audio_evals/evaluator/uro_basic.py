@@ -101,50 +101,40 @@ class UROBasicContentEvaluator(Evaluator):
                 "skipped": 0,
             }
 
-        # Judge tracks
+        # Judge tracks: URO Appendix E open / semi-open / qa via SemanticLLMJudge
         if mode in ("open", "semi-open", "qa"):
-            try:
-                from audio_evals.evaluator.voice_bench import (
-                    VoiceBenchQaOpenEvaluator,
-                    get_judge_model,
-                    resolve_judge_model_name,
-                )
+            from audio_evals.evaluator.semantic_llm_judge import SemanticLLMJudgeEvaluator
 
-                resolve_judge_model_name(self.judge_model_name)
-                get_judge_model(self.judge_model_name)
-            except Exception as exc:  # noqa: BLE001
-                return {
-                    **base,
-                    "match": 0,
-                    "score_0_100": None,
-                    "skipped": 1,
-                    "skip_reason": f"judge_unavailable:{exc}",
-                }
-
+            rubric = "binary" if mode == "qa" else mode
+            judge = SemanticLLMJudgeEvaluator(judge_model_name=self.judge_model_name)
             question = kwargs.get("question") or kwargs.get("prompt") or ""
-            # For open mode with empty gold, still score response vs instruction.
-            judge = VoiceBenchQaOpenEvaluator(self.judge_model_name)
-            judge_out = judge._eval(
-                pred_s,
-                refs[0] if refs else "",
-                question=question,
-                prompt=question,
-            )
-            gpt_score = judge_out.get("gpt_score")
-            # VoiceBench open rating is 1-5; map to 0-100.
-            if gpt_score is None:
-                score_0_100 = None
-                match = 0
-            else:
-                score_0_100 = float(gpt_score) / 5.0 * 100.0
-                match = 1 if float(gpt_score) >= 3 else 0
-            return {
-                **base,
-                "match": match,
-                "score_0_100": score_0_100,
-                "gpt_score": gpt_score,
-                "skipped": 0,
+            judge_kwargs = {
+                "capability": "qa",
+                "rubric": rubric,
+                "eval_mode": mode,
+                "question": question,
+                "judge_template": kwargs.get("judge_template") or "text",
+                "audio_transcript": kwargs.get("audio_transcript")
+                or kwargs.get("source_transcript")
+                or "",
+                "WavPath": kwargs.get("WavPath") or kwargs.get("wav_path") or "",
+                "judge_model_name": kwargs.get("judge_model_name") or self.judge_model_name,
             }
+            judge_out = judge._eval(pred_s, refs[0] if refs else "", **judge_kwargs)
+            out = {
+                **base,
+                "match": judge_out.get("match", 0),
+                "score_0_100": judge_out.get("score_0_100"),
+                "gpt_score": judge_out.get("gpt_score"),
+                "skipped": judge_out.get("skipped", 0),
+                "prompt_id": judge_out.get("prompt_id"),
+                "judge_template": judge_out.get("judge_template"),
+                "raw_judge_output": judge_out.get("raw_judge_output"),
+                "judge_usage": judge_out.get("judge_usage"),
+            }
+            if judge_out.get("skip_reason"):
+                out["skip_reason"] = judge_out["skip_reason"]
+            return out
 
         return {
             **base,

@@ -8,6 +8,21 @@ gpt4o-mini:
   args:
     model_name: 'gpt-4o-mini'
 
+# Chat Completions audio-input judge (template B). Override via MESH_MM_JUDGE_MODEL.
+gpt4o-mini-audio:
+  class: audio_evals.models.openai.AdvancedGPT
+  args:
+    model_name: 'gpt-4o-mini-audio-preview-2024-12-17'
+    modalities:
+      - text
+
+gpt4o-audio:
+  class: audio_evals.models.openai.AdvancedGPT
+  args:
+    model_name: 'gpt-4o-audio-preview-2024-12-17'
+    modalities:
+      - text
+
 gpt4o_audio:
   class: audio_evals.models.openai_realtime.GPT4oAudio
   args:

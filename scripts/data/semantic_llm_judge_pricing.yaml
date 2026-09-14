@@ -1,0 +1,60 @@
+# Default public OpenAI-equivalent list prices (USD / 1M tokens).
+# Override with SEMANTIC_JUDGE_PRICE_JSON or edit this file for ChatAnywhere rates.
+# Audio input for gpt-4o-*-audio is billed as tokens in Chat Completions usage;
+# if an endpoint separately bills audio-seconds, set audio_input_per_minute.
+
+models:
+  gpt-4o-mini:
+    input_per_mtok: 0.15
+    output_per_mtok: 0.60
+  gpt-4o-mini-audio-preview:
+    input_per_mtok: 0.15
+    output_per_mtok: 0.60
+    # OpenAI also publishes audio rates; usage.prompt_tokens usually already
+    # includes audio. Keep audio_input_per_minute at 0 when trusting usage.
+    audio_input_per_minute: 0.0
+  gpt-4o-audio-preview:
+    input_per_mtok: 2.50
+    output_per_mtok: 10.00
+    audio_input_per_minute: 0.0
+  gpt-4o:
+    input_per_mtok: 2.50
+    output_per_mtok: 10.00
+
+# Full-eval sample counts for open/semantic LLM-judge tracks (fixed口径).
+full_eval_counts:
+  uro_basic_open: 1416
+  uro_basic_semi_open: 908
+  uro_basic_qa_binary: 1839
+  vocalbench_reasoning: 1000
+  vocalbench_single_round: 200
+  vocalbench_zh_reasoning: 851
+  vocalbench_zh_single_round: 200
+  vocalbench_zh_cs_open_ended: 200
+  vocalbench_zh_cs_knowledge: 362
+  mmsu_speech_translation_open: 119
+  mmsu_code_switch_open: 111
+  # MMSU open reasoning families (approx sum of open-converted subsets)
+  mmsu_reasoning_open_approx: 900
+
+scenarios:
+  only_A0:
+    description: 正式默认：仅模板 A0（无转写文本 Judge）
+    A0: 1.0
+    A1: 0.0
+    B: 0.0
+  A0_plus_A1:
+    description: 双文本对照：全量 A0 + 全量 A1
+    A0: 1.0
+    A1: 1.0
+    B: 0.0
+  A0_plus_B_sample10:
+    description: 正式 A0 + 多模态 B 抽查 10%
+    A0: 1.0
+    A1: 0.0
+    B: 0.1
+  full_triple:
+    description: 上界：全量三路
+    A0: 1.0
+    A1: 1.0
+    B: 1.0
