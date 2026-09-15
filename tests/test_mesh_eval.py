@@ -857,7 +857,7 @@ def test_two_phase_resume_reuses_recorded_evaluation(tmp_path):
         agg=None,
         recorder=Recorder(str(tmp_path / "two_phase_resume.jsonl")),
     )
-    _, score, output, error = task._evaluate_only(
+    _, score, output, error, skipped = task._evaluate_only(
         0,
         "raw",
         {
@@ -873,6 +873,7 @@ def test_two_phase_resume_reuses_recorded_evaluation(tmp_path):
     assert output == "saved-output"
     assert score["saved_score"] == 1
     assert error == 0
+    assert skipped == 0
 
 
 def test_dataset_load_timeout_interrupts_stalled_loader(tmp_path):
