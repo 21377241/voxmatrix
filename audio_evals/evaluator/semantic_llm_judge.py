@@ -1,7 +1,8 @@
-"""Semantic LLM judge evaluator (text template A0/A1; multimodal template B).
+"""Semantic LLM judge evaluator (A1 text+transcript; B transcript+audio).
 
-Uses capability-specific prompts from ``llm_judge_prompts`` and registered
-judge models (``gpt4o-mini`` text; ``gpt4o-mini-audio`` for WavPath input).
+Paired design: A1 and B share the same judge model and the same
+``audio_transcript``; B only adds WavPath. Default multimodal model:
+``qwen3-omni-thinking``.
 """
 
 from __future__ import annotations
@@ -13,7 +14,8 @@ from typing import Any, Dict, List, Optional
 from audio_evals.evaluator.base import Evaluator
 from audio_evals.evaluator.llm_judge_prompts import build_prompt, prompt_id, resolve_route
 
-DEFAULT_MM_JUDGE_MODEL = "gpt4o-mini-audio"
+DEFAULT_MM_JUDGE_MODEL = "qwen3-omni-thinking"
+DEFAULT_PAIRED_JUDGE_MODEL = "qwen3-omni-thinking"
 
 
 def _as_ref_text(label: Any) -> str:
@@ -29,20 +31,27 @@ def parse_score_1_to_5(raw: str) -> Optional[float]:
     text = (raw or "").strip()
     if not text:
         return None
-    try:
-        value = float(text)
-        if 1.0 <= value <= 5.0:
-            return value
-    except ValueError:
-        pass
-    match = re.search(r"\[\[(\d+(?:\.\d+)?)\]\]", text)
-    if match:
-        value = float(match.group(1))
-        if 1.0 <= value <= 5.0:
-            return value
-    match = re.search(r"\b([1-5])(?:\.0+)?\b", text)
-    if match:
-        return float(match.group(1))
+    # Thinking models may emit long chains; prefer a trailing standalone score.
+    tail = text[-200:] if len(text) > 200 else text
+    for chunk in (tail, text):
+        try:
+            value = float(chunk.strip())
+            if 1.0 <= value <= 5.0:
+                return value
+        except ValueError:
+            pass
+        match = re.search(r"\[\[(\d+(?:\.\d+)?)\]\]", chunk)
+        if match:
+            value = float(match.group(1))
+            if 1.0 <= value <= 5.0:
+                return value
+        lines = [ln.strip() for ln in chunk.splitlines() if ln.strip()]
+        for ln in reversed(lines[-8:]):
+            if re.fullmatch(r"[1-5](?:\.0+)?", ln):
+                return float(ln)
+        match = re.search(r"\b([1-5])(?:\.0+)?\b", chunk)
+        if match:
+            return float(match.group(1))
     return None
 
 
@@ -50,10 +59,10 @@ def parse_yes_no(raw: str) -> Optional[int]:
     text = (raw or "").strip().lower()
     if not text:
         return None
-    match = re.search(r"\b(yes|no)\b", text)
-    if not match:
+    matches = list(re.finditer(r"\b(yes|no)\b", text))
+    if not matches:
         return None
-    return 1 if match.group(1) == "yes" else 0
+    return 1 if matches[-1].group(1) == "yes" else 0
 
 
 def _collect_usage(model: Any) -> Dict[str, Any]:
@@ -61,6 +70,10 @@ def _collect_usage(model: Any) -> Dict[str, Any]:
     if isinstance(usage, dict):
         return dict(usage)
     return {}
+
+
+def _is_openai_chat_judge(model: Any) -> bool:
+    return model.__class__.__name__ in ("AdvancedGPT", "GPT")
 
 
 class SemanticLLMJudgeEvaluator(Evaluator):
@@ -77,7 +90,7 @@ class SemanticLLMJudgeEvaluator(Evaluator):
 
     def __init__(
         self,
-        judge_model_name: str = "gpt4o-mini",
+        judge_model_name: str = DEFAULT_PAIRED_JUDGE_MODEL,
         n_samples: int = 1,
         default_template: str = "text",
         mm_judge_model_name: str = DEFAULT_MM_JUDGE_MODEL,
@@ -92,7 +105,6 @@ class SemanticLLMJudgeEvaluator(Evaluator):
             get_judge_model,
             resolve_judge_model_name,
         )
-        from audio_evals.registry import registry
 
         pred_s = "" if pred is None else str(pred)
         ref_s = _as_ref_text(label)
@@ -134,7 +146,7 @@ class SemanticLLMJudgeEvaluator(Evaluator):
         wav_path = str(wav_path).strip()
         require_transcript = bool(kwargs.get("require_transcript"))
 
-        if template == "text" and require_transcript and not str(audio_transcript).strip():
+        if require_transcript and not str(audio_transcript).strip():
             return self._skip(
                 pred_s,
                 ref_s,
@@ -195,7 +207,7 @@ class SemanticLLMJudgeEvaluator(Evaluator):
                 question=str(question),
                 pred=pred_s,
                 reference=ref_s,
-                audio_transcript=str(audio_transcript) if template == "text" else "",
+                audio_transcript=str(audio_transcript),
                 direction=str(direction),
             )
         except ValueError as exc:
@@ -235,13 +247,17 @@ class SemanticLLMJudgeEvaluator(Evaluator):
                             ],
                         },
                     ]
-                    out = model.inference(
-                        prompt_struct,
-                        max_tokens=64,
-                        temperature=0.0,
-                        top_p=1.0,
-                    )
-                else:
+                    infer_kwargs: Dict[str, Any] = {}
+                    if _is_openai_chat_judge(model):
+                        infer_kwargs = {
+                            "max_tokens": 64,
+                            "temperature": 0.0,
+                            "top_p": 1.0,
+                        }
+                    out = model.inference(prompt_struct, **infer_kwargs)
+                elif _is_openai_chat_judge(model):
+                    from audio_evals.registry import registry
+
                     wrap = registry.get_prompt("yes_no_judge")
                     out = model.inference(
                         wrap.load(real_prompt=real_prompt),
@@ -252,6 +268,16 @@ class SemanticLLMJudgeEvaluator(Evaluator):
                         temperature=0.0,
                         top_p=1.0,
                     )
+                else:
+                    prompt_struct = [
+                        {
+                            "role": "user",
+                            "contents": [
+                                {"type": "text", "value": real_prompt},
+                            ],
+                        },
+                    ]
+                    out = model.inference(prompt_struct)
                 raw_outputs.append("" if out is None else str(out))
                 usage_rows.append(_collect_usage(model))
         except Exception as exc:  # noqa: BLE001
@@ -273,9 +299,7 @@ class SemanticLLMJudgeEvaluator(Evaluator):
             "judge_usage": usage_agg,
             "judge_model": getattr(model, "model_name", configured),
             "WavPath": wav_path or None,
-            "audio_transcript_used": bool(str(audio_transcript).strip())
-            if template == "text"
-            else False,
+            "audio_transcript_used": bool(str(audio_transcript).strip()),
         }
 
         binary = route["rubric"] in self.BINARY_RUBRICS

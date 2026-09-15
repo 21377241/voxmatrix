@@ -9,7 +9,8 @@ Design norm (URO-Bench aligned, not verbatim copy):
   - Output score / Yes|No only; no explanations
   - Default: text judge of **text** Response (content track). Scenario text must
     not claim speech-out transcription when the pipeline only scores text pred.
-  - Optional [AudioTranscript] for template A1; multimodal preface for template B.
+  - [AudioTranscript]/[SourceTranscript] for A1 and B (same string); multimodal
+    preface adds WavPath so B = transcript + audio.
 
 QA keeps URO Appendix E **rating scales & principles**; preamble is adjusted for
 text-response eval. AR / ST / CS use the same structural standard with task Focus.
@@ -22,8 +23,9 @@ from __future__ import annotations
 from typing import Any, Dict, Mapping, Optional
 
 MM_PREFACE = (
-    "You are also given the same user audio the model heard. "
-    "Use the audio to verify content; do not score TTS quality.\n\n"
+    "You are given (1) an ASR transcript of the user speech and (2) the same "
+    "user audio the model heard. Use both; if they conflict, prefer whatever "
+    "better reflects the user's true intent. Do not score TTS quality.\n\n"
 )
 
 OUTPUT_SCORE = (
@@ -161,7 +163,7 @@ def _qa_open(**kw: Any) -> str:
         "manner, providing exactly the information needed.",
         "Below are the instruction and the model’s response:",
         _block("Instruction", kw.get("question")),
-        _block("AudioTranscript", kw.get("audio_transcript") if kw.get("template") == "text" else ""),
+        _block("AudioTranscript", kw.get("audio_transcript")),
         _block("Response", kw.get("pred")),
         OUTPUT_SCORE,
     )
@@ -201,7 +203,7 @@ def _qa_semi_open(**kw: Any) -> str:
         "the query, demonstrating a high level of reasoning and clarity.",
         "Below are the instruction, the model’s response, and the reference:",
         _block("Instruction", kw.get("question")),
-        _block("AudioTranscript", kw.get("audio_transcript") if kw.get("template") == "text" else ""),
+        _block("AudioTranscript", kw.get("audio_transcript")),
         _block("Response", kw.get("pred")),
         _block("Reference", kw.get("reference")),
         OUTPUT_SCORE,
@@ -218,7 +220,7 @@ def _qa_binary(**kw: Any) -> str:
         "- Ignore extra polite fluff unless it changes the answer.",
         "Below are the question, the model’s response, and the reference answer:",
         _block("Question", kw.get("question")),
-        _block("AudioTranscript", kw.get("audio_transcript") if kw.get("template") == "text" else ""),
+        _block("AudioTranscript", kw.get("audio_transcript")),
         _block("Response", kw.get("pred")),
         _block("Reference", kw.get("reference")),
         "Is the model’s response correct based on the question and reference answer?\n"
@@ -232,38 +234,45 @@ def _qa_binary(**kw: Any) -> str:
 def _ar_body(*, with_ref_focus: bool, **kw: Any) -> str:
     focus = (
         "[Focus]\n"
-        "- Highest priority: groundedness on the audio evidence (or its transcript).\n"
-        "- Then: correctness of the conclusion; then clarity of reasoning if shown.\n"
-        "- Penalize hard: answers that ignore the audio, invent unaudible facts, or "
-        "only restate the question without using audible information."
+        "- Highest priority: **answer accuracy** — the final conclusion must be correct "
+        "for the question (use Reference when provided as a soft check).\n"
+        "- Second: **reasoning quality** — the chain of reasoning must be coherent, "
+        "logically rigorous, and free of contradictions or unjustified leaps.\n"
+        "- Supporting: the reasoning should be consistent with information available from "
+        "the audio / transcript when the question depends on it; do not invent unaudible facts.\n"
+        "- Penalize: wrong final answers, broken or hand-wavy logic, contradictions, "
+        "or long reasoning that does not actually support the stated conclusion."
     )
     if with_ref_focus:
         focus += (
-            "\n- Soft-align to Reference (URO semi-open principle): treat it as a "
-            "suggested correct conclusion; accept equivalent reasoning paths / paraphrases."
+            "\n- Soft-align to Reference (URO semi-open principle): accept equivalent "
+            "correct conclusions and valid alternative reasoning paths / paraphrases."
         )
     return _join_parts(
         _TEXT_SCENE,
-        "This is an AUDIO REASONING task: the model must use information present in the "
-        "spoken/audio input (events, counts, relations, speakers, etc.) to answer—"
-        "not generic world knowledge alone.",
+        "This is an AUDIO REASONING task: the model heard spoken/audio input and produced "
+        "a text answer that should solve the question with correct conclusions and sound "
+        "reasoning (not style or TTS quality).",
         focus,
         "Please evaluate the response on a scale of 1 to 5:\n"
-        "1 point: The response is ungrounded or wrong. It shows little to no use of "
-        "audio evidence, invents facts not supported by the input, or fails the question.\n"
-        "2 points: The response is only partially grounded. A major audio-dependent "
-        "detail is missing or wrong, though some content may still be related.\n"
-        "3 points: The response is mostly grounded and plausible, but has minor gaps, "
-        "unclear steps, or small mistakes relative to the audio evidence"
+        "1 point: The final answer is wrong or missing, and/or the reasoning is incoherent, "
+        "contradictory, or does not address the question in any meaningful way.\n"
+        "2 points: The response shows only partial correctness. The answer may be incomplete "
+        "or wrong on a key point, or the reasoning has major logical gaps / unjustified leaps, "
+        "though some steps may still be related.\n"
+        "3 points: The final answer is mostly correct and the reasoning is generally "
+        "understandable, but there are noticeable logical weaknesses, missing steps, or "
+        "minor inaccuracies"
         + (
-            " or the suggested reference intent.\n"
+            " relative to the suggested reference intent.\n"
             if with_ref_focus
             else ".\n"
         )
-        + "4 points: The response is well grounded and reaches a correct conclusion "
-        "with clear enough reasoning. Wording may differ from a suggested reference.\n"
-        "5 points: The response is fully grounded, precise, and faithfully reflects "
-        "the audio evidence"
+        + "4 points: The final answer is correct and the reasoning is coherent and "
+        "largely rigorous, with only minor clarity issues. Wording may differ from a "
+        "suggested reference.\n"
+        "5 points: The final answer is accurate and the reasoning is clear, coherent, "
+        "and logically rigorous end-to-end"
         + (
             ", aligning with the intent of the suggested reference even if phrasing differs.\n"
             if with_ref_focus
@@ -271,7 +280,7 @@ def _ar_body(*, with_ref_focus: bool, **kw: Any) -> str:
         ),
         "Below are the question and the model’s response:",
         _block("Question", kw.get("question")),
-        _block("AudioTranscript", kw.get("audio_transcript") if kw.get("template") == "text" else ""),
+        _block("AudioTranscript", kw.get("audio_transcript")),
         _block("Response", kw.get("pred")),
         _block("Reference", kw.get("reference") if with_ref_focus else ""),
         OUTPUT_SCORE,
@@ -288,18 +297,19 @@ def _ar_semi_open(**kw: Any) -> str:
 
 def _st_translation(**kw: Any) -> str:
     direction = kw.get("direction") or "Translate the source speech into the target language."
-    if kw.get("template") == "multimodal":
-        asr_note = (
-            "- Listen to the source audio; use Reference as a suggested target rendering "
-            "(soft alignment: paraphrase OK if meaning matches)."
+    asr_note = (
+        "- SourceTranscript is an independent ASR of the source speech"
+        + (
+            "; you may also hear the source audio"
+            if kw.get("template") == "multimodal"
+            else ""
         )
-    else:
-        asr_note = (
-            "- If SourceTranscript may contain ASR errors, prefer meaning consistent with "
-            "both transcript and reference; when they conflict, trust Reference for target "
-            "meaning and reflect uncertainty only via a lower score (still output one score).\n"
-            "- Soft-align to Reference (URO semi-open principle): paraphrase OK if meaning matches."
-        )
+        + ". If ASR may err, prefer meaning consistent with transcript"
+        + (" and audio" if kw.get("template") == "multimodal" else "")
+        + " and reference; when they conflict on target meaning, trust Reference "
+        "and reflect uncertainty only via a lower score (still output one score).\n"
+        "- Soft-align to Reference (URO semi-open principle): paraphrase OK if meaning matches."
+    )
     return _join_parts(
         _TEXT_SCENE,
         "This is SPEECH TRANSLATION (speech → target-language **text**). "
@@ -323,7 +333,7 @@ def _st_translation(**kw: Any) -> str:
         "May differ from the reference in phrasing while aligning with its meaning.",
         "Below are the direction, source side, model translation, and reference:",
         _block("Direction", direction),
-        _block("SourceTranscript", kw.get("audio_transcript") if kw.get("template") == "text" else ""),
+        _block("SourceTranscript", kw.get("audio_transcript")),
         _block("Response", kw.get("pred")),
         _block("Reference", kw.get("reference")),
         OUTPUT_SCORE,
@@ -341,7 +351,7 @@ def _cs_binary(**kw: Any) -> str:
         "- Be strict on critical entities, numbers, and names that depend on hearing the mix.",
         "Below are the question, the model’s response, and the reference answer:",
         _block("Question", kw.get("question")),
-        _block("AudioTranscript", kw.get("audio_transcript") if kw.get("template") == "text" else ""),
+        _block("AudioTranscript", kw.get("audio_transcript")),
         _block("Response", kw.get("pred")),
         _block("Reference", kw.get("reference")),
         "Is the model’s response correct based on the question and reference answer?\n"
@@ -372,7 +382,7 @@ def _cs_semi_open(**kw: Any) -> str:
         "May differ in phrasing while aligning with the reference intent.",
         "Below are the question, the model’s response, and the reference:",
         _block("Question", kw.get("question")),
-        _block("AudioTranscript", kw.get("audio_transcript") if kw.get("template") == "text" else ""),
+        _block("AudioTranscript", kw.get("audio_transcript")),
         _block("Response", kw.get("pred")),
         _block("Reference", kw.get("reference")),
         OUTPUT_SCORE,
@@ -403,7 +413,7 @@ def _cs_open(**kw: Any) -> str:
         "entities and directly addresses the query.",
         "Below are the question and the model’s response:",
         _block("Question", kw.get("question")),
-        _block("AudioTranscript", kw.get("audio_transcript") if kw.get("template") == "text" else ""),
+        _block("AudioTranscript", kw.get("audio_transcript")),
         _block("Response", kw.get("pred")),
         OUTPUT_SCORE,
     )

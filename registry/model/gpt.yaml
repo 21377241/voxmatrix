@@ -8,7 +8,8 @@ gpt4o-mini:
   args:
     model_name: 'gpt-4o-mini'
 
-# Chat Completions audio-input judge (template B). Override via MESH_MM_JUDGE_MODEL.
+# Optional Chat Completions audio-input judge (template B fallback).
+# Default B judge is local qwen3-omni-thinking; override via MESH_MM_JUDGE_MODEL.
 gpt4o-mini-audio:
   class: audio_evals.models.openai.AdvancedGPT
   args:

@@ -86,7 +86,8 @@ def test_non_qa_aligned_to_same_standard():
     for text in (ar, st, cs):
         assert "Score **content quality only**" in text or "content quality only" in text.lower()
         assert "speech output" not in text.lower()
-    assert "groundedness" in ar
+    assert "answer accuracy" in ar
+    assert "reasoning quality" in ar or "logically rigorous" in ar
     assert "1 point:" in ar and "Soft-align to Reference" in ar
     assert "adequacy" in st
     assert "1 point:" in st and "Soft-align to Reference" in st
@@ -110,10 +111,11 @@ def test_multimodal_preface():
         template="multimodal",
         question="Q",
         pred="A",
-        audio_transcript="should be omitted for mm text slots",
+        audio_transcript="hello from asr",
     )
-    assert text.startswith("You are also given the same user audio")
-    assert "### [AudioTranscript]" not in text
+    assert "ASR transcript" in text or "transcript" in text.lower()
+    assert "### [AudioTranscript]" in text
+    assert "hello from asr" in text
 
 
 def test_parsers():
