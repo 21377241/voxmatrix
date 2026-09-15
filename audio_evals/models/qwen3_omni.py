@@ -258,15 +258,24 @@ class Qwen3Omni(OfflineModel):
         if isinstance(prompt, dict) and "multi_turn" in prompt:
             conversation = []
             responses = []
+            audio_responses = []
             for turn in prompt["multi_turn"]:
                 messages = turn if isinstance(turn, list) else [turn]
                 conversation.extend(
                     self._parse_role_content(message) for message in messages
                 )
-                response = self._request(conversation)["text"]
+                result = self._request(conversation)
+                response = result["text"]
                 responses.append(response)
+                audio_responses.append(result.get("audio"))
                 conversation.append({"role": "assistant", "content": response})
-            return json.dumps({"responses": responses}, ensure_ascii=False)
+            output = {"responses": responses}
+            if any(audio_responses):
+                # Preserve one entry per turn so speech-to-speech rubrics can
+                # reject partial audio generation instead of silently scoring
+                # only the final waveform.
+                output["audio_responses"] = audio_responses
+            return json.dumps(output, ensure_ascii=False)
 
         conversation = [self._parse_role_content(item) for item in prompt]
         result = self._request(conversation)

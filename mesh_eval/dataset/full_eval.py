@@ -41,6 +41,13 @@ EXTERNAL_DATASETS = {
     "vocalbench",
     "vocalbench_zh",
     "uro_bench",
+    # T4 adapters provide benchmark-native protocols and must not be
+    # rewritten by the legacy generic-agent fallbacks below.
+    "voicebench",
+    "mtalk_bench",
+    "stepeval_audio_toolcall",
+    "ear_wdyl",
+    "ihbench",
 }
 
 ESC50_LABELS = [
@@ -118,6 +125,7 @@ class FullEvalDataset(Dataset):
         self.strict = strict
         self.check_audio_exists = check_audio_exists
         self._caption_references_by_path: Optional[Dict[str, List[str]]] = None
+        self._agent_ontology_cache: Optional[Dict[str, Any]] = None
 
     @property
     def manifest_path(self) -> Path:
@@ -220,6 +228,12 @@ class FullEvalDataset(Dataset):
         if self.dataset_id == "alimeeting":
             if "text" not in (row.get("reference") or {}):
                 return None
+        if row.get("_preserve_protocol"):
+            # Benchmark-specific adapters have already selected the prompt,
+            # parser and evaluator.  Running the historical generic view
+            # switch here would silently replace them (e.g. VoiceBench
+            # multi-turn with intent/slot scoring).
+            return row
         if self.view == "covost_zh_en":
             if self._covost_source_language(row) != "zh":
                 return None
@@ -315,6 +329,18 @@ class FullEvalDataset(Dataset):
             row["prompt_name"] = "mesh-intent-slots"
             row["evaluators"] = ["mesh-intent", "mesh-slot-f1"]
             row["answer_type"] = "structured_json"
+            row["output_schema"] = "intent_slots@1"
+            row["parser_name"] = "structured_json@1"
+            row["required_reference"] = ["intent"]
+            ontology = self._agent_ontology(row)
+            row["input"] = dict(row.get("input") or {})
+            row["input"]["allowed_intents"] = ontology["intents"]
+            row["input"]["slot_schema"] = ontology["slots"]
+            row["input"]["question"] = (
+                "Return JSON only as {\"intent\": string, \"slots\": object}. "
+                "Use exactly one intent from the supplied ontology and preserve "
+                "slot names/values."
+            )
         elif (
             task == "agent"
             and capability == "qa"
@@ -462,13 +488,25 @@ class FullEvalDataset(Dataset):
         reference = row.setdefault("reference", {})
         intent = reference.get("intent")
         slots = reference.get("slots") or {}
-        reference["expected_output"] = {"tool": intent, "arguments": slots}
+        tool_name = {
+            "fluent_speech_commands": "control_device",
+            "slurp": "execute_slurp_intent",
+        }.get(self.dataset_id, "execute_intent")
+        arguments = {"intent": intent, "slots": slots}
+        if self.dataset_id == "fluent_speech_commands":
+            arguments = slots
+        if (
+            self.dataset_id == "slurp"
+            and reference.get("scenario") not in (None, "", [])
+        ):
+            arguments["scenario"] = reference["scenario"]
+        reference["expected_output"] = {"tool": tool_name, "arguments": arguments}
         self._bind_protocol(row, "spoken_agentic_interaction", "tool_call")
         row["metrics"] = [
             "tool_acc",
             "parameter_acc",
             "parameter_f1",
-            "task_success",
+            "call_exact_match",
         ]
         row["evaluators"] = ["mesh-tool-call"]
         row["prompt_name"] = "mesh-tool-call"
@@ -476,7 +514,58 @@ class FullEvalDataset(Dataset):
         row["use_bucket"] = "diagnostic_evidence"
         row["sample_id"] = f"{row.get('sample_id', self.dataset_id)}__tool_call_proxy"
         row["proxy_protocol"] = "intent_slots_as_tool_call"
+        row["input"] = dict(row.get("input") or {})
+        row["input"]["tool_schemas"] = [
+            {
+                "name": tool_name,
+                "parameters": {
+                    "type": "object",
+                    "properties": {"intent": {"type": "string"}, "slots": {"type": "object"}},
+                    "required": ["intent", "slots"],
+                },
+            }
+        ]
         row["language"] = "en"
+
+    def _agent_ontology(self, row: Dict[str, Any]) -> Dict[str, Any]:
+        """Build a legal intent/slot ontology from native annotations.
+
+        The ontology is derived read-only from the benchmark manifest.  It is
+        injected into the prompt, never used to rewrite labels or source data.
+        """
+        if self._agent_ontology_cache is not None:
+            return self._agent_ontology_cache
+        intents = set()
+        slots: Dict[str, set] = {}
+        path = self.manifest_path
+        if path.is_file():
+            try:
+                with path.open(encoding="utf-8") as handle:
+                    for line in handle:
+                        if not line.strip():
+                            continue
+                        item = json.loads(line)
+                        ref = item.get("reference") or {}
+                        intent = ref.get("intent") or item.get("intent")
+                        if intent:
+                            intents.add(str(intent))
+                            slots.setdefault(str(intent), set()).update(
+                                str(key) for key in (ref.get("slots") or {}).keys()
+                            )
+            except (OSError, json.JSONDecodeError):
+                pass
+        reference = row.get("reference") or {}
+        intent = reference.get("intent")
+        if intent:
+            intents.add(str(intent))
+            slots.setdefault(str(intent), set()).update(
+                str(key) for key in (reference.get("slots") or {}).keys()
+            )
+        self._agent_ontology_cache = {
+            "intents": sorted(intents),
+            "slots": {key: sorted(value) for key, value in sorted(slots.items())},
+        }
+        return self._agent_ontology_cache
 
     def _set_target_speaker_proxy(self, row: Dict[str, Any]) -> None:
         reference = row.setdefault("reference", {})
@@ -579,6 +668,10 @@ class FullEvalDataset(Dataset):
                 ("metrics", "metrics"),
                 ("evaluators", "evaluators"),
                 ("answer_type", "answer_type"),
+                ("input_schema", "input_schema"),
+                ("output_schema", "output_schema"),
+                ("parser_name", "parser"),
+                ("required_reference", "required_reference"),
             )
             if source.get(source_name) not in (None, "", [])
         }
@@ -632,6 +725,15 @@ class FullEvalDataset(Dataset):
             if extras:
                 canonical.setdefault("legacy", {})["source_fields"] = extras
         else:
+            # Preserve explicit legacy language fields when adapting V1
+            # records.  The generic adapter otherwise drops them, which can
+            # silently select the wrong language-specific prompt/evaluator.
+            legacy_metadata = dict(source.get("metadata") or {})
+            for field in ("language", "source_language", "target_language"):
+                if source.get(field) not in (None, "", []):
+                    legacy_metadata.setdefault(field, source[field])
+            if legacy_metadata:
+                source["metadata"] = legacy_metadata
             source.update(
                 {
                     "metrics": route_hints.get("metrics", []),

@@ -106,10 +106,10 @@ mesh-intent-slots:
           - type: audio
             value: "{{WavPath}}"
           - type: text
-            value: "Return JSON only, using the schema {\"intent\": \"...\", \"slots\": {...}}."
+            value: "{{ question | default('Return JSON only, using the schema {\"intent\": \"...\", \"slots\": {...}}.') }} Allowed intents: {{ input.allowed_intents | default([]) }}. Slot names by intent: {{ input.slot_schema | default({}) }}."
 
 mesh-tool-call:
-  class: audio_evals.prompt.base.Prompt
+  class: mesh_eval.core.prompt.ToolSchemaPrompt
   args:
     template:
       - role: user
@@ -118,6 +118,36 @@ mesh-tool-call:
             value: "{{WavPath}}"
           - type: text
             value: "Return the requested tool call as JSON with tool and arguments fields."
+
+mesh-clarification-decision:
+  class: mesh_eval.core.prompt.ContextualAudioPrompt
+  args:
+    template:
+      - role: system
+        contents:
+          - type: text
+            value: "Return JSON only as {\"should_clarify\": boolean, \"response\": string}. Ask one targeted question only when required information is missing or ambiguous."
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: "{{ question | default('Use the conversation context and decide whether clarification is required.') }}"
+
+mesh-agent-rubric:
+  class: mesh_eval.core.prompt.ContextualAudioPrompt
+  args:
+    template:
+      - role: system
+        contents:
+          - type: text
+            value: "Follow the spoken-agent task and return the requested response."
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: "{{ question | default('Respond to the latest spoken turn.') }}"
 
 mesh-classification:
   class: audio_evals.prompt.base.Prompt

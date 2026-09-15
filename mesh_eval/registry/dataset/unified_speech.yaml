@@ -164,6 +164,58 @@ audio-agent-bench-clarification:
   class: mesh_eval.dataset.external_benchmarks.AudioAgentBenchDataset
   args: {benchmark_id: audio-agent-bench-clarification, view: clarification}
 
+t4-fsc-instruction-following:
+  class: mesh_eval.dataset.external_benchmarks.FluentSpeechCommandsT4Dataset
+  args: {benchmark_id: t4-fsc-instruction-following, view: instruction_following}
+
+t4-fsc-tool-call:
+  class: mesh_eval.dataset.external_benchmarks.FluentSpeechCommandsT4Dataset
+  args: {benchmark_id: t4-fsc-tool-call, view: tool_call}
+
+t4-slurp-instruction-following:
+  class: mesh_eval.dataset.external_benchmarks.SLURPT4Dataset
+  args: {benchmark_id: t4-slurp-instruction-following, view: instruction_following}
+
+t4-slurp-tool-call:
+  class: mesh_eval.dataset.external_benchmarks.SLURPT4Dataset
+  args: {benchmark_id: t4-slurp-tool-call, view: tool_call}
+
+t4-vocalbench-instruction-following:
+  class: mesh_eval.dataset.external_benchmarks.VocalBenchDataset
+  args: {benchmark_id: t4-vocalbench-instruction-following, view: instruction_following, language: en}
+
+t4-vocalbench-zh-instruction-following:
+  class: mesh_eval.dataset.external_benchmarks.VocalBenchDataset
+  args: {benchmark_id: t4-vocalbench-zh-instruction-following, view: instruction_following, language: zh}
+
+t4-vocalbench-multi-turn:
+  class: mesh_eval.dataset.external_benchmarks.VocalBenchDataset
+  args: {benchmark_id: t4-vocalbench-multi-turn, view: multi_turn, language: en}
+
+t4-vocalbench-zh-multi-turn:
+  class: mesh_eval.dataset.external_benchmarks.VocalBenchDataset
+  args: {benchmark_id: t4-vocalbench-zh-multi-turn, view: multi_turn, language: zh}
+
+t4-stepeval-audio-toolcall:
+  class: mesh_eval.dataset.external_benchmarks.StepEvalAudioToolCallDataset
+  args: {benchmark_id: t4-stepeval-audio-toolcall}
+
+t4-mtalk-bench:
+  class: mesh_eval.dataset.external_benchmarks.MTalkBenchDataset
+  args: {benchmark_id: t4-mtalk-bench}
+
+t4-ear-wdyl:
+  class: mesh_eval.dataset.external_benchmarks.EARWDYLDataset
+  args: {benchmark_id: t4-ear-wdyl}
+
+t4-voicebench-ifeval:
+  class: mesh_eval.dataset.external_benchmarks.VoiceBenchT4Dataset
+  args: {benchmark_id: t4-voicebench-ifeval, view: ifeval}
+
+t4-voicebench-mtbench:
+  class: mesh_eval.dataset.external_benchmarks.VoiceBenchT4Dataset
+  args: {benchmark_id: t4-voicebench-mtbench, view: mtbench}
+
 ihbench-interruption-offline:
   class: mesh_eval.dataset.external_benchmarks.IHBenchDataset
   args: {benchmark_id: ihbench-interruption-offline}
