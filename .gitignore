@@ -49,7 +49,7 @@ wheelhouse/
 /log/
 /output/
 /outputs/
-/runs/*/output/
+/runs/
 /tmp/
 /work/
 /.run/
@@ -74,6 +74,17 @@ local_registry_*/
 *.temp
 *.bak
 *.old
+
+# Smoke suite run artifacts (keep registry/, *.yaml, run_*.sh, helper *.py)
+smoke_*/results/
+smoke_*/results_*/
+smoke_*/output/
+smoke_*/summary.json
+smoke_*/summary_*.json
+smoke_*/chrf_summary.json
+# Per-dataset working dirs under smoke suites (wavs/preds live here)
+smoke_*/*/
+!smoke_*/registry/
 
 # Model weights and large generated media are downloaded separately.
 *.bin

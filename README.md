@@ -4,7 +4,7 @@
 
 A unified framework for evaluating speech and audio models.
 
-[中文说明](README_zh.md) · [Documentation](docs/README.md) · [Compatibility](COMPATIBILITY.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
+[中文说明](README_zh.md) · [Documentation](docs/README.md) · [Capability audit notes](docs/capability_audit/README.md) · [Compatibility](COMPATIBILITY.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
 
 VoxMatrix combines registry-driven datasets, models, prompts, evaluators, and
 aggregation policies with a canonical mesh schema. It supports speech

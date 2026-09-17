@@ -10,6 +10,7 @@
 - [共享 Session 与多 GPU 推理](sessions.md)
 - [指标及 Evaluator 依赖](metrics.md)
 - [常见问题排查](troubleshooting.md)
+- [Capability 抽样检验记录](capability_audit/README.md)（工作笔记，非运行时依赖）
 
 配置的事实来源是 `registry/`、`mesh_eval/registry/` 与
 `mesh_eval/config/`。文档示例使用 VoxMatrix 的规范命令；旧入口仅用于兼容

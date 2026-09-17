@@ -4,7 +4,7 @@
 
 统一的语音与音频模型评测框架。
 
-[English](README.md) · [使用文档](docs/README.md) · [兼容性](COMPATIBILITY.md) · [第三方声明](THIRD_PARTY_NOTICES.md)
+[English](README.md) · [使用文档](docs/README.md) · [Capability 检验记录](docs/capability_audit/README.md) · [兼容性](COMPATIBILITY.md) · [第三方声明](THIRD_PARTY_NOTICES.md)
 
 VoxMatrix 使用 Registry 统一管理数据集、模型、Prompt、Evaluator 和聚合策略，
 并提供规范化的 Mesh Schema。框架覆盖语音识别、音频理解、语音生成、语音
