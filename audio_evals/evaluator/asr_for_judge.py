@@ -71,15 +71,27 @@ def transcribe_for_judge(
 
     if lang_n == "zh":
         backend = os.environ.get("JUDGE_ASR_BACKEND", "local").strip().lower()
+        asr_name = "paraformer-zh"
         if backend in ("openai", "openai_whisper_api", "api", "whisper-1"):
             text = _transcribe_whisper(wav_path, language="zh")
+            asr_name = "whisper"
         else:
-            text = _transcribe_paraformer(wav_path)
+            try:
+                text = _transcribe_paraformer(wav_path)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "paraformer-zh unavailable (%s); falling back to Whisper for %s",
+                    exc,
+                    wav_path,
+                )
+                text = _transcribe_whisper(wav_path, language="zh")
+                asr_name = "whisper-zh-fallback"
     else:
         # en + mix: Whisper (local large-v3 or API whisper-1)
         text = _transcribe_whisper(
             wav_path, language=None if lang_n == "mix" else "en"
         )
+        asr_name = "whisper"
 
     text = (text or "").strip()
     if cache is not None:
@@ -87,7 +99,12 @@ def transcribe_for_judge(
         out = _cache_path(cache, fp, lang_n)
         out.write_text(
             json.dumps(
-                {"wav": wav_path, "lang": lang_n, "text": text, "asr": "whisper" if lang_n != "zh" else "paraformer-zh"},
+                {
+                    "wav": wav_path,
+                    "lang": lang_n,
+                    "text": text,
+                    "asr": asr_name,
+                },
                 ensure_ascii=False,
             ),
             encoding="utf-8",
@@ -127,7 +144,12 @@ def _transcribe_whisper(wav_path: str, language: Optional[str] = "en") -> str:
             gen_kwargs["language"] = "english"
         elif language == "zh":
             gen_kwargs["language"] = "chinese"
-        result = _whisper_model(wav_path, generate_kwargs=gen_kwargs)
+        # Long audio (>30s) requires timestamps for HF Whisper long-form path.
+        result = _whisper_model(
+            wav_path,
+            return_timestamps=True,
+            generate_kwargs=gen_kwargs,
+        )
         if isinstance(result, dict):
             return str(result.get("text") or "").strip()
         return str(result).strip()

@@ -14,10 +14,12 @@ qwen3-omni-speech:
     env_path: envs/qwen3-omni
     requirements_path: audio_evals/lib/qwen3-omni/requirements.txt
 
-# Default multimodal semantic LLM judge (template B).
+# Cap thinker tokens for judge speed; 128 caused widespread parse_failed (truncated CoT).
+# 512 keeps short score answers while allowing enough reasoning to emit the final score.
 qwen3-omni-thinking:
   class: audio_evals.models.qwen3_omni.Qwen3Omni
   args:
     path: /mnt/afs/models/Qwen3-Omni-30B-A3B-Thinking
+    max_new_tokens: 2048
     env_path: envs/qwen3-omni
     requirements_path: audio_evals/lib/qwen3-omni/requirements.txt

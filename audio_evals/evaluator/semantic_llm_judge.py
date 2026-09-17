@@ -191,13 +191,34 @@ class SemanticLLMJudgeEvaluator(Evaluator):
             resolve_judge_model_name(configured)
             model = get_judge_model(configured)
         except Exception as exc:  # noqa: BLE001
-            return {
-                **self._base(pred_s, ref_s, route, pid, template),
-                "match": 0,
-                "score_0_100": None,
-                "skipped": 1,
-                "skip_reason": f"judge_unavailable:{exc}",
-            }
+            # Parallel cold-start can hit transient Errno 11 / missing path; retry briefly.
+            import time
+
+            last_exc = exc
+            model = None
+            for attempt in range(1, 4):
+                time.sleep(min(2 ** attempt, 8))
+                try:
+                    from audio_evals.evaluator.voice_bench import clear_judge_model_cache
+
+                    clear_judge_model_cache()
+                except Exception:  # noqa: BLE001
+                    pass
+                try:
+                    resolve_judge_model_name(configured)
+                    model = get_judge_model(configured)
+                    last_exc = None
+                    break
+                except Exception as retry_exc:  # noqa: BLE001
+                    last_exc = retry_exc
+            if model is None:
+                return {
+                    **self._base(pred_s, ref_s, route, pid, template),
+                    "match": 0,
+                    "score_0_100": None,
+                    "skipped": 1,
+                    "skip_reason": f"judge_unavailable:{last_exc}",
+                }
 
         try:
             real_prompt = build_prompt(

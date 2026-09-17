@@ -8,10 +8,11 @@
     "audio_reasoning|open": 30,
     "audio_reasoning|semi-open": 30,
     "speech_translation|translation": 30,
-    "code_switch|binary": 30,
     "code_switch|semi-open": 30,
-    "code_switch|open": 30
+    "code_switch|open": 30,
+    "code_switch|binary": 30
   },
   "seed": 42,
-  "out": "/mnt/afs/users/wangyl/VoxMatrix/scripts/data/semantic_judge_stratified_pack.jsonl"
+  "out": "/mnt/afs/users/wangyl/VoxMatrix/scripts/data/semantic_judge_stratified_pack.jsonl",
+  "note": "code_switch|binary restored"
 }

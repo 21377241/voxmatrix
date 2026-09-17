@@ -49,6 +49,7 @@ wheelhouse/
 /log/
 /output/
 /outputs/
+/runs/*/output/
 /tmp/
 /work/
 /.run/

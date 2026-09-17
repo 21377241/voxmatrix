@@ -486,8 +486,28 @@ def write_markdown(
     judge_model: str,
     cell_pack: Dict[str, int],
 ) -> None:
+    """Write machine JSON-style A1/B summary markdown.
+
+    Refuses to overwrite the locked formal case-study report
+    (``开放语义_A1B音频增益实验报告.md`` with ``A1B_REPORT_LOCK``).
+    """
+    out_path = Path(out_path)
+    lock_token = "A1B_REPORT_LOCK"
+    formal = Path("/mnt/afs/users/wangyl/8p31/交付/开放语义_A1B音频增益实验报告.md")
+    if out_path.resolve() == formal.resolve() or (
+        out_path.is_file() and lock_token in out_path.read_text(encoding="utf-8", errors="ignore")
+    ):
+        alt = Path("/mnt/afs/users/wangyl/8p31/交付/开放语义_A1B成对Judge自动稿.md")
+        print(
+            f"[a1b] refuse overwrite locked report {out_path}; writing auto draft -> {alt}",
+            file=sys.stderr,
+        )
+        out_path = alt
+
     lines = [
         "# 开放语义 · A1 vs B 成对 LLM Judge 对比报告",
+        "",
+        "> 本文为 JSON 自动稿；正式样例分析见 `开放语义_A1B音频增益实验报告.md`（已锁定，勿覆盖）。",
         "",
         "## 结论摘要",
         "",
@@ -577,6 +597,18 @@ def main() -> int:
         default="auto",
         help="asr=Whisper/paraformer; oracle=pack oracle_transcript/question; auto=asr else oracle",
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from --out / .partial.json; skip already scored (sample_id, track)",
+    )
+    parser.add_argument("--shard-index", type=int, default=0, help="0-based shard id")
+    parser.add_argument("--num-shards", type=int, default=1, help="split pack across workers")
+    parser.add_argument(
+        "--skip-report",
+        action="store_true",
+        help="Skip markdown report (for sharded workers; merge writes the report)",
+    )
     args = parser.parse_args()
 
     if args.rebuild_pack or not args.pack.is_file():
@@ -597,6 +629,20 @@ def main() -> int:
     if args.max_samples and args.max_samples > 0:
         pack = pack[: args.max_samples]
         print(f"truncated pack to n={len(pack)}")
+
+    if args.num_shards < 1:
+        print("--num-shards must be >= 1", file=sys.stderr)
+        return 2
+    if not (0 <= args.shard_index < args.num_shards):
+        print("--shard-index out of range", file=sys.stderr)
+        return 2
+    if args.num_shards > 1:
+        full_n = len(pack)
+        pack = [s for i, s in enumerate(pack) if i % args.num_shards == args.shard_index]
+        print(
+            f"shard {args.shard_index}/{args.num_shards}: n={len(pack)} of {full_n}",
+            flush=True,
+        )
 
     if not pack:
         print("empty pack", file=sys.stderr)
@@ -689,6 +735,41 @@ def main() -> int:
         vb.resolve_judge_model_name = lambda name: "stub-judge"  # type: ignore
 
     rows: List[Dict[str, Any]] = []
+    done_keys: set = set()
+    pack_ids = {str(s["sample_id"]) for s in pack}
+    if args.resume:
+        resume_paths = [args.out, args.out.with_suffix(".partial.json")]
+        # Shared seeds / prior full run (non-sharded).
+        resume_paths.extend(
+            [
+                args.out.parent / "semantic_judge_a1b_full.json",
+                args.out.parent / "semantic_judge_a1b_full.partial.json",
+            ]
+        )
+        for path in resume_paths:
+            if not path.is_file():
+                continue
+            try:
+                prev = json.loads(path.read_text(encoding="utf-8"))
+            except Exception as exc:  # noqa: BLE001
+                print(f"resume skip unreadable {path}: {exc}", flush=True)
+                continue
+            added = 0
+            for row in prev.get("rows") or []:
+                key = (str(row.get("sample_id")), str(row.get("track")))
+                if key in done_keys:
+                    continue
+                if key[0] not in pack_ids:
+                    continue
+                # Only resume successful scores; re-judge skips (e.g. parse_failed).
+                if row.get("score_0_100") is not None and not row.get("skipped"):
+                    rows.append(row)
+                    done_keys.add(key)
+                    added += 1
+            if added:
+                print(f"resume from {path} +{added}", flush=True)
+        print(f"resume loaded n_rows={len(rows)} keys={len(done_keys)}", flush=True)
+
     for sample in pack:
         transcript = ""
         asr_err = None
@@ -727,6 +808,10 @@ def main() -> int:
             asr_err = "skipped"
 
         for track in tracks:
+            key = (str(sample["sample_id"]), track)
+            if key in done_keys:
+                print(f"{sample['sample_id']} {track} resume_skip", flush=True)
+                continue
             if (
                 not stub_mode
                 and track == "B"
@@ -741,34 +826,52 @@ def main() -> int:
                 }
             else:
                 result = judge_one(ev, sample, track, transcript, judge_model)
-            rows.append(
-                {
-                    "sample_id": sample["sample_id"],
-                    "capability": sample["capability"],
-                    "rubric": sample.get("rubric"),
-                    "track": track,
-                    "lang": sample.get("lang"),
-                    "audio_seconds": audio_seconds(sample["WavPath"]),
-                    "audio_transcript": transcript,
-                    "transcript_source": transcript_source,
-                    "audio_transcript_used": result.get("audio_transcript_used"),
-                    "asr_error": asr_err,
-                    "score_0_100": result.get("score_0_100"),
-                    "gpt_score": result.get("gpt_score"),
-                    "match": result.get("match"),
-                    "skipped": result.get("skipped"),
-                    "skip_reason": result.get("skip_reason"),
-                    "judge_usage": result.get("judge_usage"),
-                    "judge_model": result.get("judge_model") or judge_model,
-                    "prompt_id": result.get("prompt_id"),
-                    "raw_judge_output": result.get("raw_judge_output"),
-                }
-            )
+            row = {
+                "sample_id": sample["sample_id"],
+                "capability": sample["capability"],
+                "rubric": sample.get("rubric"),
+                "track": track,
+                "lang": sample.get("lang"),
+                "audio_seconds": audio_seconds(sample["WavPath"]),
+                "audio_transcript": transcript,
+                "transcript_source": transcript_source,
+                "audio_transcript_used": result.get("audio_transcript_used"),
+                "asr_error": asr_err,
+                "score_0_100": result.get("score_0_100"),
+                "gpt_score": result.get("gpt_score"),
+                "match": result.get("match"),
+                "skipped": result.get("skipped"),
+                "skip_reason": result.get("skip_reason"),
+                "judge_usage": result.get("judge_usage"),
+                "judge_model": result.get("judge_model") or judge_model,
+                "prompt_id": result.get("prompt_id"),
+                "raw_judge_output": result.get("raw_judge_output"),
+            }
+            rows.append(row)
+            done_keys.add(key)
             print(
                 f"{sample['sample_id']} {track} score={result.get('score_0_100')} "
                 f"skip={result.get('skip_reason')} model={result.get('judge_model') or judge_model}",
                 flush=True,
             )
+
+            # Checkpoint every 20 scored arms so long GPU runs are recoverable.
+            if len(rows) % 20 == 0:
+                mid = {
+                    "pack": str(args.pack),
+                    "n": len(pack),
+                    "cell_counts": cell_counts(pack),
+                    "judge_model": judge_model,
+                    "mm_model": mm_model,
+                    "probe": probe_notes,
+                    "summary": summarize(rows),
+                    "rows": rows,
+                    "partial": True,
+                }
+                args.out.parent.mkdir(parents=True, exist_ok=True)
+                ckpt = args.out.with_suffix(".partial.json")
+                ckpt.write_text(json.dumps(mid, ensure_ascii=False, indent=2), encoding="utf-8")
+                print(f"checkpoint {ckpt} n_rows={len(rows)}", flush=True)
 
     summary = summarize(rows)
     payload = {
@@ -783,15 +886,22 @@ def main() -> int:
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    write_markdown(
-        summary,
-        probe_notes,
-        args.report_md,
-        judge_model=judge_model,
-        cell_pack=cell_counts(pack),
-    )
     print(f"wrote {args.out}")
-    print(f"wrote {args.report_md}")
+    if not args.skip_report:
+        write_markdown(
+            summary,
+            probe_notes,
+            args.report_md,
+            judge_model=judge_model,
+            cell_pack=cell_counts(pack),
+        )
+        print(f"wrote {args.report_md}")
+    try:
+        from audio_evals.evaluator.voice_bench import clear_judge_model_cache
+
+        clear_judge_model_cache()
+    except Exception:  # noqa: BLE001
+        pass
     return 0
 
 

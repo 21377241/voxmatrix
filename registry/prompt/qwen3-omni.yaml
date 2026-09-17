@@ -24,6 +24,17 @@ qwen3-omni-asr-en:
       - type: text
         value: 'Transcribe the English audio into text.'
 
+qwen3-omni-asr-en-full:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+    - role: user
+      contents:
+      - type: audio
+        value: '{{WavPath}}'
+      - type: text
+        value: 'Transcribe the entire English recording from start to finish. Include every speaker. Do not summarize. Do not stop after the first pause, the first utterance, or the first speaker. Output only the transcript.'
+
 qwen3-omni-asr-de:
   class: audio_evals.prompt.base.Prompt
   args:

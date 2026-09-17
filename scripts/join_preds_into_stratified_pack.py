@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Join existing smoke/results preds into a stratified semantic-judge pack.
+"""Join existing smoke/results (+ undertest) preds into a stratified semantic-judge pack.
 
 Does not invent preds from references. Unfilled rows keep pred=\"\".
 Also writes a residual pack for undertest inference.
@@ -11,9 +11,12 @@ import argparse
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 ROOT = Path("/mnt/afs/users/wangyl")
+DEFAULT_UNDERTEST = (
+    ROOT / "VoxMatrix/scripts/data/semantic_judge_undertest_preds.jsonl"
+)
 
 
 def _load_jsonl(path: Path) -> List[Dict[str, Any]]:
@@ -27,8 +30,40 @@ def _load_jsonl(path: Path) -> List[Dict[str, Any]]:
     return rows
 
 
-def _extract_pred_maps() -> Tuple[Dict[str, str], Dict[str, str]]:
-    """Return (by_sample_id, by_wavpath) pred maps from known results."""
+def _ingest_row(
+    by_id: Dict[str, str],
+    by_wav: Dict[str, str],
+    sid_to_wav: Dict[str, str],
+    data: Dict[str, Any],
+    *,
+    prefer: bool = False,
+) -> None:
+    sid = str(data.get("sample_id") or "")
+    pred = str(data.get("pred") or "").strip()
+    if not pred:
+        return
+    if sid:
+        if prefer or sid not in by_id:
+            by_id[sid] = pred
+        if sid.startswith("ar-open-"):
+            base = sid[len("ar-open-") :]
+            if prefer or base not in by_id:
+                by_id[base] = pred
+        if sid.startswith("cs-semi-"):
+            base = sid[len("cs-semi-") :]
+            if prefer or base not in by_id:
+                by_id[base] = pred
+    wav = str(data.get("WavPath") or sid_to_wav.get(sid) or "")
+    if wav:
+        key = os.path.abspath(wav)
+        if prefer or key not in by_wav:
+            by_wav[key] = pred
+
+
+def _extract_pred_maps(
+    undertest_paths: Sequence[Path],
+) -> Tuple[Dict[str, str], Dict[str, str]]:
+    """Return (by_sample_id, by_wavpath) pred maps from known results + undertest."""
     sources = [
         ROOT / "8p31/runs/qa_uro_bench_smoke/cluster_run_20260911_062245/results.jsonl",
         ROOT / "8p31/runs/qa_vocalbench_smoke/cluster_run_20260831_114828/results.jsonl",
@@ -48,7 +83,6 @@ def _extract_pred_maps() -> Tuple[Dict[str, str], Dict[str, str]]:
         ROOT / "VoxMatrix/smoke_cs_all/results/vocalbench_zh_open_ended.jsonl",
         ROOT / "VoxMatrix/scripts/data/semantic_judge_compare_pack.jsonl",
     ]
-    # manifests for wav join
     manifests = [
         ROOT / "8p31/runs/qa_uro_bench_smoke/qa_uro_bench_10.jsonl",
         ROOT / "8p31/runs/qa_vocalbench_smoke/qa_vocalbench_10.jsonl",
@@ -81,21 +115,15 @@ def _extract_pred_maps() -> Tuple[Dict[str, str], Dict[str, str]]:
             data = obj.get("data") if obj.get("type") == "eval" else obj
             if not isinstance(data, dict):
                 continue
-            sid = str(data.get("sample_id") or "")
-            pred = str(data.get("pred") or "").strip()
-            if not pred:
+            _ingest_row(by_id, by_wav, sid_to_wav, data, prefer=False)
+
+    # Undertest preds override / fill gaps (fresh Instruct runs for residual cells).
+    for path in undertest_paths:
+        for obj in _load_jsonl(path):
+            if obj.get("error") and not str(obj.get("pred") or "").strip():
                 continue
-            if sid and sid not in by_id:
-                by_id[sid] = pred
-            wav = str(data.get("WavPath") or sid_to_wav.get(sid) or "")
-            if wav:
-                key = os.path.abspath(wav)
-                by_wav.setdefault(key, pred)
-            # protocol prefix aliases
-            if sid.startswith("ar-open-"):
-                by_id.setdefault(sid[len("ar-open-") :], pred)
-            if sid.startswith("cs-semi-"):
-                by_id.setdefault(sid[len("cs-semi-") :], pred)
+            _ingest_row(by_id, by_wav, sid_to_wav, obj, prefer=True)
+
     return by_id, by_wav
 
 
@@ -113,7 +141,11 @@ def join_pack(
         wav = str(row.get("WavPath") or "")
         pred = ""
         source = ""
-        for key in (sid, sid[len("ar-open-") :] if sid.startswith("ar-open-") else "", sid[len("cs-semi-") :] if sid.startswith("cs-semi-") else ""):
+        for key in (
+            sid,
+            sid[len("ar-open-") :] if sid.startswith("ar-open-") else "",
+            sid[len("cs-semi-") :] if sid.startswith("cs-semi-") else "",
+        ):
             if key and key in by_id:
                 pred = by_id[key]
                 source = "sample_id"
@@ -141,8 +173,7 @@ def main() -> int:
     parser.add_argument(
         "--pack",
         type=Path,
-        default=ROOT
-        / "VoxMatrix/scripts/data/semantic_judge_stratified_pack.jsonl",
+        default=ROOT / "VoxMatrix/scripts/data/semantic_judge_stratified_pack.jsonl",
     )
     parser.add_argument(
         "--out",
@@ -156,9 +187,22 @@ def main() -> int:
         default=ROOT
         / "VoxMatrix/scripts/data/semantic_judge_stratified_pack.need_pred.jsonl",
     )
+    parser.add_argument(
+        "--undertest",
+        type=Path,
+        action="append",
+        default=None,
+        help="Undertest pred JSONL (repeatable). Default: semantic_judge_undertest_preds.jsonl if present.",
+    )
     args = parser.parse_args()
+    undertest_paths: List[Path] = list(args.undertest or [])
+    if not undertest_paths and DEFAULT_UNDERTEST.is_file():
+        undertest_paths = [DEFAULT_UNDERTEST]
+    elif not undertest_paths:
+        undertest_paths = [DEFAULT_UNDERTEST]  # may be missing; ingest no-ops
+
     pack = _load_jsonl(args.pack)
-    by_id, by_wav = _extract_pred_maps()
+    by_id, by_wav = _extract_pred_maps(undertest_paths)
     pack, stats = join_pack(pack, by_id, by_wav)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", encoding="utf-8") as handle:
@@ -171,6 +215,8 @@ def main() -> int:
     print(
         json.dumps(
             {
+                "undertest_paths": [str(p) for p in undertest_paths],
+                "undertest_exists": [p.is_file() for p in undertest_paths],
                 "pred_by_id": len(by_id),
                 "pred_by_wav": len(by_wav),
                 **stats,

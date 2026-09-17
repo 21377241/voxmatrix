@@ -27,14 +27,35 @@ def resolve_judge_model_name(configured_name: str) -> str:
     return configured_name
 
 
+# Local Omni judges spawn an isolated GPU subprocess per construction.
+# Cache by resolved name so A1/B (and every sample) share one process.
+_JUDGE_MODEL_CACHE: Dict[str, object] = {}
+
+
 def get_judge_model(configured_name: str):
     from audio_evals.registry import registry
 
     model_name = resolve_judge_model_name(configured_name)
+    cached = _JUDGE_MODEL_CACHE.get(model_name)
+    if cached is not None:
+        return cached
     model = registry.get_model(model_name)
     if model is None:
         raise KeyError(f"Judge model is not registered: {model_name}")
+    _JUDGE_MODEL_CACHE[model_name] = model
     return model
+
+
+def clear_judge_model_cache() -> None:
+    """Release cached judge models (isolated subprocesses)."""
+    for name, model in list(_JUDGE_MODEL_CACHE.items()):
+        try:
+            release = getattr(model, "release", None)
+            if callable(release):
+                release()
+        except Exception:  # noqa: BLE001
+            pass
+        _JUDGE_MODEL_CACHE.pop(name, None)
 
 
 meta_prompt_qa = """

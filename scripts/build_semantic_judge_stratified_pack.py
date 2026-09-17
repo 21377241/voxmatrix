@@ -85,6 +85,18 @@ def _vb_wav(root: Path, audio_rel: str) -> Optional[str]:
     return None
 
 
+def _vb_answer(item: Dict[str, Any]) -> str:
+    """VocalBench answer field: plain ``Answer``, or zh/en split (VB-zh knowledge)."""
+    ans = str(item.get("Answer") or "").strip()
+    if ans:
+        return ans
+    zh = str(item.get("Answer_zh") or "").strip()
+    en = str(item.get("Answer_en") or "").strip()
+    if zh and en and zh != en:
+        return f"{zh} / {en}"
+    return zh or en
+
+
 def _mmsu_rows(prefix: str) -> Iterable[Dict[str, Any]]:
     if not MMSU.is_file():
         return
@@ -447,7 +459,8 @@ def build_cell(
     elif capability == "code_switch" and rubric == "binary":
         for item in _vb_json(VBZH, "cs_knowledge.json"):
             wav = _vb_wav(VBZH, str(item.get("Audio") or ""))
-            if not wav:
+            ans = _vb_answer(item)
+            if not wav or not ans:
                 continue
             rows.append(
                 {
@@ -456,7 +469,7 @@ def build_cell(
                     "rubric": "binary",
                     "WavPath": wav,
                     "question": str(item.get("Question") or ""),
-                    "reference": str(item.get("Answer") or ""),
+                    "reference": ans,
                     "pred": "",
                     "lang": "mix",
                     "direction": "",
