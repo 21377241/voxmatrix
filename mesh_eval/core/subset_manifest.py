@@ -5,14 +5,21 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 
 SUBSET_MANIFEST_VERSION = "2.0.0"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+BUNDLED_SUBSET_MANIFEST = (
+    REPO_ROOT / "annotation" / "benchmark_subset_manifest.jsonl"
+)
 DEFAULT_EXCLUDED_CAPABILITIES = frozenset(
     {"meeting_summary", "todo_extraction"}
 )
+EXECUTABLE_MAPPING_STATUSES = frozenset({"direct", "adaptable"})
+EXECUTABLE_RESOURCE_STATUSES = frozenset({"available"})
 SPLIT_ALIASES = {
     "validation": "dev",
     "valid": "dev",
@@ -39,6 +46,27 @@ SUBSET_PROFILE_RUNTIME_FIELDS = {
 
 class SubsetManifestError(ValueError):
     """Raised when subset routing metadata is invalid or ambiguous."""
+
+
+def default_subset_manifest_path() -> Path:
+    """Return the annotation-baseline JSONL, honoring ``VOXMATRIX_SUBSET_MANIFEST``."""
+
+    from audio_evals.config import get_environment
+
+    override = get_environment("VOXMATRIX_SUBSET_MANIFEST")
+    if override:
+        return Path(override).expanduser().resolve()
+    return BUNDLED_SUBSET_MANIFEST.resolve()
+
+
+@lru_cache(maxsize=4)
+def load_annotation_baseline(path: str = "") -> SubsetManifestCatalog:
+    """Load the bundled native-v2 subset manifest as the annotation baseline."""
+
+    resolved = (
+        Path(path).expanduser().resolve() if path else default_subset_manifest_path()
+    )
+    return SubsetManifestCatalog(str(resolved))
 
 
 def normalize_subset_split(value: Any) -> str:
@@ -235,6 +263,50 @@ class SubsetManifestCatalog:
     def records(self) -> List[Dict[str, Any]]:
         return copy.deepcopy(list(self._records))
 
+    def records_for_capability(self, capability: str) -> List[Dict[str, Any]]:
+        cap = str(capability or "").strip()
+        return [
+            copy.deepcopy(record)
+            for record in self._records
+            if record["framework"]["capability"] == cap
+        ]
+
+    def executable_records(self, capability: str = "") -> List[Dict[str, Any]]:
+        records = self.records_for_capability(capability) if capability else self.records
+        return [
+            record
+            for record in records
+            if record["framework"]["mapping_status"] in EXECUTABLE_MAPPING_STATUSES
+            and record["benchmark"]["resource_status"] in EXECUTABLE_RESOURCE_STATUSES
+        ]
+
+    def has_coverage(self, capability: str) -> bool:
+        return bool(self.executable_records(capability))
+
+    def coverage_summary(self) -> Dict[str, Dict[str, Any]]:
+        summary: Dict[str, Dict[str, Any]] = {}
+        for record in self._records:
+            cap = record["framework"]["capability"]
+            item = summary.setdefault(
+                cap,
+                {
+                    "record_count": 0,
+                    "executable_count": 0,
+                    "benchmarks": [],
+                },
+            )
+            item["record_count"] += 1
+            if (
+                record["framework"]["mapping_status"] in EXECUTABLE_MAPPING_STATUSES
+                and record["benchmark"]["resource_status"]
+                in EXECUTABLE_RESOURCE_STATUSES
+            ):
+                item["executable_count"] += 1
+                benchmark_id = record["benchmark"]["id"]
+                if benchmark_id not in item["benchmarks"]:
+                    item["benchmarks"].append(benchmark_id)
+        return summary
+
     def __len__(self) -> int:
         return len(self._records)
 
@@ -374,12 +446,79 @@ def _metadata_target_field(field: str, value: Any) -> str:
     return field
 
 
+def attach_subset_profile(
+    sample: Mapping[str, Any],
+    record: Mapping[str, Any],
+    catalog: SubsetManifestCatalog,
+    *,
+    overwrite_profile: bool = False,
+    overwrite_framework: bool = False,
+) -> Dict[str, Any]:
+    """Attach one subset record to a canonical V2 or runtime sample."""
+
+    version = str(sample.get("schema_version") or "")
+    if version == "2.0":
+        return enrich_canonical_sample(
+            sample,
+            record,
+            catalog,
+            overwrite_profile=overwrite_profile,
+            overwrite_framework=overwrite_framework,
+        )
+    return _enrich_runtime_sample(
+        sample,
+        record,
+        catalog,
+        overwrite_profile=overwrite_profile,
+        overwrite_framework=overwrite_framework,
+    )
+
+
+def _enrich_runtime_sample(
+    sample: Mapping[str, Any],
+    record: Mapping[str, Any],
+    catalog: SubsetManifestCatalog,
+    *,
+    overwrite_profile: bool = False,
+    overwrite_framework: bool = False,
+) -> Dict[str, Any]:
+    result = copy.deepcopy(dict(sample))
+    profile = catalog.profile(record)
+    existing = result.get("subset_profile") or {}
+    if existing and not isinstance(existing, dict):
+        raise SubsetManifestError("sample.subset_profile must be an object")
+    existing_id = str((existing or {}).get("record_id") or "")
+    if existing_id and existing_id != profile["record_id"] and not overwrite_profile:
+        raise SubsetManifestError(
+            f"sample subset_profile points to {existing_id!r}, not "
+            f"{profile['record_id']!r}"
+        )
+    framework = record["framework"]
+    for field in ("task", "capability"):
+        current = str(result.get(field) or "")
+        documented = str(framework[field])
+        if (
+            current
+            and current != documented
+            and not overwrite_framework
+        ):
+            raise SubsetManifestError(
+                f"sample {field} {current!r} conflicts with subset record "
+                f"{documented!r}"
+            )
+        result[field] = documented
+    result["subset_profile"] = profile
+    result.update(flatten_subset_profile(profile))
+    return result
+
+
 def enrich_canonical_sample(
     sample: Mapping[str, Any],
     record: Mapping[str, Any],
     catalog: SubsetManifestCatalog,
     *,
     overwrite_profile: bool = False,
+    overwrite_framework: bool = False,
 ) -> Dict[str, Any]:
     """Attach one exact subset record without overriding sample-native evidence."""
 
@@ -403,7 +542,7 @@ def enrich_canonical_sample(
     for field in ("task", "capability"):
         current = str(result.get(field) or "")
         documented = str(framework[field])
-        if current and current != documented:
+        if current and current != documented and not overwrite_framework:
             raise SubsetManifestError(
                 f"sample {field} {current!r} conflicts with subset record "
                 f"{documented!r}"

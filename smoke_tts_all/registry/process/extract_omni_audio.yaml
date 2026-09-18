@@ -1,3 +1,0 @@
-extract-omni-audio-path:
-  class: audio_evals.process.tts.ExtractOmniAudioPath
-  args: {}

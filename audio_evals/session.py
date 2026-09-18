@@ -76,11 +76,15 @@ def _subset_manifest_options(config: Dict[str, Any]):
     raw = config.get("subset_manifest")
     if raw in (None, "", False):
         return None, None
+    if raw is True:
+        raw = {}
     if isinstance(raw, str):
         raw = {"path": raw}
     if not isinstance(raw, dict):
-        raise ValueError("subset_manifest must be a path or object")
-    path = str(raw.get("path") or "")
+        raise ValueError("subset_manifest must be a path, object, or true")
+    from mesh_eval.core.subset_manifest import default_subset_manifest_path
+
+    path = str(raw.get("path") or default_subset_manifest_path())
     if not path:
         raise ValueError("subset_manifest.path is required")
     aliases = raw.get("benchmark_aliases") or {}
@@ -110,7 +114,7 @@ def _subset_manifest_options(config: Dict[str, Any]):
 def _enrich_preloaded_dataset(dataset, benchmark_id, spec, catalog, options):
     from mesh_eval.core.subset_manifest import (
         SubsetManifestError,
-        enrich_canonical_sample,
+        attach_subset_profile,
     )
 
     rows = []
@@ -118,6 +122,7 @@ def _enrich_preloaded_dataset(dataset, benchmark_id, spec, catalog, options):
     unmatched_count = 0
     fixed_record_id = str(spec.get("subset_record_id") or "")
     fixed_record = catalog.find(record_id=fixed_record_id) if fixed_record_id else None
+    overwrite_framework = bool(fixed_record_id or spec.get("overwrite_framework"))
     for index, sample in enumerate(dataset.load()):
         capability = str(sample.get("capability") or "")
         if capability in options["excluded_capabilities"]:
@@ -134,7 +139,14 @@ def _enrich_preloaded_dataset(dataset, benchmark_id, spec, catalog, options):
                 subset_id=str(spec.get("subset_id") or ""),
                 source_protocol_id=str(spec.get("source_protocol_id") or ""),
             )
-            rows.append(enrich_canonical_sample(sample, record, catalog))
+            rows.append(
+                attach_subset_profile(
+                    sample,
+                    record,
+                    catalog,
+                    overwrite_framework=overwrite_framework,
+                )
+            )
         except SubsetManifestError as exc:
             if not options["allow_unmatched"]:
                 raise ValueError(

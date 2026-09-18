@@ -1,3 +1,0 @@
-mesh-classification:
-  class: mesh_eval.evaluator.classification.ClassificationEvaluator
-  args: {}

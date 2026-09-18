@@ -1,0 +1,11 @@
+role: annotation_baseline
+schema_version: "2.0.0"
+copied_from: /mnt/afs/users/wangyl/benchmark_annotation_audit/native_v2_pipeline/outputs/benchmark_subset_manifest.jsonl
+copied_date: "2026-09-18"
+annotator: native_v2_pipeline
+notes: >
+  Subset × protocol mapping built from official protocols, native dataset
+  annotations, and dataset documentation. This file is the VoxMatrix
+  capability-routing baseline. Do not use vocal_bench/work/full_eval
+  capability fields as protocol truth. Override the path with
+  VOXMATRIX_SUBSET_MANIFEST when replacing the bundled copy.

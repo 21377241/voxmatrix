@@ -1,3 +1,0 @@
-mesh-target-speaker:
-  class: mesh_eval.evaluator.edge.TargetSpeakerEvaluator
-  args: {}

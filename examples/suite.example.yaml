@@ -11,10 +11,12 @@ model_pool:
   allow_gpu_sharing: false
   model_ready_policy: auto
 
-# Optional subset-level routing metadata. Prepared samples must either carry
-# subset_profile.record_id or be joinable by benchmark/subset/split/capability.
+# Annotation baseline. `true` loads annotation/benchmark_subset_manifest.jsonl.
+# Prepared samples must either carry subset_profile.record_id or be joinable
+# by benchmark/subset/split/capability.
+# subset_manifest: true
 # subset_manifest:
-#   path: /path/to/benchmark_subset_manifest.jsonl
+#   path: annotation/benchmark_subset_manifest.jsonl
 #   benchmark_aliases:
 #     sample: manifest_benchmark_id
 #   exclude_capabilities: [meeting_summary, todo_extraction]

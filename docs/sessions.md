@@ -94,15 +94,18 @@ Session 的顺序是：
 ## 按能力与场景聚合
 
 已经准备为 canonical V2 的逐样本 Manifest 可以在模型加载前关联 subset 清单，
-并在所有 Benchmark 结束后统一聚合：
+并在所有 Benchmark 结束后统一聚合。默认清单是仓库内的标注基准
+`annotation/benchmark_subset_manifest.jsonl`：
 
 ```yaml
-subset_manifest:
-  path: /path/to/benchmark_subset_manifest.jsonl
-  benchmark_aliases:
-    prepared_dataset_name: manifest_benchmark_id
-  exclude_capabilities: [meeting_summary, todo_extraction]
-  allow_unmatched: false
+subset_manifest: true
+# 或显式路径 / 覆盖项：
+# subset_manifest:
+#   path: annotation/benchmark_subset_manifest.jsonl
+#   benchmark_aliases:
+#     prepared_dataset_name: manifest_benchmark_id
+#   exclude_capabilities: [meeting_summary, todo_extraction]
+#   allow_unmatched: false
 
 suite_aggregation:
   enabled: true

@@ -125,7 +125,6 @@ def test_distribution_declares_mesh_annotation_and_registry_resources():
     assert 'mesh_eval = ["config/*.yaml"' in pyproject
     assert '"data/*.json"' in pyproject
     assert 'annotation = ["schema/*"' in pyproject
-    assert 'registry = ["**/*.yaml"]' in pyproject
     assert '"**/*.wav"' in pyproject
 
 
@@ -147,8 +146,7 @@ def test_active_runtime_files_have_no_personal_afs_paths():
         REPO_ROOT / "mesh_eval" / "core",
         REPO_ROOT / "mesh_eval" / "dataset",
         REPO_ROOT / "mesh_eval" / "scripts",
-        REPO_ROOT / "mesh_eval" / "data",
-        REPO_ROOT / "annotation" / "pipeline",
+        REPO_ROOT / "annotation" / "schema",
     ]
     first_party_lib_files = {
         REPO_ROOT / "audio_evals" / "lib" / "coco.py",

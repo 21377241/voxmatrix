@@ -1,3 +1,0 @@
-mesh-diarization:
-  class: mesh_eval.evaluator.speaker.DiarizationEvaluator
-  args: {}

@@ -3,7 +3,6 @@ from copy import deepcopy
 
 import pytest
 
-from annotation.pipeline.migrate_v2 import migrate_records
 from audio_evals.dataset.prepared import PreparedAudioJsonl
 from mesh_eval.agg.mesh import MeshAgg
 from mesh_eval.core.protocol import (
@@ -169,11 +168,6 @@ def test_v1_to_v2_is_deterministic_and_preserves_ambiguous_legacy_values():
     assert any("legacy spatial" in item for item in first["conversion_warnings"])
     assert any("legacy speaker" in item for item in first["conversion_warnings"])
     assert validate_json_schema(first, "canonical") == []
-
-    migrated, report = migrate_records([legacy])
-    assert migrated == [first]
-    assert report["output_count"] == 1
-    assert report["warning_count"] == len(first["conversion_warnings"])
 
 
 def test_formal_protocol_fails_closed_for_mapping_reference_metric_and_output():

@@ -25,6 +25,9 @@ Agent、说话人任务、安全评测和运行时指标。
 
 本仓库不包含模型权重、完整数据集、生成音频或评测结果。
 
+干净主体入口是 `suites/native/`（每能力 10 条）。标注基准是
+`annotation/benchmark_subset_manifest.jsonl`。
+
 ## 安装
 
 需要 Python 3.10 或更高版本。

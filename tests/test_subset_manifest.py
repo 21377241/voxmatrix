@@ -12,7 +12,9 @@ from mesh_eval.core.schema_v2 import (
 from mesh_eval.core.subset_manifest import (
     SubsetManifestCatalog,
     SubsetManifestError,
+    attach_subset_profile,
     enrich_canonical_sample,
+    load_annotation_baseline,
 )
 from mesh_eval.scripts.attach_subset_profiles import attach_subset_profiles
 
@@ -190,3 +192,63 @@ def test_attach_subset_profiles_writes_valid_enriched_jsonl(tmp_path):
     assert result["written"] == 1
     assert result["unmatched"] == 0
     assert enriched["subset_profile"]["record_id"] == "demo__development__asr"
+
+
+def test_bundled_annotation_baseline_is_the_capability_source():
+    load_annotation_baseline.cache_clear()
+    catalog = load_annotation_baseline()
+    assert catalog.path.endswith("annotation/benchmark_subset_manifest.jsonl")
+    assert catalog.total_record_count == 167
+    assert catalog.excluded_record_count == 0
+    assert not catalog.has_coverage("meeting_summary")
+    assert not catalog.has_coverage("todo_extraction")
+    uro = [
+        record
+        for record in catalog.records
+        if record["benchmark"]["id"] == "uro_bench"
+    ]
+    assert {record["framework"]["capability"] for record in uro} == {
+        "qa",
+        "audio_reasoning",
+    }
+    cs = catalog.executable_records("code_switch")
+    assert {record["benchmark"]["id"] for record in cs} == {
+        "mmsu",
+        "vocalbench_zh",
+    }
+    summary = catalog.coverage_summary()
+    assert "asr" in summary
+    assert "meeting_summary" not in summary
+
+
+def test_attach_subset_profile_overwrites_runtime_framework(tmp_path):
+    path = tmp_path / "subset.jsonl"
+    write_manifest(path, [subset_record()])
+    catalog = SubsetManifestCatalog(str(path))
+    runtime = {
+        "schema_version": "runtime-sample/2.0",
+        "sample_id": "demo-1",
+        "task": "speech_recognition_transcription",
+        "capability": "long_form_asr",
+        "split": "dev",
+    }
+    enriched = attach_subset_profile(
+        runtime,
+        catalog.find(record_id="demo__development__asr"),
+        catalog,
+        overwrite_framework=True,
+    )
+    assert enriched["capability"] == "asr"
+    assert enriched["subset_manifest_record_id"] == "demo__development__asr"
+    assert enriched["mapping_status"] == "direct"
+
+
+def test_subset_manifest_true_uses_bundled_baseline(monkeypatch):
+    from audio_evals.session import _subset_manifest_options
+    from mesh_eval.core.subset_manifest import default_subset_manifest_path
+
+    monkeypatch.delenv("VOXMATRIX_SUBSET_MANIFEST", raising=False)
+    catalog, options = _subset_manifest_options({"subset_manifest": True})
+    assert catalog.path == str(default_subset_manifest_path())
+    assert options["allow_unmatched"] is False
+    assert "meeting_summary" in options["excluded_capabilities"]

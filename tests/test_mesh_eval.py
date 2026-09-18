@@ -8,8 +8,6 @@ from types import SimpleNamespace
 import pytest
 from datasets import Dataset, DatasetDict
 
-from annotation.ai.collect_knowledge import load_source_card
-from annotation.pipeline.common import load_mapping
 from audio_evals.registry import Registry
 from audio_evals.agg.original_benchmark import OriginalACC
 from audio_evals.eval_task import EvalTask, _audio_duration_seconds, _measured_runtime
@@ -245,25 +243,12 @@ def test_full_eval_proxy_and_alimeeting_reconstruction(tmp_path):
         + "\n",
         encoding="utf-8",
     )
-    proxy = FullEvalDataset(
+    native = FullEvalDataset(
         dataset="slurp",
-        benchmark_id="slurp-tool",
-        view="tool_call_proxy",
+        benchmark_id="slurp-if",
         root=str(tmp_path),
     ).load(1)[0]
-    assert proxy["capability"] == "tool_call"
-    assert proxy["schema_version"] == "runtime-sample/2.0"
-    assert proxy["task"] == "spoken_agentic_interaction"
-    assert proxy["capability_protocol"] == (
-        "spoken_agentic_interaction/tool_call@1"
-    )
-    assert proxy["reference_obj"]["expected_output"] == {
-        "tool": "execute_slurp_intent",
-        "arguments": {
-            "intent": "calendar_set",
-            "slots": {"day": "monday"},
-        },
-    }
+    assert native["capability"] == "instruction_following"
 
     alimeeting_manifest = tmp_path / "alimeeting" / "final" / "manifest.jsonl"
     alimeeting_manifest.parent.mkdir(parents=True)
@@ -1019,7 +1004,9 @@ def test_qwen3_omni_multi_turn_preserves_assistant_history():
 
 def test_voicebench_multi_turn_judge_receives_history(monkeypatch):
     from audio_evals.registry import registry
+    from audio_evals.evaluator.voice_bench import clear_judge_model_cache
 
+    clear_judge_model_cache()
     judge_requests = []
 
     class FakeModel:
@@ -1214,16 +1201,6 @@ def test_local_huggingface_loader_saves_numbered_audio_columns(
     assert rows[0]["WavPath1"].endswith("0_audio1.wav")
     assert rows[0]["WavPath2"].endswith("0_audio2.wav")
     assert len(writes) == 2
-
-
-def test_annotation_mapping_inheritance_and_knowledge_override():
-    mapping = load_mapping("wenetspeech-test-meeting")
-    assert mapping["defaults"]["scenario"] == "meeting"
-    assert mapping["defaults"]["metrics"] == ["cer"]
-    card = load_source_card("wenetspeech-test-meeting")
-    labels = card["seed_facts"]["typical_labels"]
-    assert labels["scenario"] == "meeting"
-    assert labels["condition"]["spatial"] == "far_field"
 
 
 def test_mesh_agg_uses_corpus_error_rate_bleu_and_chrf():

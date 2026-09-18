@@ -1,0 +1,237 @@
+# Native all-capability small-n entry.
+# One loader per (benchmark, capability). Schemes follow smoke_* / 8p31.
+# Annotation routing: annotation/benchmark_subset_manifest.jsonl.
+
+schema_version: native-catalog/1.0
+limit: 10
+model: qwen3-omni-local
+speech_model: qwen3-omni-speech-local
+annotation_baseline: annotation/benchmark_subset_manifest.jsonl
+
+capabilities:
+  - id: asr
+    status: ok
+    suite: main
+    dataset: full-aishell-1-asr
+    subset_record_id: aishell_1__test__test__asr__asr__unknown__unknown__3a129bce7a
+    prompt: qwen3-omni-asr-zh
+    evaluator: cer
+    agg: wer-zh
+    note: Official short-utterance AISHELL-1. Same unit as smoke_asr_all.
+
+  - id: long_form_asr
+    status: diagnostic
+    suite: main
+    dataset: native-aishell4-utt-asr
+    subset_record_id: aishell_4__test__test__long_form_asr__long_form_asr__meeting__large_meeting__2bf30d7eb0
+    prompt: qwen3-omni-asr-zh
+    evaluator: cer
+    agg: wer-zh
+    note: smoke_asr_all utt_clips. Pre-cut short wavs, not unsegmented meetings.
+
+  - id: speech_translation
+    status: ok
+    suite: main
+    dataset: full-covost2-zh-en
+    subset_record_id: covost2__test__zh-CN_en_test__speech_translation__speech_translation__unknown__unknown__49817674b9
+    prompt: qwen3-omni-s2tt-zh2en
+    evaluator: bleu
+    agg: bleu
+    note: CoVoST2 zh→en S2TT. FullEval also binds chrf; catalog primary is BLEU.
+
+  - id: code_switch
+    status: diagnostic
+    suite: main
+    dataset: native-vocalbench-zh-code-switch
+    subset_record_id: vocalbench_zh__test__code_switch_knowledge__code_switch__code_switch__unknown__unknown__c1c194e290
+    prompt: mesh-external-qa
+    evaluator: qa-exist-match
+    agg: acc
+    note: smoke_cs_all knowledge short-QA track. No MER. Do not pool with open/ROUGE.
+
+  - id: qa
+    status: ok
+    suite: main
+    dataset: full-spoken-squad-qa
+    subset_record_id: spoken_squad__test__test_wer44__qa__qa__unknown__unknown__b750ba6502
+    prompt: mesh-external-qa
+    evaluator: qa-exist-match
+    agg: acc
+    note: 8p31 short exist-match. uro-basic-content and vocalbench-qa-split stay registered for split reruns.
+
+  - id: audio_reasoning
+    status: diagnostic
+    suite: main
+    dataset: full-mmsu-audio-reasoning
+    subset_record_id: mmsu__test__reasoning_subtasks__audio_reasoning__audio_reasoning__unknown__unknown__7c8c7c228d
+    prompt: mesh-open-qa
+    evaluator: qa-exist-match
+    agg: acc
+    note: 8p31 MMSU open_qa track. Calibrated judge still required for Table A.
+
+  - id: audio_caption
+    status: ok
+    suite: main
+    dataset: full-audiocaps-caption
+    subset_record_id: audiocaps__test__test__audio_caption__audio_caption__unknown__unknown__d2c8e0fe8e
+    prompt: qwen3-omni-audio-caption
+    evaluator: coco
+    agg: coco
+
+  - id: sound_event
+    status: ok
+    suite: main
+    dataset: full-esc50-sound-event
+    subset_record_id: esc50__test__fold5__sound_event__sound_event__unknown__unknown__0cdd8fe57b
+    prompt: mesh-classification
+    evaluator: mesh-classification
+    agg: mesh
+    note: 8p31 ESC-50 closed-set. MAVD/SONYC multilabel is a separate rerun.
+
+  - id: acoustic_scene
+    status: ok
+    suite: main
+    dataset: native-dcase2013-acoustic-scene
+    subset_record_id: dcase2013_scenes__development__dev_bus__acoustic_scene_vehicle_transit__acoustic_scene__vehicle__urban_driving__6b1cd97d9f
+    prompt: mesh-classification
+    evaluator: mesh-classification
+    agg: mesh
+    note: 8p31 closed-set DCASE 2013 labels in the question field.
+
+  - id: paralinguistic_recognition
+    status: diagnostic
+    suite: main
+    dataset: full-mmsu-paralinguistic
+    subset_record_id: mmsu__test__paralinguistic_subtasks__paralinguistic_recognition__paralinguistic_recognition__unknown__unknown__cdcc838818
+    prompt: mesh-classification
+    evaluator: mesh-classification
+    agg: mesh
+    note: 8p31 MMSU official MCQ.
+
+  - id: meeting_summary
+    status: blocked
+    suite: none
+    reason: Annotation baseline has zero meeting_summary records. URO LCSTS/Summary are news, not meetings.
+
+  - id: todo_extraction
+    status: blocked
+    suite: none
+    reason: Annotation baseline has zero todo_extraction records.
+
+  - id: speaker_count
+    status: ok
+    suite: main
+    dataset: full-mmsu-speaker-count
+    subset_record_id: mmsu__test__total_speaker_counting__speaker_count__speaker_count__unknown__unknown__e59873fdb5
+    prompt: mesh-speaker
+    evaluator: mesh-speaker-count
+    agg: mesh
+
+  - id: speaker_verification
+    status: ok
+    suite: main
+    dataset: full-voxceleb1-verification
+    subset_record_id: voxceleb1__test__veri_test__speaker_verification__speaker_verification__unknown__unknown__cb6637851a
+    prompt: mesh-speaker-verification
+    evaluator: mesh-speaker-verification
+    agg: mesh
+
+  - id: diarization
+    status: diagnostic
+    suite: main
+    dataset: native-aishell4-diarization
+    subset_record_id: aishell_4__test__test__diarization__diarization__meeting__large_meeting__f8fb6c07cf
+    prompt: mesh-diarization
+    evaluator: mesh-diarization
+    agg: mesh
+    note: smoke_diar_all 30s window. Not official session DER.
+
+  - id: speaker_attribution
+    status: diagnostic
+    suite: main
+    dataset: native-alimeeting-attribution
+    subset_record_id: alimeeting__test__Eval_Ali_far__speaker_attribution__speaker_attribution__meeting__small_meeting__dcd4a4285a
+    prompt: mesh-speaker-attribution
+    evaluator: mesh-speaker-attribution
+    agg: mesh
+    note: smoke_attr_all 30s window. Not official SA-WER.
+
+  - id: target_speaker
+    status: diagnostic
+    suite: main
+    dataset: native-aishell5-target-speaker
+    subset_record_id: aishell_5__dev__dev__target_speaker__target_speaker__vehicle__unknown__1e55444c4f
+    prompt: mesh-target-speaker
+    evaluator: mesh-target-speaker
+    agg: mesh
+    note: smoke_ts_all AISHELL-5 enroll/command pairs. Not VoxCeleb.
+
+  - id: spoof_detection
+    status: diagnostic
+    suite: main
+    dataset: full-mmsu-spoof-diagnostic
+    subset_record_id: mmsu__test__synthetic_speech_detection__spoof_detection__spoof_detection__unknown__unknown__03315b751b
+    prompt: mesh-classification
+    evaluator: mesh-classification
+    agg: mesh
+
+  - id: instruction_following
+    status: ok
+    suite: main
+    dataset: t4-fsc-instruction-following
+    subset_record_id: fluent_speech_commands__test__test__instruction_following__instruction_following__unknown__unknown__bfe63bb2e6
+    prompt: mesh-intent-slots
+    evaluator: mesh-intent
+    agg: mesh
+    note: T4 official FSC CSV. FullEval FSC overlay removed.
+
+  - id: tool_call
+    status: diagnostic
+    suite: main
+    dataset: t4-fsc-tool-call
+    subset_record_id: fluent_speech_commands__test__test__tool_call__tool_call__unknown__unknown__3051e24cbc
+    prompt: mesh-tool-call
+    evaluator: mesh-tool-call
+    agg: mesh
+    note: T4 FSC tool view. No live sandbox.
+
+  - id: multi_turn_dialogue
+    status: diagnostic
+    suite: main
+    dataset: t4-vocalbench-zh-multi-turn
+    subset_record_id: vocalbench_zh__test__multi_round__multi_turn_dialogue__multi_turn_dialogue__unknown__unknown__5ef79e65e2
+    prompt: mesh-external-qa
+    evaluator: mesh-text-f1
+    agg: mesh
+    note: T4 official multi_round.json. Lexical F1 until judge credentials.
+
+  - id: clarification
+    status: diagnostic
+    suite: main
+    dataset: t4-ear-wdyl
+    subset_record_id: ear_wdyl__test__wdyl_kw_repair__clarification_repair__clarification__unknown__unknown__eab199784a
+    prompt: mesh-clarification-decision
+    evaluator: mesh-clarification
+    agg: mesh
+
+  - id: interruption
+    status: diagnostic
+    suite: main
+    dataset: ihbench-interruption-offline
+    subset_record_id: ihbench__test__all__interruption__interruption__public__unknown__6c3091d109
+    prompt: mesh-contextual-audio
+    evaluator: mesh-ihbench
+    agg: mesh
+    note: Offline recovery. Not streaming TF/RQ.
+
+  - id: speech_generation
+    status: ok
+    suite: tts
+    dataset: full-libritts-tts-source
+    subset_record_id: libritts__test__test-clean__speech_generation__speech_generation__unknown__unknown__75e9fd07bd
+    prompt: qwen3-omni-tts-en
+    evaluator: seed-tts-eval-asr-wer-en
+    agg: mesh
+    post_process: [extract_audio]
+    two_phase: true
+    model: qwen3-omni-speech-local

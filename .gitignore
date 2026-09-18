@@ -50,6 +50,7 @@ wheelhouse/
 /output/
 /outputs/
 /runs/
+suites/**/output/
 /tmp/
 /work/
 /.run/

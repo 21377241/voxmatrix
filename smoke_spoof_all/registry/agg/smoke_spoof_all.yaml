@@ -1,3 +1,0 @@
-mesh:
-  class: mesh_eval.agg.mesh.MeshAgg
-  args: {}

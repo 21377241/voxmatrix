@@ -1,3 +1,0 @@
-mesh-speaker-attribution-normalize:
-  class: mesh_eval.process.attribution.SpeakerAttributionNormalize
-  args: {}

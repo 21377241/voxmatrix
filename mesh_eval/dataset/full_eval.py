@@ -18,6 +18,19 @@ DEFAULT_FULL_EVAL_ROOT = Path(
     get_environment("VOXMATRIX_FULL_EVAL_ROOT", "data/full_eval")
 ).expanduser()
 
+# full_eval MMSU rows still point at a retired oss_data root.
+MMSU_AUDIO_ROOT_OLD = "/mnt/afs/oss_data/datasets/07_speech_translation/MMSU"
+MMSU_AUDIO_ROOT_NEW = str(
+    Path(
+        get_environment(
+            "VOXMATRIX_MMSU_ROOT", "/mnt/afs/eval_data/benchmarks/MMSU"
+        )
+    ).expanduser()
+)
+DEVICE_TYPE_ALIASES = {
+    "headset_mic": "earphone_mic",
+}
+
 ZH_DATASETS = {
     "aishell_1",
     "aishell_4",
@@ -221,8 +234,47 @@ class FullEvalDataset(Dataset):
         if current_group:
             yield current_line, current_group
 
+    def _rewrite_legacy_assets(self, row: Dict[str, Any]) -> None:
+        input_obj = row.get("input")
+        if isinstance(input_obj, dict):
+            for key in ("audio_path", "audio_filepath"):
+                value = input_obj.get(key)
+                if isinstance(value, str) and value.startswith(MMSU_AUDIO_ROOT_OLD):
+                    input_obj[key] = MMSU_AUDIO_ROOT_NEW + value[
+                        len(MMSU_AUDIO_ROOT_OLD) :
+                    ]
+            audio_items = input_obj.get("audio")
+            if isinstance(audio_items, list):
+                rewritten = []
+                for item in audio_items:
+                    if isinstance(item, str) and item.startswith(MMSU_AUDIO_ROOT_OLD):
+                        rewritten.append(
+                            MMSU_AUDIO_ROOT_NEW + item[len(MMSU_AUDIO_ROOT_OLD) :]
+                        )
+                    elif isinstance(item, dict):
+                        uri = item.get("uri") or item.get("path")
+                        if isinstance(uri, str) and uri.startswith(MMSU_AUDIO_ROOT_OLD):
+                            item = dict(item)
+                            new_uri = MMSU_AUDIO_ROOT_NEW + uri[
+                                len(MMSU_AUDIO_ROOT_OLD) :
+                            ]
+                            if "uri" in item:
+                                item["uri"] = new_uri
+                            if "path" in item:
+                                item["path"] = new_uri
+                        rewritten.append(item)
+                    else:
+                        rewritten.append(item)
+                input_obj["audio"] = rewritten
+        condition = row.get("condition")
+        if isinstance(condition, dict):
+            device = condition.get("device")
+            if device in DEVICE_TYPE_ALIASES:
+                condition["device"] = DEVICE_TYPE_ALIASES[device]
+
     def _transform(self, record: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         row = deepcopy(record)
+        self._rewrite_legacy_assets(row)
         if not self._view_matches(row):
             return None
         if self.dataset_id == "alimeeting":
@@ -242,10 +294,6 @@ class FullEvalDataset(Dataset):
             if self._covost_source_language(row) != "en":
                 return None
             self._set_translation_protocol(row, "en", "zh")
-        elif self.view == "tool_call_proxy":
-            self._set_tool_call_proxy(row)
-        elif self.view == "target_speaker_proxy":
-            self._set_target_speaker_proxy(row)
         else:
             self._set_native_protocol(row)
         return row
@@ -263,6 +311,24 @@ class FullEvalDataset(Dataset):
             return True
         task = str(row.get("task") or "").strip().lower()
         capability = str(row.get("capability") or "").strip().lower()
+        if view == "capability_code_switch":
+            sample_id = str(row.get("sample_id") or "").lower()
+            input_obj = row.get("input") or {}
+            audio_blob = " ".join(
+                str(input_obj.get(key) or "")
+                for key in ("audio_path", "audio_filepath", "audio")
+            ).lower()
+            blob = f"{sample_id} {audio_blob}"
+            return any(
+                token in blob
+                for token in (
+                    "codeswitch",
+                    "code_switch",
+                    "code-switch",
+                    "code_switching",
+                    "code switching",
+                )
+            )
         if view.startswith("capability_"):
             return capability == view[len("capability_") :]
         if view.startswith("task_"):
@@ -484,49 +550,6 @@ class FullEvalDataset(Dataset):
         ]
         row["answer_type"] = "text"
 
-    def _set_tool_call_proxy(self, row: Dict[str, Any]) -> None:
-        reference = row.setdefault("reference", {})
-        intent = reference.get("intent")
-        slots = reference.get("slots") or {}
-        tool_name = {
-            "fluent_speech_commands": "control_device",
-            "slurp": "execute_slurp_intent",
-        }.get(self.dataset_id, "execute_intent")
-        arguments = {"intent": intent, "slots": slots}
-        if self.dataset_id == "fluent_speech_commands":
-            arguments = slots
-        if (
-            self.dataset_id == "slurp"
-            and reference.get("scenario") not in (None, "", [])
-        ):
-            arguments["scenario"] = reference["scenario"]
-        reference["expected_output"] = {"tool": tool_name, "arguments": arguments}
-        self._bind_protocol(row, "spoken_agentic_interaction", "tool_call")
-        row["metrics"] = [
-            "tool_acc",
-            "parameter_acc",
-            "parameter_f1",
-            "call_exact_match",
-        ]
-        row["evaluators"] = ["mesh-tool-call"]
-        row["prompt_name"] = "mesh-tool-call"
-        row["answer_type"] = "structured_json"
-        row["use_bucket"] = "diagnostic_evidence"
-        row["sample_id"] = f"{row.get('sample_id', self.dataset_id)}__tool_call_proxy"
-        row["proxy_protocol"] = "intent_slots_as_tool_call"
-        row["input"] = dict(row.get("input") or {})
-        row["input"]["tool_schemas"] = [
-            {
-                "name": tool_name,
-                "parameters": {
-                    "type": "object",
-                    "properties": {"intent": {"type": "string"}, "slots": {"type": "object"}},
-                    "required": ["intent", "slots"],
-                },
-            }
-        ]
-        row["language"] = "en"
-
     def _agent_ontology(self, row: Dict[str, Any]) -> Dict[str, Any]:
         """Build a legal intent/slot ontology from native annotations.
 
@@ -567,28 +590,11 @@ class FullEvalDataset(Dataset):
         }
         return self._agent_ontology_cache
 
-    def _set_target_speaker_proxy(self, row: Dict[str, Any]) -> None:
-        reference = row.setdefault("reference", {})
-        reference["should_execute"] = bool(reference.get("same_speaker"))
-        condition = dict(row.get("condition") or {})
-        condition["speaker"] = (
-            "authorized_user" if reference["should_execute"] else "unauthorized_user"
-        )
-        row["condition"] = condition
-        self._bind_protocol(row, "speaker_attribution", "target_speaker")
-        row["metrics"] = ["target_speaker_acc", "mis_execution"]
-        row["evaluators"] = ["mesh-target-speaker"]
-        row["prompt_name"] = "mesh-target-speaker"
-        row["answer_type"] = "classification"
-        row["use_bucket"] = "diagnostic_evidence"
-        row["sample_id"] = f"{row.get('sample_id', self.dataset_id)}__target_speaker_proxy"
-        row["proxy_protocol"] = "same_speaker_as_should_execute"
-        row["language"] = "en"
-
     def _transform_alimeeting_group(
         self, group: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
         row = deepcopy(group[0])
+        self._rewrite_legacy_assets(row)
         input_obj = row.get("input") or {}
         grouped_input = {
             key: input_obj[key]
