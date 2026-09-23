@@ -7,193 +7,568 @@ mesh-unified-speech-smoke:
     dataset_id: local_smoke
     strict: true
     check_audio_exists: true
-
-# Short-utterance official ASR (smoke and native share this loader).
-full-aishell-1-asr:
-  class: mesh_eval.dataset.full_eval.FullEvalDataset
-  args: {dataset: aishell_1, benchmark_id: full-aishell-1-asr}
-
-# Long-form ASR: smoke-closed utt_clips, not unsegmented meetings.
-native-aishell4-utt-asr:
-  class: mesh_eval.dataset.native.NativeClipDataset
-  args:
-    f_name: /mnt/afs/eval_data/utt_clips/aishell_4/indexes/asr.test.jsonl
-    default_task: native-aishell4-utt-asr
-    ref_col: text
-    protocol: long_form_asr
-    benchmark_id: native-aishell4-utt-asr
-
-full-audiocaps-caption:
-  class: mesh_eval.dataset.full_eval.FullEvalDataset
-  args: {dataset: audiocaps, benchmark_id: full-audiocaps-caption}
-
-full-clotho-caption:
-  class: mesh_eval.dataset.full_eval.FullEvalDataset
-  args: {dataset: clotho, benchmark_id: full-clotho-caption}
-
-full-covost2-zh-en:
-  class: mesh_eval.dataset.full_eval.FullEvalDataset
-  args: {dataset: covost2, benchmark_id: full-covost2-zh-en, view: covost_zh_en}
-
-full-covost2-en-zh:
-  class: mesh_eval.dataset.full_eval.FullEvalDataset
-  args: {dataset: covost2, benchmark_id: full-covost2-en-zh, view: covost_en_zh}
-
-full-esc50-sound-event:
-  class: mesh_eval.dataset.full_eval.FullEvalDataset
-  args: {dataset: esc50, benchmark_id: full-esc50-sound-event}
-
-full-librispeech-asr:
-  class: mesh_eval.dataset.full_eval.FullEvalDataset
-  args: {dataset: librispeech, benchmark_id: full-librispeech-asr}
-
-full-libritts-tts-source:
-  class: mesh_eval.dataset.full_eval.FullEvalDataset
-  args: {dataset: libritts, benchmark_id: full-libritts-tts-source}
-
-full-spoken-squad-qa:
-  class: mesh_eval.dataset.full_eval.FullEvalDataset
-  args: {dataset: spoken_squad, benchmark_id: full-spoken-squad-qa}
-
-full-voxceleb1-verification:
-  class: mesh_eval.dataset.full_eval.FullEvalDataset
-  args: {dataset: voxceleb1, benchmark_id: full-voxceleb1-verification}
-
-full-mmsu-audio-reasoning:
-  class: mesh_eval.dataset.full_eval.FullEvalDataset
-  args: {dataset: mmsu, benchmark_id: full-mmsu-audio-reasoning, view: capability_audio_reasoning}
-
-full-mmsu-paralinguistic:
-  class: mesh_eval.dataset.full_eval.FullEvalDataset
-  args: {dataset: mmsu, benchmark_id: full-mmsu-paralinguistic, view: capability_paralinguistic}
-
-full-mmsu-speaker-count:
-  class: mesh_eval.dataset.full_eval.FullEvalDataset
-  args: {dataset: mmsu, benchmark_id: full-mmsu-speaker-count, view: capability_speaker_count}
-
-full-mmsu-spoof-diagnostic:
-  class: mesh_eval.dataset.full_eval.FullEvalDataset
-  args: {dataset: mmsu, benchmark_id: full-mmsu-spoof-diagnostic, view: capability_spoof_detection}
-
-# URO basic split scorer (8p31). Not the native-suite qa slot.
-full-uro-bench-qa:
-  class: mesh_eval.dataset.full_eval.FullEvalDataset
-  args: {dataset: uro_bench, benchmark_id: full-uro-bench-qa, view: capability_qa}
-
-# AISHELL-5 enroll/command pairs from smoke_ts_all (not VoxCeleb proxy).
-native-aishell5-target-speaker:
-  class: mesh_eval.dataset.native.NativeClipDataset
-  args:
-    f_name: mesh_eval/data/native/aishell5_target_speaker.jsonl
-    default_task: native-aishell5-target-speaker
-    ref_col: text
-    protocol: target_speaker
-    benchmark_id: native-aishell5-target-speaker
-
-# 30s window diarization (smoke_diar_all / aishell_4).
-native-aishell4-diarization:
-  class: mesh_eval.dataset.native.NativeClipDataset
-  args:
-    f_name: mesh_eval/data/native/aishell4_diarization_30s.jsonl
-    default_task: native-aishell4-diarization
-    ref_col: text
-    protocol: diarization
-    benchmark_id: native-aishell4-diarization
-
-# 30s window attribution (smoke_attr_all / alimeeting).
-native-alimeeting-attribution:
-  class: mesh_eval.dataset.native.NativeClipDataset
-  args:
-    f_name: mesh_eval/data/native/alimeeting_attribution_30s.jsonl
-    default_task: native-alimeeting-attribution
-    ref_col: text
-    protocol: speaker_attribution
-    benchmark_id: native-alimeeting-attribution
-
-# VocalBench-zh CS knowledge: short QA track (smoke_cs_all). No MER.
-native-vocalbench-zh-code-switch:
-  class: mesh_eval.dataset.native.NativeClipDataset
-  args:
-    f_name: mesh_eval/data/native/vocalbench_zh_cs_knowledge.jsonl
-    default_task: native-vocalbench-zh-code-switch
-    ref_col: text
-    protocol: code_switch
-    benchmark_id: native-vocalbench-zh-code-switch
-
-# 8p31 closed-set DCASE 2013 scenes.
-native-dcase2013-acoustic-scene:
-  class: mesh_eval.dataset.native.NativeClipDataset
-  args:
-    f_name: mesh_eval/data/native/dcase2013_acoustic_scene.jsonl
-    default_task: native-dcase2013-acoustic-scene
-    ref_col: text
-    protocol: acoustic_scene
-    benchmark_id: native-dcase2013-acoustic-scene
-
 audio-agent-bench-dialogue:
   class: mesh_eval.dataset.external_benchmarks.AudioAgentBenchDataset
-  args: {benchmark_id: audio-agent-bench-dialogue, view: dialogue}
-
+  args:
+    benchmark_id: audio-agent-bench-dialogue
+    view: dialogue
 audio-agent-bench-tool-call:
   class: mesh_eval.dataset.external_benchmarks.AudioAgentBenchDataset
-  args: {benchmark_id: audio-agent-bench-tool-call, view: tool_call}
-
+  args:
+    benchmark_id: audio-agent-bench-tool-call
+    view: tool_call
 audio-agent-bench-clarification:
   class: mesh_eval.dataset.external_benchmarks.AudioAgentBenchDataset
-  args: {benchmark_id: audio-agent-bench-clarification, view: clarification}
-
+  args:
+    benchmark_id: audio-agent-bench-clarification
+    view: clarification
 t4-fsc-instruction-following:
   class: mesh_eval.dataset.external_benchmarks.FluentSpeechCommandsT4Dataset
-  args: {benchmark_id: t4-fsc-instruction-following, view: instruction_following}
-
+  args:
+    benchmark_id: t4-fsc-instruction-following
+    view: instruction_following
 t4-fsc-tool-call:
   class: mesh_eval.dataset.external_benchmarks.FluentSpeechCommandsT4Dataset
-  args: {benchmark_id: t4-fsc-tool-call, view: tool_call}
-
+  args:
+    benchmark_id: t4-fsc-tool-call
+    view: tool_call
 t4-slurp-instruction-following:
   class: mesh_eval.dataset.external_benchmarks.SLURPT4Dataset
-  args: {benchmark_id: t4-slurp-instruction-following, view: instruction_following}
-
+  args:
+    benchmark_id: t4-slurp-instruction-following
+    view: instruction_following
 t4-slurp-tool-call:
   class: mesh_eval.dataset.external_benchmarks.SLURPT4Dataset
-  args: {benchmark_id: t4-slurp-tool-call, view: tool_call}
-
+  args:
+    benchmark_id: t4-slurp-tool-call
+    view: tool_call
 t4-vocalbench-instruction-following:
   class: mesh_eval.dataset.external_benchmarks.VocalBenchDataset
-  args: {benchmark_id: t4-vocalbench-instruction-following, view: instruction_following, language: en}
-
+  args:
+    benchmark_id: t4-vocalbench-instruction-following
+    view: instruction_following
+    language: en
 t4-vocalbench-zh-instruction-following:
   class: mesh_eval.dataset.external_benchmarks.VocalBenchDataset
-  args: {benchmark_id: t4-vocalbench-zh-instruction-following, view: instruction_following, language: zh}
-
+  args:
+    benchmark_id: t4-vocalbench-zh-instruction-following
+    view: instruction_following
+    language: zh
 t4-vocalbench-multi-turn:
   class: mesh_eval.dataset.external_benchmarks.VocalBenchDataset
-  args: {benchmark_id: t4-vocalbench-multi-turn, view: multi_turn, language: en}
-
+  args:
+    benchmark_id: t4-vocalbench-multi-turn
+    view: multi_turn
+    language: en
 t4-vocalbench-zh-multi-turn:
   class: mesh_eval.dataset.external_benchmarks.VocalBenchDataset
-  args: {benchmark_id: t4-vocalbench-zh-multi-turn, view: multi_turn, language: zh}
-
+  args:
+    benchmark_id: t4-vocalbench-zh-multi-turn
+    view: multi_turn
+    language: zh
 t4-stepeval-audio-toolcall:
   class: mesh_eval.dataset.external_benchmarks.StepEvalAudioToolCallDataset
-  args: {benchmark_id: t4-stepeval-audio-toolcall}
-
+  args:
+    benchmark_id: t4-stepeval-audio-toolcall
 t4-mtalk-bench:
   class: mesh_eval.dataset.external_benchmarks.MTalkBenchDataset
-  args: {benchmark_id: t4-mtalk-bench}
-
+  args:
+    benchmark_id: t4-mtalk-bench
 t4-ear-wdyl:
   class: mesh_eval.dataset.external_benchmarks.EARWDYLDataset
-  args: {benchmark_id: t4-ear-wdyl}
-
+  args:
+    benchmark_id: t4-ear-wdyl
 t4-voicebench-ifeval:
   class: mesh_eval.dataset.external_benchmarks.VoiceBenchT4Dataset
-  args: {benchmark_id: t4-voicebench-ifeval, view: ifeval}
-
+  args:
+    benchmark_id: t4-voicebench-ifeval
+    view: ifeval
 t4-voicebench-mtbench:
   class: mesh_eval.dataset.external_benchmarks.VoiceBenchT4Dataset
-  args: {benchmark_id: t4-voicebench-mtbench, view: mtbench}
-
+  args:
+    benchmark_id: t4-voicebench-mtbench
+    view: mtbench
 ihbench-interruption-offline:
   class: mesh_eval.dataset.external_benchmarks.IHBenchDataset
-  args: {benchmark_id: ihbench-interruption-offline}
+  args:
+    benchmark_id: ihbench-interruption-offline
+native-aishell4-long-form-asr:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/aishell_4_long_form_30_60.jsonl
+    default_task: native-aishell4-long-form-asr
+    ref_col: text
+    protocol: long_form_asr
+    benchmark_id: native-aishell4-long-form-asr
+native-alimeeting-long-form-asr:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/alimeeting_long_form_30_60.jsonl
+    default_task: native-alimeeting-long-form-asr
+    ref_col: text
+    protocol: long_form_asr
+    benchmark_id: native-alimeeting-long-form-asr
+native-ami-long-form-asr:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/ami_long_form_30_60.jsonl
+    default_task: native-ami-long-form-asr
+    ref_col: text
+    protocol: long_form_asr
+    benchmark_id: native-ami-long-form-asr
+native-chime6-long-form-asr:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/chime_6_long_form_30_60.jsonl
+    default_task: native-chime6-long-form-asr
+    ref_col: text
+    protocol: long_form_asr
+    benchmark_id: native-chime6-long-form-asr
+native-misp-long-form-asr:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/misp_long_form_30_60.jsonl
+    default_task: native-misp-long-form-asr
+    ref_col: text
+    protocol: long_form_asr
+    benchmark_id: native-misp-long-form-asr
+native-sbcsae-long-form-asr:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/sbcsae_long_form_30_60.jsonl
+    default_task: native-sbcsae-long-form-asr
+    ref_col: text
+    protocol: long_form_asr
+    benchmark_id: native-sbcsae-long-form-asr
+native-asr-aishell-1:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/asr_aishell_1.jsonl
+    default_task: native-asr-aishell-1
+    ref_col: text
+    protocol: asr
+    benchmark_id: native-asr-aishell-1
+native-asr-aishell-5:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/asr_aishell_5.jsonl
+    default_task: native-asr-aishell-5
+    ref_col: text
+    protocol: asr
+    benchmark_id: native-asr-aishell-5
+native-asr-librispeech:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/asr_librispeech.jsonl
+    default_task: native-asr-librispeech
+    ref_col: text
+    protocol: asr
+    benchmark_id: native-asr-librispeech
+native-asr-magicdata-ramc:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/asr_magicdata_ramc.jsonl
+    default_task: native-asr-magicdata-ramc
+    ref_col: text
+    protocol: asr
+    benchmark_id: native-asr-magicdata-ramc
+native-asr-sbcsae:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/asr_sbcsae.jsonl
+    default_task: native-asr-sbcsae
+    ref_col: text
+    protocol: asr
+    benchmark_id: native-asr-sbcsae
+native-asr-common-voice:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/asr_common_voice.jsonl
+    default_task: native-asr-common-voice
+    ref_col: text
+    protocol: asr
+    benchmark_id: native-asr-common-voice
+native-asr-wenetspeech:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/asr_wenetspeech.jsonl
+    default_task: native-asr-wenetspeech
+    ref_col: text
+    protocol: asr
+    benchmark_id: native-asr-wenetspeech
+native-audio-caption-audiocaps:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/audio_caption_audiocaps.jsonl
+    default_task: native-audio-caption-audiocaps
+    ref_col: text
+    protocol: audio_caption
+    benchmark_id: native-audio-caption-audiocaps
+native-audio-caption-clotho:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/audio_caption_clotho.jsonl
+    default_task: native-audio-caption-clotho
+    ref_col: text
+    protocol: audio_caption
+    benchmark_id: native-audio-caption-clotho
+native-qa-spoken-squad:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/qa_spoken_squad.jsonl
+    default_task: native-qa-spoken-squad
+    ref_col: text
+    protocol: qa
+    benchmark_id: native-qa-spoken-squad
+native-qa-uro-bench:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/qa_uro_bench.jsonl
+    default_task: native-qa-uro-bench
+    ref_col: text
+    protocol: qa
+    benchmark_id: native-qa-uro-bench
+native-qa-vocalbench:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/qa_vocalbench.jsonl
+    default_task: native-qa-vocalbench
+    ref_col: text
+    protocol: qa
+    benchmark_id: native-qa-vocalbench
+native-qa-vocalbench-zh:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/qa_vocalbench_zh.jsonl
+    default_task: native-qa-vocalbench-zh
+    ref_col: text
+    protocol: qa
+    benchmark_id: native-qa-vocalbench-zh
+native-qa-ear-wdyl:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/qa_ear_wdyl.jsonl
+    default_task: native-qa-ear-wdyl
+    ref_col: text
+    protocol: qa
+    benchmark_id: native-qa-ear-wdyl
+native-qa-voicebench:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/qa_voicebench.jsonl
+    default_task: native-qa-voicebench
+    ref_col: text
+    protocol: qa
+    benchmark_id: native-qa-voicebench
+native-audio-reasoning-mmsu:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/audio_reasoning_mmsu.jsonl
+    default_task: native-audio-reasoning-mmsu
+    ref_col: text
+    protocol: audio_reasoning
+    benchmark_id: native-audio-reasoning-mmsu
+native-audio-reasoning-uro-bench:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/audio_reasoning_uro_bench.jsonl
+    default_task: native-audio-reasoning-uro-bench
+    ref_col: text
+    protocol: audio_reasoning
+    benchmark_id: native-audio-reasoning-uro-bench
+native-audio-reasoning-vocalbench:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/audio_reasoning_vocalbench.jsonl
+    default_task: native-audio-reasoning-vocalbench
+    ref_col: text
+    protocol: audio_reasoning
+    benchmark_id: native-audio-reasoning-vocalbench
+native-audio-reasoning-vocalbench-zh:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/audio_reasoning_vocalbench_zh.jsonl
+    default_task: native-audio-reasoning-vocalbench-zh
+    ref_col: text
+    protocol: audio_reasoning
+    benchmark_id: native-audio-reasoning-vocalbench-zh
+native-audio-reasoning-voicebench:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/audio_reasoning_voicebench.jsonl
+    default_task: native-audio-reasoning-voicebench
+    ref_col: text
+    protocol: audio_reasoning
+    benchmark_id: native-audio-reasoning-voicebench
+native-sound-event-esc50:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/sound_event_esc50.jsonl
+    default_task: native-sound-event-esc50
+    ref_col: text
+    protocol: sound_event
+    benchmark_id: native-sound-event-esc50
+native-sound-event-mmsu:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/sound_event_mmsu.jsonl
+    default_task: native-sound-event-mmsu
+    ref_col: text
+    protocol: sound_event
+    benchmark_id: native-sound-event-mmsu
+native-sound-event-mavd-traffic:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/sound_event_mavd_traffic.jsonl
+    default_task: native-sound-event-mavd-traffic
+    ref_col: text
+    protocol: sound_event_multilabel
+    benchmark_id: native-sound-event-mavd-traffic
+native-sound-event-sonyc-ust-v23:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/sound_event_sonyc_ust_v23.jsonl
+    default_task: native-sound-event-sonyc-ust-v23
+    ref_col: text
+    protocol: sound_event_multilabel
+    benchmark_id: native-sound-event-sonyc-ust-v23
+native-sound-event-tut-sound-events-2017:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/sound_event_tut_sound_events_2017.jsonl
+    default_task: native-sound-event-tut-sound-events-2017
+    ref_col: text
+    protocol: sound_event
+    benchmark_id: native-sound-event-tut-sound-events-2017
+native-acoustic-scene-dcase2013-scenes:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/acoustic_scene_dcase2013_scenes.jsonl
+    default_task: native-acoustic-scene-dcase2013-scenes
+    ref_col: text
+    protocol: acoustic_scene
+    benchmark_id: native-acoustic-scene-dcase2013-scenes
+native-acoustic-scene-mmsu:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/acoustic_scene_mmsu.jsonl
+    default_task: native-acoustic-scene-mmsu
+    ref_col: text
+    protocol: acoustic_scene
+    benchmark_id: native-acoustic-scene-mmsu
+native-acoustic-scene-tut-sound-events-2017:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/acoustic_scene_tut_sound_events_2017.jsonl
+    default_task: native-acoustic-scene-tut-sound-events-2017
+    ref_col: text
+    protocol: acoustic_scene
+    benchmark_id: native-acoustic-scene-tut-sound-events-2017
+native-acoustic-scene-tut-urban-acoustic-scenes-2018-mobile:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/acoustic_scene_tut_urban_acoustic_scenes_2018_mobile.jsonl
+    default_task: native-acoustic-scene-tut-urban-acoustic-scenes-2018-mobile
+    ref_col: text
+    protocol: acoustic_scene
+    benchmark_id: native-acoustic-scene-tut-urban-acoustic-scenes-2018-mobile
+native-paralinguistic-recognition-mmsu:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/paralinguistic_recognition_mmsu.jsonl
+    default_task: native-paralinguistic-recognition-mmsu
+    ref_col: text
+    protocol: paralinguistic_recognition
+    benchmark_id: native-paralinguistic-recognition-mmsu
+native-speaker-count-mmsu:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/speaker_count_mmsu.jsonl
+    default_task: native-speaker-count-mmsu
+    ref_col: text
+    protocol: speaker_count
+    benchmark_id: native-speaker-count-mmsu
+native-speaker-verification-voxceleb1:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/speaker_verification_voxceleb1.jsonl
+    default_task: native-speaker-verification-voxceleb1
+    ref_col: text
+    protocol: speaker_verification
+    benchmark_id: native-speaker-verification-voxceleb1
+native-speech-translation-covost2:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/speech_translation_covost2.jsonl
+    default_task: native-speech-translation-covost2
+    ref_col: text
+    protocol: speech_translation
+    benchmark_id: native-speech-translation-covost2
+native-speech-translation-mmsu:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/speech_translation_mmsu.jsonl
+    default_task: native-speech-translation-mmsu
+    ref_col: text
+    protocol: speech_translation
+    benchmark_id: native-speech-translation-mmsu
+native-spoof-detection-mmsu:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/spoof_detection_mmsu.jsonl
+    default_task: native-spoof-detection-mmsu
+    ref_col: text
+    protocol: spoof_detection
+    benchmark_id: native-spoof-detection-mmsu
+native-speech-generation-libritts:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/speech_generation_libritts.jsonl
+    default_task: native-speech-generation-libritts
+    ref_col: text
+    protocol: speech_generation
+    benchmark_id: native-speech-generation-libritts
+native-code-switch-mmsu:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/code_switch_mmsu.jsonl
+    default_task: native-code-switch-mmsu
+    ref_col: text
+    protocol: code_switch
+    benchmark_id: native-code-switch-mmsu
+native-code-switch-vocalbench-zh:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/code_switch_vocalbench_zh.jsonl
+    default_task: native-code-switch-vocalbench-zh
+    ref_col: text
+    protocol: code_switch
+    benchmark_id: native-code-switch-vocalbench-zh
+native-diarization-aishell-4:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/diarization_aishell_4.jsonl
+    default_task: native-diarization-aishell-4
+    ref_col: text
+    protocol: diarization
+    benchmark_id: native-diarization-aishell-4
+native-diarization-alimeeting:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/diarization_alimeeting.jsonl
+    default_task: native-diarization-alimeeting
+    ref_col: text
+    protocol: diarization
+    benchmark_id: native-diarization-alimeeting
+native-diarization-ami:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/diarization_ami.jsonl
+    default_task: native-diarization-ami
+    ref_col: text
+    protocol: diarization
+    benchmark_id: native-diarization-ami
+native-diarization-chime-6:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/diarization_chime_6.jsonl
+    default_task: native-diarization-chime-6
+    ref_col: text
+    protocol: diarization
+    benchmark_id: native-diarization-chime-6
+native-speaker-attribution-aishell-4:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/speaker_attribution_aishell_4.jsonl
+    default_task: native-speaker-attribution-aishell-4
+    ref_col: text
+    protocol: speaker_attribution
+    benchmark_id: native-speaker-attribution-aishell-4
+native-speaker-attribution-aishell-5:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/speaker_attribution_aishell_5.jsonl
+    default_task: native-speaker-attribution-aishell-5
+    ref_col: text
+    protocol: speaker_attribution
+    benchmark_id: native-speaker-attribution-aishell-5
+native-speaker-attribution-alimeeting:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/speaker_attribution_alimeeting.jsonl
+    default_task: native-speaker-attribution-alimeeting
+    ref_col: text
+    protocol: speaker_attribution
+    benchmark_id: native-speaker-attribution-alimeeting
+native-speaker-attribution-ami:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/speaker_attribution_ami.jsonl
+    default_task: native-speaker-attribution-ami
+    ref_col: text
+    protocol: speaker_attribution
+    benchmark_id: native-speaker-attribution-ami
+native-target-speaker-aishell-5:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/target_speaker_aishell_5.jsonl
+    default_task: native-target-speaker-aishell-5
+    ref_col: text
+    protocol: target_speaker
+    benchmark_id: native-target-speaker-aishell-5
+native-speech-translation-covost2-zh-en:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/speech_translation_covost2_zh_en.jsonl
+    default_task: speech-translation-zh-en
+    ref_col: text
+    protocol: speech_translation
+    benchmark_id: native-speech-translation-covost2-zh-en
+native-speech-translation-covost2-en-zh:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/speech_translation_covost2_en_zh.jsonl
+    default_task: speech-translation-en-zh
+    ref_col: text
+    protocol: speech_translation
+    benchmark_id: native-speech-translation-covost2-en-zh
+native-speech-translation-mmsu-qa:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/speech_translation_mmsu.jsonl
+    default_task: speech-translation-mmsu
+    ref_col: text
+    protocol: speech_translation
+    benchmark_id: native-speech-translation-mmsu
+full-wenetspeech-test-net:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/full/asr/asr_wenetspeech_test_net.jsonl
+    default_task: full-wenetspeech-test-net
+    ref_col: text
+    protocol: asr
+    benchmark_id: full-wenetspeech-test-net
+full-wenetspeech-test-meeting:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/full/asr/asr_wenetspeech_test_meeting.jsonl
+    default_task: full-wenetspeech-test-meeting
+    ref_col: text
+    protocol: asr
+    benchmark_id: full-wenetspeech-test-meeting
+full-audio-caption-audiocaps:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/full/audio_caption/audio_caption_audiocaps.jsonl
+    default_task: full-audio-caption-audiocaps
+    ref_col: text
+    protocol: audio_caption
+    benchmark_id: full-audio-caption-audiocaps
+full-audio-caption-clotho:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/full/audio_caption/audio_caption_clotho.jsonl
+    default_task: full-audio-caption-clotho
+    ref_col: text
+    protocol: audio_caption
+    benchmark_id: full-audio-caption-clotho

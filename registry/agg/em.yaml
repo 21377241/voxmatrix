@@ -1,0 +1,3 @@
+em:
+  class: audio_evals.agg.em.EMMean
+  args: {}

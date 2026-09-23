@@ -1,0 +1,26 @@
+speech-translation-zh-en:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: native-speech-translation-covost2-zh-en
+    prompt: qwen3-omni-s2tt-zh2en
+    model: qwen3-omni-local
+    evaluator: bleu
+    agg: bleu
+
+speech-translation-en-zh:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: native-speech-translation-covost2-en-zh
+    prompt: qwen3-omni-s2tt-en2zh
+    model: qwen3-omni-local
+    evaluator: bleu
+    agg: bleu
+
+speech-translation-mmsu:
+  class: audio_evals.base.EvalTaskCfg
+  args:
+    dataset: native-speech-translation-mmsu
+    prompt: mesh-external-qa
+    model: qwen3-omni-local
+    evaluator: bleu
+    agg: bleu

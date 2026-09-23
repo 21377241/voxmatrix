@@ -1,8 +1,9 @@
 """Smoke/8p31-closed sample loaders.
 
-These read small JSONL manifests (or utt_clips indexes) that already follow
-the evaluation unit smoke settled on. They are not a second annotation
-pipeline and they do not rewrite official gold.
+These read small JSONL manifests that already follow the evaluation unit
+settled for native coverage. ASR samples come from
+``suites/native/build_asr_native_samples.py`` (L0 / timestamp crops), not
+utt_clips indexes or FullEval. They do not rewrite official gold.
 """
 
 from __future__ import annotations
@@ -64,7 +65,14 @@ class NativeClipDataset(Dataset):
         row = dict(record)
         row.setdefault("dataset", self.benchmark_id)
         row.setdefault("benchmark_id", self.benchmark_id)
-        wav = row.get("WavPath") or row.get("audio_path") or ""
+        input_obj = dict(row.get("input") or {})
+        wav = (
+            row.get("WavPath")
+            or row.get("audio_path")
+            or row.get("audio_locator")
+            or input_obj.get("audio_path")
+            or ""
+        )
         if wav:
             row["WavPath"] = wav
             input_obj = dict(row.get("input") or {})
@@ -85,7 +93,7 @@ class NativeClipDataset(Dataset):
             if should is None:
                 should = row.get("text")
             reference["should_execute"] = bool(should)
-            row["reference"] = reference
+            row["reference_obj"] = reference
             row["text"] = bool(should)
         elif protocol == "diarization":
             row["capability"] = "diarization"
@@ -93,18 +101,96 @@ class NativeClipDataset(Dataset):
         elif protocol == "speaker_attribution":
             row["capability"] = "speaker_attribution"
             row.setdefault("task", "speaker_attribution")
-        elif protocol == "code_switch":
-            row["capability"] = "code_switch"
+        elif protocol in {"acoustic_scene", "sound_event", "paralinguistic_recognition"}:
+            row["capability"] = protocol
             row.setdefault("task", "audio_speech_understanding")
-            row.setdefault("question", row.get("question") or "")
-        elif protocol == "acoustic_scene":
-            row["capability"] = "acoustic_scene"
+            if not row.get("text") and row.get("answer") is not None:
+                answer = row["answer"]
+                row["text"] = (
+                    ", ".join(str(item) for item in answer)
+                    if isinstance(answer, list)
+                    else answer
+                )
+            reference = dict(row.get("reference") or {})
+            reference.setdefault("label", row.get("text") or row.get("answer"))
+            row["reference_obj"] = reference
+            if row.get("question"):
+                row.setdefault("question", row["question"])
+        elif protocol in {"sound_event_multilabel"}:
+            row["capability"] = "sound_event"
             row.setdefault("task", "audio_speech_understanding")
+            labels = row.get("labels") or row.get("answer") or []
+            if isinstance(labels, str):
+                labels = [item.strip() for item in labels.split(",") if item.strip()]
+            row["text"] = ", ".join(str(item) for item in labels)
+            reference = dict(row.get("reference") or {})
+            reference["labels"] = list(labels)
+            row["reference_obj"] = reference
+        elif protocol in {"qa", "audio_reasoning", "code_switch", "audio_caption", "speech_translation", "speech_translation_qa"}:
+            row["capability"] = protocol
+            row.setdefault(
+                "task",
+                "speech_recognition_transcription"
+                if protocol == "speech_translation"
+                else "audio_speech_understanding",
+            )
+            answer = row.get("answer")
+            if not row.get("text") and answer not in (None, ""):
+                row["text"] = (
+                    ", ".join(str(item) for item in answer)
+                    if isinstance(answer, list)
+                    else answer
+                )
+            input_obj = dict(row.get("input") or {})
+            question = row.get("question") or input_obj.get("question") or ""
+            if question:
+                row["question"] = question
+                input_obj.setdefault("question", question)
+                row["input"] = input_obj
+            reference = dict(row.get("reference") or {})
+            if row.get("text") not in (None, ""):
+                if protocol == "audio_caption":
+                    captions = row.get("captions")
+                    if isinstance(captions, list) and captions:
+                        reference.setdefault("captions", captions)
+                        reference.setdefault("caption", captions[0])
+                    else:
+                        reference.setdefault("caption", row["text"])
+                elif protocol == "speech_translation_qa":
+                    reference.setdefault("answer", row["text"])
+                else:
+                    reference.setdefault("answer", row["text"])
+            row["reference_obj"] = reference
+        elif protocol == "speaker_verification":
+            row["capability"] = "speaker_verification"
+            row.setdefault("task", "speaker_attribution")
+            label = row.get("label")
+            if label is None:
+                label = row.get("text")
+            row["text"] = label
+            reference = dict(row.get("reference") or {})
+            reference["label"] = label
+            row["reference_obj"] = reference
+        elif protocol in {"spoof_detection", "speaker_count", "speech_generation"}:
+            row["capability"] = protocol
+            row.setdefault(
+                "task",
+                "speech_generation_delivery"
+                if protocol == "speech_generation"
+                else "speaker_attribution"
+                if protocol == "spoof_detection"
+                else "audio_speech_understanding",
+            )
             if not row.get("text") and row.get("answer") is not None:
                 row["text"] = row["answer"]
             reference = dict(row.get("reference") or {})
-            reference.setdefault("label", row.get("text") or row.get("answer"))
-            row["reference"] = reference
+            if row.get("text") not in (None, ""):
+                reference.setdefault("label", row["text"])
+            row["reference_obj"] = reference
         else:
             row.setdefault("capability", protocol)
+        if isinstance(row.get("reference"), dict):
+            row.setdefault("reference_obj", row.pop("reference"))
+        else:
+            row.pop("reference", None)
         return row

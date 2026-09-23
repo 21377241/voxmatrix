@@ -1,0 +1,35 @@
+schema_version: evaluation-suite-config/1.0
+run_id: full-wenetspeech-smoke
+model: qwen3-omni-local
+output_root: outputs/full_wenetspeech_smoke
+registry_paths:
+  - mesh_eval/registry
+  - suites/native/registry
+model_pool:
+  use_model_pool: 'off'
+  replicas: 1
+  gpus_per_replica: 1
+  inference_workers: 1
+  allow_gpu_sharing: false
+  model_ready_policy: auto
+suite_aggregation:
+  enabled: true
+  report_format: both
+  min_slice_size: 1
+benchmarks:
+  - benchmark_id: full-wenetspeech-test-net-smoke
+    dataset: full-wenetspeech-test-net
+    task: asr-zh
+    prompt: qwen3-omni-asr-zh
+    evaluator: cer
+    agg: wer-zh
+    limit: 10
+    evaluation_workers: 1
+  - benchmark_id: full-wenetspeech-test-meeting-smoke
+    dataset: full-wenetspeech-test-meeting
+    task: asr-zh
+    prompt: qwen3-omni-asr-zh
+    evaluator: cer
+    agg: wer-zh
+    limit: 10
+    evaluation_workers: 1

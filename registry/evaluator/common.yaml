@@ -6,6 +6,10 @@ em:
   class: audio_evals.evaluator.base.EM
   args: {}
 
+fense:
+  class: audio_evals.evaluator.fense.FENSE
+  args: {}
+
 exist-match:
   class: audio_evals.evaluator.base.ExistMatch
   args: {}

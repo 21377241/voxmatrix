@@ -1,0 +1,960 @@
+#!/usr/bin/env python3
+"""Build per-(capability, benchmark) native eval samples from L0 (not FullEval/smoke).
+
+Writes mesh_eval/data/native/<capability>_<benchmark>.jsonl (limit=10).
+Long/windowed units land under mesh_eval/data/native/eval_clips/.
+"""
+
+from __future__ import annotations
+
+import csv
+import json
+import re
+import shutil
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+NATIVE = ROOT / "mesh_eval" / "data" / "native"
+CLIPS = NATIVE / "eval_clips"
+ANN = Path(
+    "/mnt/afs/users/wangyl/benchmark_annotation_audit/native_v2_pipeline/outputs/benchmark_subset_manifest.jsonl"
+)
+FFMPEG = "/mnt/afs/conda/envs/audioeval/bin/ffmpeg"
+LIMIT = 10
+MMSU_ROOT = Path("/mnt/afs/eval_data/benchmarks/MMSU")
+MMSU_JSONL = MMSU_ROOT / "mmsu_audioqa.jsonl"
+
+# Existing smoke window packs: physical clips only; rewrite into eval_clips/.
+SMOKE_DIAR = Path("/mnt/afs/users/wangyl/VoxMatrix/smoke_diar_all")
+SMOKE_ATTR = Path("/mnt/afs/users/wangyl/VoxMatrix/smoke_attr_all")
+SMOKE_TS = Path("/mnt/afs/users/wangyl/VoxMatrix/smoke_ts_all")
+P8 = Path("/mnt/afs/users/wangyl/8p31/runs")
+
+MMSU_PREFIX = {
+    "acoustic_scene": ["MMSU_background_scene_recognition_"],
+    "sound_event": ["MMSU_non_verbal_sound_detection_"],
+    "code_switch": ["MMSU_code_switch_question_answering_"],
+    "speech_translation": ["MMSU_speech_translation_"],
+    "spoof_detection": ["MMSU_synthetic_speech_detection_"],
+    "speaker_count": ["MMSU_total_speaker_counting_"],
+    "paralinguistic_recognition": [
+        "MMSU_accent_identification_",
+        "MMSU_age_prediction_",
+        "MMSU_disfluency_detection_",
+        "MMSU_emotion_recognition_",
+        "MMSU_gender_prediction_",
+        "MMSU_intonation_perception_",
+        "MMSU_pause_perception_",
+        "MMSU_pitch_comparison_",
+        "MMSU_prolonged_sound_perception_",
+        "MMSU_sarcasm_detection_",
+        "MMSU_speech_stress_perception_",
+        "MMSU_speed_comparison_",
+        "MMSU_vocal_range_comparison_",
+        "MMSU_volume_comparison_",
+    ],
+}
+MMSU_REASONING_EXCLUDE = {
+    "MMSU_accent_identification_",
+    "MMSU_age_prediction_",
+    "MMSU_background_scene_recognition_",
+    "MMSU_code_switch_question_answering_",
+    "MMSU_disfluency_detection_",
+    "MMSU_emotion_recognition_",
+    "MMSU_gender_prediction_",
+    "MMSU_intonation_perception_",
+    "MMSU_non_verbal_sound_detection_",
+    "MMSU_pause_perception_",
+    "MMSU_pitch_comparison_",
+    "MMSU_prolonged_sound_perception_",
+    "MMSU_sarcasm_detection_",
+    "MMSU_speech_stress_perception_",
+    "MMSU_speech_translation_",
+    "MMSU_speed_comparison_",
+    "MMSU_synthetic_speech_detection_",
+    "MMSU_total_speaker_counting_",
+    "MMSU_vocal_range_comparison_",
+    "MMSU_volume_comparison_",
+}
+
+
+def write_jsonl(path: Path, rows: list[dict]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+        encoding="utf-8",
+    )
+
+
+def out_name(capability: str, benchmark: str) -> Path:
+    return NATIVE / f"{capability}_{benchmark}.jsonl"
+
+
+def parse_messages(doc: dict) -> tuple[str | None, str, str]:
+    """Return (rel_audio, question_or_empty, answer_text)."""
+    audio = None
+    question = ""
+    answer = ""
+    for msg in doc.get("messages") or []:
+        role = msg.get("role")
+        content = msg.get("content")
+        if isinstance(content, list):
+            for part in content:
+                if not isinstance(part, dict):
+                    continue
+                if part.get("audio_path"):
+                    audio = part["audio_path"]
+                if part.get("text"):
+                    if role == "user":
+                        question = str(part["text"]).strip()
+                    elif role == "assistant":
+                        answer = str(part["text"]).strip()
+        elif isinstance(content, str):
+            if role == "user" and "<audio>" in content:
+                question = content.replace("<audio>", "").strip()
+            elif role == "assistant":
+                answer = content.strip()
+    if not audio:
+        audios = doc.get("audios") or []
+        if audios:
+            audio = audios[0]
+    return audio, question, answer
+
+
+def iter_mmsu(prefixes: list[str] | None = None, exclude: set[str] | None = None):
+    with MMSU_JSONL.open(encoding="utf-8") as handle:
+        for line in handle:
+            doc = json.loads(line)
+            sid = str(doc.get("id") or "")
+            if prefixes and not any(sid.startswith(p) for p in prefixes):
+                continue
+            if exclude and any(sid.startswith(p) for p in exclude):
+                continue
+            rel, question, answer = parse_messages(doc)
+            if not rel or not answer:
+                continue
+            wav = MMSU_ROOT / rel
+            if not wav.is_file():
+                # try audio/ basename fallback
+                alt = MMSU_ROOT / "audio" / Path(rel).name
+                wav = alt if alt.is_file() else wav
+            if not wav.is_file():
+                continue
+            yield {
+                "sample_id": sid,
+                "dataset": "mmsu",
+                "WavPath": str(wav),
+                "question": question,
+                "answer": answer,
+                "text": answer,
+                "source_index": str(MMSU_JSONL),
+            }
+
+
+def take(gen, limit: int = LIMIT) -> list[dict]:
+    rows = []
+    for row in gen:
+        rows.append(row)
+        if len(rows) >= limit:
+            break
+    return rows
+
+
+def build_mavd() -> list[dict]:
+    """Crop short event windows from L0 MAVD flac using timestamps."""
+    jsonl = Path("/mnt/afs/eval_data/benchmarks/MAVD-traffic/manifests/sound_event.jsonl")
+    clip_dir = CLIPS / "sound_event" / "mavd_traffic"
+    rows = []
+    with jsonl.open(encoding="utf-8") as handle:
+        for line in handle:
+            if len(rows) >= LIMIT:
+                break
+            doc = json.loads(line)
+            if doc.get("split") != "test":
+                continue
+            src = Path(doc.get("audio") or "")
+            start, end = doc.get("start_seconds"), doc.get("end_seconds")
+            label = doc.get("event_label")
+            if not src.is_file() or start is None or end is None or not label:
+                continue
+            # keep windows reasonably short for Omni
+            if float(end) - float(start) > 15:
+                end = float(start) + 10
+            sid = str(doc.get("id") or f"mavd_{len(rows):04d}")
+            dst = clip_dir / f"{sid}.wav"
+            if not dst.is_file():
+                try:
+                    from suites.native.build_asr_native_samples import ffmpeg_crop  # type: ignore
+                except Exception:
+                    pass
+                cmd = [
+                    FFMPEG, "-y", "-ss", f"{float(start):.6f}", "-to", f"{float(end):.6f}",
+                    "-i", str(src), "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(dst),
+                ]
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                proc = subprocess.run(cmd, capture_output=True, text=True)
+                if proc.returncode != 0 or not dst.is_file():
+                    continue
+            rows.append(
+                {
+                    "sample_id": sid,
+                    "dataset": "mavd_traffic",
+                    "capability": "sound_event",
+                    "protocol": "sound_event_multilabel",
+                    "WavPath": str(dst),
+                    "labels": [str(label)],
+                    "text": str(label),
+                    "answer": [str(label)],
+                    "src_audio": str(src),
+                    "start_time": float(start),
+                    "end_time": float(end),
+                    "source_index": str(jsonl),
+                }
+            )
+    return rows
+
+
+def build_sonyc() -> list[dict]:
+    jsonl = Path("/mnt/afs/eval_data/benchmarks/SONYC-UST-v2.3/manifests/sound_event_tagging.jsonl")
+    ann = Path("/mnt/afs/eval_data/benchmarks/SONYC-UST-v2.3/annotations.csv")
+    # coarse presence columns
+    coarse = [
+        ("1_engine_presence", "engine"),
+        ("2_machinery-impact_presence", "machinery impact"),
+        ("3_non-machinery-impact_presence", "non machinery impact"),
+        ("4_powered-saw_presence", "powered saw"),
+        ("5_alert-signal_presence", "alert signal"),
+        ("6_music_presence", "music"),
+        ("7_human-voice_presence", "human voice"),
+        ("8_dog_presence", "dog"),
+    ]
+    by_file: dict[str, list[str]] = {}
+    if ann.is_file():
+        with ann.open(encoding="utf-8") as handle:
+            for row in csv.DictReader(handle):
+                if row.get("split") != "test":
+                    continue
+                fn = row.get("audio_filename") or ""
+                labels = [name for col, name in coarse if str(row.get(col)) == "1"]
+                if fn and labels:
+                    by_file[fn] = labels
+    rows = []
+    with jsonl.open(encoding="utf-8") as handle:
+        for line in handle:
+            if len(rows) >= LIMIT:
+                break
+            doc = json.loads(line)
+            if doc.get("split") != "test":
+                continue
+            audio = Path(doc.get("audio") or "")
+            fn = doc.get("audio_filename") or audio.name
+            labels = by_file.get(fn) or []
+            if not audio.is_file() or not labels:
+                continue
+            rows.append(
+                {
+                    "sample_id": str(doc.get("id") or f"sonyc_{len(rows):04d}"),
+                    "dataset": "sonyc_ust_v23",
+                    "capability": "sound_event",
+                    "protocol": "sound_event_multilabel",
+                    "WavPath": str(audio),
+                    "labels": labels,
+                    "text": ", ".join(labels),
+                    "answer": labels,
+                    "source_index": str(jsonl),
+                }
+            )
+    return rows
+
+
+def build_mmsu(capability: str) -> list[dict]:
+    if capability == "audio_reasoning":
+        rows = take(iter_mmsu(exclude=MMSU_REASONING_EXCLUDE))
+    else:
+        rows = take(iter_mmsu(prefixes=MMSU_PREFIX[capability]))
+    for row in rows:
+        row["capability"] = capability
+        row["protocol"] = capability
+    return rows
+
+
+def build_msswift_caption(jsonl: Path, root: Path, dataset: str) -> list[dict]:
+    rows = []
+    with jsonl.open(encoding="utf-8") as handle:
+        for line in handle:
+            if len(rows) >= LIMIT:
+                break
+            doc = json.loads(line)
+            rel, _, caption = parse_messages(doc)
+            if not rel or not caption:
+                continue
+            wav = root / rel
+            if not wav.is_file():
+                continue
+            rows.append(
+                {
+                    "sample_id": doc.get("id") or f"{dataset}_{len(rows):04d}",
+                    "dataset": dataset,
+                    "capability": "audio_caption",
+                    "protocol": "audio_caption",
+                    "WavPath": str(wav),
+                    "text": caption,
+                    "answer": caption,
+                    "source_index": str(jsonl),
+                }
+            )
+    return rows
+
+
+def build_esc50() -> list[dict]:
+    root = Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/ESC-50/ESC-50-master")
+    meta = root / "meta" / "esc50.csv"
+    audio = root / "audio"
+    rows = []
+    with meta.open(encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            if str(row.get("fold")) != "5":
+                continue
+            wav = audio / row["filename"]
+            if not wav.is_file():
+                continue
+            label = row["category"]
+            rows.append(
+                {
+                    "sample_id": f"esc50_{Path(row['filename']).stem}",
+                    "dataset": "esc50",
+                    "capability": "sound_event",
+                    "protocol": "sound_event",
+                    "WavPath": str(wav),
+                    "text": label,
+                    "answer": label,
+                    "question": f"Identify the sound event. Label: {label}",
+                    "source_index": str(meta),
+                }
+            )
+            if len(rows) >= LIMIT:
+                break
+    return rows
+
+
+def build_spoken_squad() -> list[dict]:
+    raw = Path("/mnt/afs/oss_data/datasets/04_dialogue_slu/Spoken-SQuAD/raw")
+    jsonl = raw / "test_WER44.json"
+    wav_dir = raw / "merged_wav" / "test_wer44"
+    rows = []
+    with jsonl.open(encoding="utf-8") as handle:
+        for i, line in enumerate(handle):
+            if len(rows) >= LIMIT:
+                break
+            doc = json.loads(line)
+            wav = wav_dir / f"{i}_0.wav"
+            if not wav.is_file():
+                # try alternate naming from full_eval
+                alt = list(wav_dir.glob(f"{i}_*.wav"))
+                wav = alt[0] if alt else wav
+            if not wav.is_file():
+                continue
+            ans = doc.get("answers") or {}
+            texts = ans.get("text") or []
+            answer = texts[0] if texts else ""
+            if not answer:
+                continue
+            rows.append(
+                {
+                    "sample_id": f"ssq_{i}_0",
+                    "dataset": "spoken_squad",
+                    "capability": "qa",
+                    "protocol": "qa",
+                    "WavPath": str(wav),
+                    "question": str(doc.get("question") or "").strip(),
+                    "answer": answer,
+                    "text": answer,
+                    "source_index": str(jsonl),
+                }
+            )
+    return rows
+
+
+def build_vocalbench_json(path: Path, dataset: str, capability: str, root: Path) -> list[dict]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    rows = []
+    for item in data:
+        if len(rows) >= LIMIT:
+            break
+        rel = item.get("Audio") or item.get("audio") or ""
+        candidates = [root / "audio" / rel, root / rel]
+        wav = next((p for p in candidates if p.is_file()), None)
+        if wav is None:
+            continue
+        answer = str(
+            item.get("Answer")
+            or item.get("Answer_zh")
+            or item.get("Answer_en")
+            or item.get("answer")
+            or ""
+        ).strip()
+        question = str(
+            item.get("Question") or item.get("Question_zh") or item.get("question") or ""
+        ).strip()
+        if not answer:
+            continue
+        rows.append(
+            {
+                "sample_id": str(item.get("Qid") or item.get("id") or f"{dataset}_{len(rows):04d}"),
+                "dataset": dataset,
+                "capability": capability,
+                "protocol": capability,
+                "WavPath": str(wav),
+                "question": question,
+                "answer": answer,
+                "text": answer,
+                "source_index": str(path),
+            }
+        )
+    return rows
+
+
+def build_uro(path: Path, capability: str) -> list[dict]:
+    rows = []
+    root = path.parent
+    with path.open(encoding="utf-8") as handle:
+        for line in handle:
+            if len(rows) >= LIMIT:
+                break
+            doc = json.loads(line)
+            audio = (
+                doc.get("source_wav")
+                or doc.get("audio")
+                or doc.get("WavPath")
+                or doc.get("audio_path")
+            )
+            if not audio:
+                continue
+            wav = Path(audio) if Path(str(audio)).is_absolute() else (root / audio)
+            if not wav.is_file():
+                continue
+            answer = str(
+                doc.get("target_text") or doc.get("answer") or doc.get("output") or doc.get("text") or ""
+            ).strip()
+            question = str(
+                doc.get("source_text") or doc.get("question") or doc.get("instruction") or ""
+            ).strip()
+            if not answer:
+                continue
+            rows.append(
+                {
+                    "sample_id": str(doc.get("id") or f"uro_{len(rows):04d}"),
+                    "dataset": "uro_bench",
+                    "capability": capability,
+                    "protocol": capability,
+                    "WavPath": str(wav),
+                    "question": question,
+                    "answer": answer,
+                    "text": answer,
+                    "source_index": str(path),
+                }
+            )
+    return rows
+
+
+def build_covost() -> list[dict]:
+    root = Path("/mnt/afs/oss_data/datasets/07_speech_translation/CoVoST_2_zh_en_bidirectional")
+    # Catalog uses zh→en historically; annotation prefers en→zh-CN test. Use zh→en msswift for prompt alignment.
+    jsonl = root / "CoVoST_zh-CN_en_test_msswift_norm.jsonl"
+    if not jsonl.is_file():
+        jsonl = root / "CoVoST_en_zh-CN_test_msswift_norm.jsonl"
+    rows = []
+    with jsonl.open(encoding="utf-8") as handle:
+        for line in handle:
+            if len(rows) >= LIMIT:
+                break
+            doc = json.loads(line)
+            rel, question, text = parse_messages(doc)
+            if not rel or not text:
+                continue
+            wav = root / rel
+            if not wav.is_file():
+                continue
+            rows.append(
+                {
+                    "sample_id": doc.get("id") or f"covost_{len(rows):04d}",
+                    "dataset": "covost2",
+                    "capability": "speech_translation",
+                    "protocol": "speech_translation",
+                    "WavPath": str(wav),
+                    "question": question or "Translate the speech.",
+                    "text": text,
+                    "answer": text,
+                    "source_index": str(jsonl),
+                }
+            )
+    return rows
+
+
+def build_libritts() -> list[dict]:
+    root = Path("/mnt/afs/eval_data/01_basic_transcription/LibriTTS/test-clean")
+    rows = []
+    for tsv in sorted(root.glob("*/*/*.trans.tsv")):
+        with tsv.open(encoding="utf-8") as handle:
+            for line in handle:
+                if len(rows) >= LIMIT:
+                    return rows
+                parts = line.strip().split("\t")
+                if len(parts) < 2:
+                    continue
+                utt_id, text = parts[0], parts[1]
+                wav = tsv.parent / f"{utt_id}.wav"
+                if not wav.is_file():
+                    continue
+                rows.append(
+                    {
+                        "sample_id": utt_id,
+                        "dataset": "libritts",
+                        "capability": "speech_generation",
+                        "protocol": "speech_generation",
+                        "WavPath": str(wav),
+                        "text": text,
+                        "answer": text,
+                        "source_index": str(tsv),
+                    }
+                )
+    return rows
+
+
+def build_voxceleb1() -> list[dict]:
+    veri = Path(
+        "/mnt/afs/users/wangyl/benchmark_annotation_audit/native_v2_pipeline/references/voxceleb1/veri_test.txt"
+    )
+    # Try common roots
+    roots = [
+        Path("/mnt/afs/oss_data/datasets/03_multi_speaker/VoxCeleb_1_2_multi_speaker_multi_speaker/juliuscn/voxceleb/vox1/wav"),
+        Path("/mnt/afs/oss_data/datasets/03_multi_speaker/VoxCeleb1/wav"),
+        Path("/mnt/afs/eval_data/03_multi_speaker/VoxCeleb1/wav"),
+    ]
+    root = next((r for r in roots if r.is_dir()), None)
+    rows = []
+    if root is None or not veri.is_file():
+        return rows
+    with veri.open(encoding="utf-8") as handle:
+        for line in handle:
+            if len(rows) >= LIMIT:
+                break
+            parts = line.strip().split()
+            if len(parts) != 3:
+                continue
+            label, p1, p2 = parts
+            w1, w2 = root / p1, root / p2
+            if not w1.is_file() or not w2.is_file():
+                continue
+            rows.append(
+                {
+                    "sample_id": f"vox1_{Path(p1).stem}_{Path(p2).stem}",
+                    "dataset": "voxceleb1",
+                    "capability": "speaker_verification",
+                    "protocol": "speaker_verification",
+                    "WavPath": str(w1),
+                    "WavPath2": str(w2),
+                    "label": int(label),
+                    "text": int(label),
+                    "source_index": str(veri),
+                }
+            )
+    return rows
+
+
+def build_from_l0_manifest(jsonl: Path, capability: str, dataset: str, *, multilabel: bool = False) -> list[dict]:
+    rows = []
+    labels_set: set[str] = set()
+    with jsonl.open(encoding="utf-8") as handle:
+        preview = []
+        for i, line in enumerate(handle):
+            doc = json.loads(line)
+            preview.append(doc)
+            lab = doc.get("scene_label") or doc.get("scene_class") or doc.get("label") or doc.get("event_label")
+            if lab:
+                labels_set.add(str(lab))
+            if i >= 200:
+                break
+    closed = sorted(labels_set) if labels_set else []
+    with jsonl.open(encoding="utf-8") as handle:
+        for line in handle:
+            if len(rows) >= LIMIT:
+                break
+            doc = json.loads(line)
+            audio = doc.get("audio") or doc.get("WavPath") or doc.get("audio_path")
+            if not audio or not Path(audio).is_file():
+                continue
+            if multilabel:
+                labels = doc.get("labels") or doc.get("events") or []
+                if isinstance(labels, str):
+                    labels = [x.strip() for x in labels.split(",") if x.strip()]
+                text = ", ".join(str(x) for x in labels)
+                if not text:
+                    continue
+                rows.append(
+                    {
+                        "sample_id": str(doc.get("id") or f"{dataset}_{len(rows):04d}"),
+                        "dataset": dataset,
+                        "capability": capability,
+                        "protocol": "sound_event_multilabel",
+                        "WavPath": str(audio),
+                        "labels": list(labels),
+                        "text": text,
+                        "answer": text,
+                        "source_index": str(jsonl),
+                    }
+                )
+            else:
+                label = (
+                    doc.get("scene_label")
+                    or doc.get("scene_class")
+                    or doc.get("acoustic_scene_label")
+                    or doc.get("official_scene_label")
+                    or doc.get("label")
+                    or doc.get("event_label")
+                    or doc.get("masked_word")
+                    or doc.get("answer")
+                )
+                if label is None:
+                    continue
+                label = str(label)
+                question = ""
+                if capability == "acoustic_scene" and closed:
+                    question = (
+                        "Identify the acoustic scene. Choose exactly one label from: "
+                        + ", ".join(closed)
+                        + "."
+                    )
+                elif capability == "qa":
+                    question = str(
+                        doc.get("question")
+                        or "What is the word obscured by the white noise in this audio? Answer with one word only."
+                    )
+                rows.append(
+                    {
+                        "sample_id": str(doc.get("id") or f"{dataset}_{len(rows):04d}"),
+                        "dataset": dataset,
+                        "capability": capability,
+                        "protocol": capability,
+                        "WavPath": str(audio),
+                        "text": label,
+                        "answer": label,
+                        "question": question,
+                        "closed_labels": closed or None,
+                        "source_index": str(jsonl),
+                    }
+                )
+    return rows
+
+
+def build_tut2018() -> list[dict]:
+    root = Path("/mnt/afs/eval_data/benchmarks/TUT_Urban_Acoustic_Scenes_2018_Mobile")
+    # Prefer evaluation meta if present
+    metas = list(root.rglob("*evaluation*.csv")) + list(root.rglob("*train*.csv"))
+    rows = []
+    for meta in metas:
+        with meta.open(encoding="utf-8") as handle:
+            # fold-style: filename\tscene or header
+            header = handle.readline()
+            handle.seek(0)
+            if "filename" in header.lower() or "\t" in header:
+                reader = csv.DictReader(handle, delimiter="\t" if "\t" in header else ",")
+                for row in reader:
+                    if len(rows) >= LIMIT:
+                        return rows
+                    fn = row.get("filename") or row.get("File") or ""
+                    scene = row.get("scene_label") or row.get("label") or row.get("Scene") or ""
+                    if not fn or not scene:
+                        continue
+                    # search audio
+                    hits = list(root.rglob(Path(fn).name))
+                    wav = hits[0] if hits else None
+                    if wav is None or not wav.is_file():
+                        continue
+                    rows.append(
+                        {
+                            "sample_id": f"tut2018_{wav.stem}",
+                            "dataset": "tut_urban_acoustic_scenes_2018_mobile",
+                            "capability": "acoustic_scene",
+                            "protocol": "acoustic_scene",
+                            "WavPath": str(wav),
+                            "text": scene,
+                            "answer": scene,
+                            "source_index": str(meta),
+                        }
+                    )
+        if rows:
+            break
+    # fallback: first 10 wavs under raw with label from filename prefix
+    if not rows:
+        for wav in sorted(root.rglob("*.wav"))[: LIMIT * 3]:
+            scene = wav.name.split("-")[0]
+            rows.append(
+                {
+                    "sample_id": f"tut2018_{wav.stem}",
+                    "dataset": "tut_urban_acoustic_scenes_2018_mobile",
+                    "capability": "acoustic_scene",
+                    "protocol": "acoustic_scene",
+                    "WavPath": str(wav),
+                    "text": scene,
+                    "answer": scene,
+                    "source_index": str(wav.parent),
+                }
+            )
+            if len(rows) >= LIMIT:
+                break
+    return rows[:LIMIT]
+
+
+def migrate_smoke_manifest(src: Path, capability: str, dataset: str, dest_name: str) -> list[dict]:
+    """Copy smoke/P8 clip wavs into eval_clips and rewrite WavPath(/WavPath2)."""
+    rows = []
+    clip_dir = CLIPS / capability / dataset
+    clip_dir.mkdir(parents=True, exist_ok=True)
+    with src.open(encoding="utf-8") as handle:
+        for line in handle:
+            if len(rows) >= LIMIT:
+                break
+            doc = json.loads(line)
+            wav = Path(doc.get("WavPath") or doc.get("audio_path") or "")
+            if not wav.is_file():
+                continue
+            dst = clip_dir / wav.name
+            if not dst.is_file():
+                shutil.copy2(wav, dst)
+            out = dict(doc)
+            out["WavPath"] = str(dst)
+            wav2 = Path(doc.get("WavPath2") or "")
+            if wav2.is_file():
+                dst2 = clip_dir / wav2.name
+                if not dst2.is_file():
+                    shutil.copy2(wav2, dst2)
+                out["WavPath2"] = str(dst2)
+            out["dataset"] = dataset
+            out["capability"] = capability
+            out["protocol"] = out.get("protocol") or capability
+            out["sample_id"] = out.get("sample_id") or f"{dataset}_{len(rows):04d}"
+            out["source_index"] = str(src)
+            rows.append(out)
+    return rows
+
+
+def build_voicebench_parquet(capability: str) -> list[dict]:
+    import pyarrow.parquet as pq
+
+    root = Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/AudioBench/VoiceBench")
+    if capability == "qa":
+        path = root / "alpacaeval_full" / "test-00000-of-00001.parquet"
+    else:
+        path = root / "bbh" / "test-00000-of-00023.parquet"
+    if not path.is_file():
+        return []
+    table = pq.read_table(path)
+    rows = []
+    for i in range(min(LIMIT * 5, table.num_rows)):
+        if len(rows) >= LIMIT:
+            break
+        item = {col: table.column(col)[i].as_py() for col in table.column_names}
+        # VoiceBench often embeds audio bytes; skip if no path
+        audio = item.get("audio") or item.get("path") or item.get("file")
+        answer = item.get("reference") or item.get("answer") or item.get("output")
+        question = item.get("prompt") or item.get("question") or ""
+        wav = None
+        if isinstance(audio, dict) and audio.get("path"):
+            wav = Path(audio["path"])
+        elif isinstance(audio, str) and Path(audio).is_file():
+            wav = Path(audio)
+        if wav is None or not wav.is_file():
+            continue
+        if answer in (None, ""):
+            continue
+        rows.append(
+            {
+                "sample_id": f"voicebench_{capability}_{i}",
+                "dataset": "voicebench",
+                "capability": capability,
+                "protocol": capability,
+                "WavPath": str(wav),
+                "question": str(question),
+                "answer": str(answer),
+                "text": str(answer),
+                "source_index": str(path),
+            }
+        )
+    return rows
+
+
+def build_code_switch_vocalbench() -> list[dict]:
+    root = Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench-zh")
+    path = root / "json" / "cs_knowledge.json"
+    return build_vocalbench_json(path, "vocalbench_zh", "code_switch", root)
+
+
+BUILDERS: dict[tuple[str, str], callable] = {}
+
+
+def register():
+    BUILDERS[("audio_caption", "audiocaps")] = lambda: build_msswift_caption(
+        Path("/mnt/afs/oss_data/datasets/99_auxiliary_or_out_of_scope/AudioCaps/AudioCaps_test_AudioCaptioning.jsonl"),
+        Path("/mnt/afs/oss_data/datasets/99_auxiliary_or_out_of_scope/AudioCaps"),
+        "audiocaps",
+    )
+    BUILDERS[("audio_caption", "clotho")] = lambda: build_msswift_caption(
+        Path("/mnt/afs/oss_data/datasets/99_auxiliary_or_out_of_scope/Clotho/Clotho_test_AudioCaptioning.jsonl"),
+        Path("/mnt/afs/oss_data/datasets/99_auxiliary_or_out_of_scope/Clotho"),
+        "clotho",
+    )
+    BUILDERS[("sound_event", "esc50")] = build_esc50
+    BUILDERS[("qa", "spoken_squad")] = build_spoken_squad
+    BUILDERS[("speech_translation", "covost2")] = build_covost
+    BUILDERS[("speech_generation", "libritts")] = build_libritts
+    BUILDERS[("speaker_verification", "voxceleb1")] = build_voxceleb1
+
+    for cap in (
+        "acoustic_scene",
+        "sound_event",
+        "code_switch",
+        "speech_translation",
+        "spoof_detection",
+        "speaker_count",
+        "paralinguistic_recognition",
+        "audio_reasoning",
+    ):
+        BUILDERS[(cap, "mmsu")] = lambda c=cap: build_mmsu(c)
+
+    BUILDERS[("qa", "vocalbench")] = lambda: build_vocalbench_json(
+        Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench/json/knowledge.json"),
+        "vocalbench",
+        "qa",
+        Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench"),
+    )
+    BUILDERS[("qa", "vocalbench_zh")] = lambda: build_vocalbench_json(
+        Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench-zh/json/chinese_knowledge.json"),
+        "vocalbench_zh",
+        "qa",
+        Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench-zh"),
+    )
+    BUILDERS[("audio_reasoning", "vocalbench")] = lambda: build_vocalbench_json(
+        Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench/json/reasoning.json"),
+        "vocalbench",
+        "audio_reasoning",
+        Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench"),
+    )
+    BUILDERS[("audio_reasoning", "vocalbench_zh")] = lambda: build_vocalbench_json(
+        Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench-zh/json/reasoning.json"),
+        "vocalbench_zh",
+        "audio_reasoning",
+        Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench-zh"),
+    )
+    BUILDERS[("code_switch", "vocalbench_zh")] = build_code_switch_vocalbench
+
+    BUILDERS[("qa", "uro_bench")] = lambda: build_uro(
+        Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/URO-Bench/basic/APE-zh/test.jsonl"),
+        "qa",
+    )
+    BUILDERS[("audio_reasoning", "uro_bench")] = lambda: build_uro(
+        Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/URO-Bench/pro/MuChoEval-en/test.jsonl"),
+        "audio_reasoning",
+    )
+
+    BUILDERS[("acoustic_scene", "dcase2013_scenes")] = lambda: build_from_l0_manifest(
+        Path("/mnt/afs/eval_data/benchmarks/DCASE2013_Scenes_Public/manifests/acoustic_scene.jsonl"),
+        "acoustic_scene",
+        "dcase2013_scenes",
+    )
+    BUILDERS[("acoustic_scene", "tut_sound_events_2017")] = lambda: build_from_l0_manifest(
+        Path("/mnt/afs/eval_data/benchmarks/TUT-Sound-Events-2017/manifests/acoustic_scene.jsonl"),
+        "acoustic_scene",
+        "tut_sound_events_2017",
+    )
+    BUILDERS[("acoustic_scene", "tut_urban_acoustic_scenes_2018_mobile")] = build_tut2018
+    # Build directly from the external L0 manifests.  Do not use prior native
+    # JSONL output as an implicit source of truth.
+    BUILDERS[("sound_event", "mavd_traffic")] = build_mavd
+    BUILDERS[("sound_event", "sonyc_ust_v23")] = build_sonyc
+    BUILDERS[("sound_event", "tut_sound_events_2017")] = lambda: build_from_l0_manifest(
+        Path("/mnt/afs/eval_data/benchmarks/TUT-Sound-Events-2017/manifests/sound_event.jsonl"),
+        "sound_event",
+        "tut_sound_events_2017",
+    )
+    BUILDERS[("qa", "ear_wdyl")] = lambda: build_from_l0_manifest(
+        Path("/mnt/afs/eval_data/benchmarks/EAR/manifests/ear_wdyl.jsonl"),
+        "qa",
+        "ear_wdyl",
+    )
+
+    # diar / attr / target_speaker: migrate physical clips into eval_clips
+    BUILDERS[("diarization", "alimeeting")] = lambda: migrate_smoke_manifest(
+        SMOKE_DIAR / "alimeeting" / "manifest.jsonl", "diarization", "alimeeting", "diarization_alimeeting"
+    )
+    BUILDERS[("diarization", "ami")] = lambda: migrate_smoke_manifest(
+        SMOKE_DIAR / "ami" / "manifest.jsonl", "diarization", "ami", "diarization_ami"
+    )
+    BUILDERS[("diarization", "chime_6")] = lambda: migrate_smoke_manifest(
+        SMOKE_DIAR / "chime_6" / "manifest.jsonl", "diarization", "chime_6", "diarization_chime_6"
+    )
+    BUILDERS[("diarization", "aishell_4")] = lambda: migrate_smoke_manifest(
+        SMOKE_DIAR / "aishell_4" / "manifest.jsonl",
+        "diarization",
+        "aishell_4",
+        "diarization_aishell_4",
+    )
+    BUILDERS[("speaker_attribution", "aishell_4")] = lambda: migrate_smoke_manifest(
+        SMOKE_ATTR / "aishell_4" / "manifest.jsonl", "speaker_attribution", "aishell_4", "attr"
+    )
+    BUILDERS[("speaker_attribution", "aishell_5")] = lambda: migrate_smoke_manifest(
+        SMOKE_ATTR / "aishell_5" / "manifest.jsonl", "speaker_attribution", "aishell_5", "attr"
+    )
+    BUILDERS[("speaker_attribution", "ami")] = lambda: migrate_smoke_manifest(
+        SMOKE_ATTR / "ami" / "manifest.jsonl", "speaker_attribution", "ami", "attr"
+    )
+    BUILDERS[("speaker_attribution", "alimeeting")] = lambda: migrate_smoke_manifest(
+        SMOKE_ATTR / "alimeeting" / "manifest.jsonl",
+        "speaker_attribution",
+        "alimeeting",
+        "attr",
+    )
+    BUILDERS[("target_speaker", "aishell_5")] = lambda: migrate_smoke_manifest(
+        SMOKE_TS / "aishell_5" / "manifest.jsonl",
+        "target_speaker",
+        "aishell_5",
+        "ts",
+    )
+
+    def voicebench_qa():
+        return build_voicebench_parquet("qa")
+
+    def voicebench_ar():
+        return build_voicebench_parquet("audio_reasoning")
+
+    BUILDERS[("qa", "voicebench")] = voicebench_qa
+    BUILDERS[("audio_reasoning", "voicebench")] = voicebench_ar
+
+
+def main(only: set[str] | None = None) -> None:
+    register()
+    CLIPS.mkdir(parents=True, exist_ok=True)
+    summary = {}
+    missing = []
+    for (cap, bench), builder in sorted(BUILDERS.items()):
+        key = f"{cap}/{bench}"
+        if only and key not in only and f"{cap}_{bench}" not in only:
+            continue
+        rows = builder()
+        path = out_name(cap, bench)
+        write_jsonl(path, rows)
+        summary[key] = {"n": len(rows), "manifest": str(path)}
+        print(f"[done] {key} n={len(rows)} -> {path}")
+        if len(rows) < LIMIT:
+            missing.append(key)
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
+    if missing:
+        raise SystemExit(f"insufficient samples: {missing}")
+
+
+if __name__ == "__main__":
+    import sys
+
+    only = {a for a in sys.argv[1:] if not a.startswith("-")} or None
+    main(only)
