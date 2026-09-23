@@ -9,12 +9,38 @@ utt_clips indexes or FullEval. They do not rewrite official gold.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from audio_evals.dataset.dataset import Dataset
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _parse_speaker_count(value: Any) -> Optional[int]:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if value >= 0 else None
+    if isinstance(value, float) and value.is_integer():
+        return int(value) if value >= 0 else None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        count = int(text)
+        return count if count >= 0 else None
+    except ValueError:
+        pass
+    match = re.search(r"-?\d+", text)
+    if not match:
+        return None
+    try:
+        count = int(match.group(0))
+    except ValueError:
+        return None
+    return count if count >= 0 else None
 
 
 class NativeClipDataset(Dataset):
@@ -167,9 +193,16 @@ class NativeClipDataset(Dataset):
             label = row.get("label")
             if label is None:
                 label = row.get("text")
+            same = row.get("same_speaker")
+            if same is None and label is not None:
+                same = bool(int(label) == 1) if str(label).isdigit() or isinstance(label, int) else bool(label)
             row["text"] = label
+            if same is not None:
+                row["same_speaker"] = bool(same)
             reference = dict(row.get("reference") or {})
             reference["label"] = label
+            if same is not None:
+                reference["same_speaker"] = bool(same)
             row["reference_obj"] = reference
         elif protocol in {"spoof_detection", "speaker_count", "speech_generation"}:
             row["capability"] = protocol
@@ -186,6 +219,20 @@ class NativeClipDataset(Dataset):
             reference = dict(row.get("reference") or {})
             if row.get("text") not in (None, ""):
                 reference.setdefault("label", row["text"])
+            if protocol == "speaker_count":
+                count_raw = row.get("count")
+                if count_raw in (None, ""):
+                    count_raw = reference.get("count")
+                if count_raw in (None, ""):
+                    count_raw = row.get("answer")
+                if count_raw in (None, ""):
+                    count_raw = row.get("text")
+                count = _parse_speaker_count(count_raw)
+                if count is not None:
+                    reference["count"] = count
+                    row["text"] = count
+                    row["answer"] = count
+                    row["count"] = count
             row["reference_obj"] = reference
         else:
             row.setdefault("capability", protocol)

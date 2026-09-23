@@ -471,7 +471,7 @@ class FullEvalDataset(Dataset):
             row["answer_type"] = "classification"
         elif capability == "speaker_count":
             self._bind_protocol(row, "speaker_attribution", "speaker_count")
-            row["prompt_name"] = "mesh-external-classification"
+            row["prompt_name"] = "mesh-speaker-count"
             row["evaluators"] = ["mesh-speaker-count"]
             row["metrics"] = ["speaker_count_acc"]
             row["answer_type"] = "classification"

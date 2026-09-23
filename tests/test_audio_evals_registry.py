@@ -86,6 +86,14 @@ def test_agg():
     assert agg([])["acc"] == 0
     with pytest.raises(Exception):
         agg([{"count": 1}])
+    mixed = agg(
+        [
+            {"failure": 1, "error_class": "TypeError"},
+            {"pred": "a", "ref": "a"},
+        ]
+    )
+    assert mixed["acc"] == 1
+    assert agg([{"failure": 1, "error_class": "TypeError"}])["acc"] == 0
 
 
 def test_task_registry_references_current_resources():

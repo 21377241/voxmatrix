@@ -28,6 +28,7 @@ capabilities:
   prompt: mesh-classification
   evaluator: mesh-classification
   agg: mesh
+  note: Per-item 4 scene options in question; model returns scene label only; same accuracy/macro_f1 as other AS slots (not mmsu-choices letters).
   subset_record_id: mmsu__test__background_scene_recognition__acoustic_scene__acoustic_scene__unknown__unknown__a59faeb2bf
 - id: acoustic_scene__tut_sound_events_2017
   capability: acoustic_scene
@@ -238,8 +239,9 @@ capabilities:
   suite: main
   dataset: native-code-switch-mmsu
   prompt: mesh-external-qa
-  evaluator: qa-exist-match
-  agg: acc
+  evaluator: mesh-rouge-l
+  agg: mean
+  note: Open-answer code-switch QA (ROUGE-L); MCQ options stripped. LLM-Judge (semi-open) is the semantic auxiliary track.
   subset_record_id: mmsu__test__code_switch_question_answering__code_switch__code_switch__unknown__unknown__c4bb8f6dc5
 - id: code_switch__vocalbench_zh
   capability: code_switch
@@ -250,8 +252,19 @@ capabilities:
   prompt: mesh-external-qa
   evaluator: qa-exist-match
   agg: acc
-  note: knowledge short-QA. No MER.
+  note: knowledge short-QA (qa-exist-match). LLM-Judge (binary) as semantic auxiliary. No MER.
   subset_record_id: vocalbench_zh__test__code_switch_knowledge__code_switch__code_switch__unknown__unknown__c1c194e290
+- id: code_switch__vocalbench_zh_open_ended
+  capability: code_switch
+  benchmark: vocalbench_zh_open_ended
+  status: diagnostic
+  suite: main
+  dataset: native-code-switch-vocalbench-zh-open-ended
+  prompt: mesh-code-switch-open-ended
+  evaluator: mesh-rouge-l
+  agg: mean
+  note: open_ended long-form QA (ROUGE-L). LLM-Judge (open) as semantic auxiliary. No MER. Parent benchmark=vocalbench_zh.
+  subset_record_id: vocalbench_zh__test__code_switch_open_ended__code_switch__code_switch__unknown__unknown__3983314d55
 - id: diarization__aishell_4
   capability: diarization
   benchmark: aishell_4
@@ -259,9 +272,11 @@ capabilities:
   suite: main
   dataset: native-diarization-aishell-4
   prompt: mesh-diarization
+  post_process:
+  - mesh-diarization-normalize
   evaluator: mesh-diarization
   agg: mesh
-  note: 30s windows under eval_clips (from L0).
+  note: 30s windows; prompt-v2 (no copyable example) + normalize. Main metric DER.
   subset_record_id: aishell_4__test__test__diarization__diarization__meeting__large_meeting__f8fb6c07cf
 - id: diarization__alimeeting
   capability: diarization
@@ -270,9 +285,11 @@ capabilities:
   suite: main
   dataset: native-diarization-alimeeting
   prompt: mesh-diarization
+  post_process:
+  - mesh-diarization-normalize
   evaluator: mesh-diarization
   agg: mesh
-  note: 30s windows under eval_clips (from L0).
+  note: 30s windows; prompt-v2 + normalize. Main metric DER.
   subset_record_id: alimeeting__test__Eval_Ali_far__diarization__diarization__meeting__small_meeting__9f42942349
 - id: diarization__ami
   capability: diarization
@@ -281,9 +298,11 @@ capabilities:
   suite: main
   dataset: native-diarization-ami
   prompt: mesh-diarization
+  post_process:
+  - mesh-diarization-normalize
   evaluator: mesh-diarization
   agg: mesh
-  note: 30s windows under eval_clips (from L0).
+  note: 30s windows (utt overlay adapted); prompt-v2 + normalize. Main metric DER.
   subset_record_id: ami__test__ihm_test__diarization__diarization__meeting__small_meeting__6166d4dbfd
 - id: diarization__chime_6
   capability: diarization
@@ -292,16 +311,18 @@ capabilities:
   suite: main
   dataset: native-diarization-chime-6
   prompt: mesh-diarization
+  post_process:
+  - mesh-diarization-normalize
   evaluator: mesh-diarization
   agg: mesh
-  note: 30s windows under eval_clips (from L0).
+  note: 30s windows (ref_array overlay adapted); prompt-v2 + normalize. Main metric DER.
   subset_record_id: chime_6__test__ref_array_test__diarization__diarization__home__kitchen_dining__e0092c5300
 - id: diarization__misp
   capability: diarization
   benchmark: misp
   status: blocked
   suite: none
-  reason: smoke excluded this round
+  reason: Role-layer TextGrid gold (主说话人/OVERCLEAR/…), not named-speaker diarization; excluded this round.
   subset_record_id: misp__test__eval_csobx3__diarization__diarization__home__home_entertainment__3a25473872
 - id: instruction_following__fluent_speech_commands
   capability: instruction_following
@@ -620,7 +641,7 @@ capabilities:
   prompt: mesh-speaker-attribution
   evaluator: mesh-speaker-attribution
   agg: mesh
-  note: 30s windows under eval_clips (from L0).
+  note: 30s windows; strict JSON prompt (smoke-aligned). Main metric cpCER%; attribution_acc auxiliary.
   subset_record_id: aishell_4__test__test__speaker_attribution__speaker_attribution__meeting__large_meeting__dabe3ed814
 - id: speaker_attribution__aishell_5
   capability: speaker_attribution
@@ -631,7 +652,7 @@ capabilities:
   prompt: mesh-speaker-attribution
   evaluator: mesh-speaker-attribution
   agg: mesh
-  note: 30s windows under eval_clips (from L0).
+  note: 30s windows; strict JSON prompt. Main metric cpCER%.
   subset_record_id: aishell_5__test__eval1__speaker_attribution__speaker_attribution__vehicle__unknown__44b36933da
 - id: speaker_attribution__alimeeting
   capability: speaker_attribution
@@ -642,7 +663,7 @@ capabilities:
   prompt: mesh-speaker-attribution
   evaluator: mesh-speaker-attribution
   agg: mesh
-  note: 30s windows under eval_clips (from L0).
+  note: 30s windows; strict JSON prompt. Main metric cpCER%.
   subset_record_id: alimeeting__test__Eval_Ali_far__speaker_attribution__speaker_attribution__meeting__small_meeting__dcd4a4285a
 - id: speaker_attribution__ami
   capability: speaker_attribution
@@ -653,7 +674,7 @@ capabilities:
   prompt: mesh-speaker-attribution
   evaluator: mesh-speaker-attribution
   agg: mesh
-  note: 30s windows under eval_clips (from L0).
+  note: 30s windows (utt overlay adapted); strict JSON prompt. Main metric cpCER%.
   subset_record_id: ami__test__ihm_test__speaker_attribution__speaker_attribution__meeting__small_meeting__34218b05b4
 - id: speaker_attribution__cn_celeb
   capability: speaker_attribution
@@ -668,9 +689,10 @@ capabilities:
   status: ok
   suite: main
   dataset: native-speaker-count-mmsu
-  prompt: mesh-speaker
+  prompt: mesh-speaker-count
   evaluator: mesh-speaker-count
   agg: mesh
+  note: Open integer count (N people → N); MCQ options stripped. Main metric speaker_count_acc.
   subset_record_id: mmsu__test__total_speaker_counting__speaker_count__speaker_count__unknown__unknown__e59873fdb5
 - id: speaker_verification__voxceleb1
   capability: speaker_verification
@@ -681,6 +703,7 @@ capabilities:
   prompt: mesh-speaker-verification
   evaluator: mesh-speaker-verification
   agg: mesh
+  note: Dual-audio veri_test; main metrics EER/AUC via MeshAgg; speaker_verification_acc@0.5 diagnostic only.
   subset_record_id: voxceleb1__test__veri_test__speaker_verification__speaker_verification__unknown__unknown__cb6637851a
 - id: speech_generation__libritts
   capability: speech_generation
@@ -696,17 +719,6 @@ capabilities:
   two_phase: true
   model: qwen3-omni-speech-local
   subset_record_id: libritts__test__test-clean__speech_generation__speech_generation__unknown__unknown__75e9fd07bd
-- id: speech_translation__covost2
-  capability: speech_translation
-  benchmark: covost2
-  status: ok
-  suite: main
-  dataset: native-speech-translation-covost2
-  prompt: qwen3-omni-s2tt-zh2en
-  evaluator: bleu
-  agg: bleu
-  note: CoVoST2 zh→en. Dataset covered; en→zh stays registered.
-  subset_record_id: covost2__test__en_zh-CN_test__speech_translation__speech_translation__unknown__unknown__2964dd2bc4
 - id: speech_translation__covost2_zh_en
   capability: speech_translation
   benchmark: covost2_zh_en
@@ -714,8 +726,8 @@ capabilities:
   suite: main
   dataset: native-speech-translation-covost2-zh-en
   prompt: qwen3-omni-s2tt-zh2en
-  evaluator: bleu
-  agg: bleu
+  evaluator: translation-metrics
+  agg: translation-metrics
   subset_record_id: covost2__test__zh-CN_en_test__speech_translation__speech_translation__unknown__unknown__49817674b9
 - id: speech_translation__covost2_en_zh
   capability: speech_translation
@@ -724,29 +736,19 @@ capabilities:
   suite: main
   dataset: native-speech-translation-covost2-en-zh
   prompt: qwen3-omni-s2tt-en2zh
-  evaluator: bleu
-  agg: bleu
+  evaluator: translation-metrics
+  agg: translation-metrics
   subset_record_id: covost2__test__en_zh-CN_test__speech_translation__speech_translation__unknown__unknown__2964dd2bc4
 - id: speech_translation__mmsu
   capability: speech_translation
   benchmark: mmsu
-  status: diagnostic
+  status: ok
   suite: main
-  dataset: native-speech-translation-mmsu
+  dataset: native-speech-translation-mmsu-open
   prompt: mesh-external-qa
-  evaluator: qa-exist-match
-  agg: acc
-  subset_record_id: mmsu__test__speech_translation__speech_translation__speech_translation__unknown__unknown__93d6d166e8
-- id: speech_translation__mmsu
-  capability: speech_translation
-  benchmark: mmsu
-  status: diagnostic
-  suite: main
-  dataset: native-speech-translation-mmsu
-  prompt: mesh-external-qa
-  evaluator: bleu
-  agg: bleu
-  note: Direct-answer speech translation; no choices exposed to the model. Add chrF and LLM Judge in the translation report.
+  evaluator: translation-metrics
+  agg: translation-metrics
+  note: Open speech translation; model outputs the translation directly. Report BLEU, chrF, and semantic LLM Judge together.
   subset_record_id: mmsu__test__speech_translation__speech_translation__speech_translation__unknown__unknown__93d6d166e8
 - id: spoof_detection__asvspoof
   capability: spoof_detection

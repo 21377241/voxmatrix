@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Submit the native all-capability job. Does not start until you run this.
 set -euo pipefail
-ROOT="${VOXMATRIX_ROOT:-/mnt/afs/users/wangyl/VoxMatrix-clean}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$HERE/../.." && pwd)"
+export VOXMATRIX_ROOT="$ROOT"
 JOB="${JOB_BIN:-/mnt/afs/users/wangyl/job}"
 cd "$ROOT"
-exec "$JOB" submit "$ROOT/suites/native/run.sh" \
+exec "$JOB" submit "$HERE/run.sh" \
   -g 1 \
   -N vox-native \
   --project-root "$ROOT" \

@@ -362,6 +362,26 @@ def _failure_score(doc, exc: Exception, error_traceback: str) -> Dict[str, Any]:
     }
 
 
+_EVAL_TASK_RESERVED_KWARGS = frozenset({"idx", "prompt", "reference"})
+
+
+def eval_doc_kwargs(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Unpack a sample into ``EvalTask._eval(..., reference, **kwargs)``.
+
+    Smoke kept gold on ``text`` only. Schema v2 / native / T4 loaders also
+    attach a structured ``reference`` object. Passing that dict through
+    ``**doc`` collides with the positional ``reference`` argument
+    (甲-DIAR-00 / Job 12988 / native coverage 20955).
+    """
+    kwargs = dict(doc or {})
+    structured = kwargs.get("reference")
+    if isinstance(structured, dict):
+        kwargs.setdefault("reference_obj", structured)
+    for key in _EVAL_TASK_RESERVED_KWARGS:
+        kwargs.pop(key, None)
+    return kwargs
+
+
 def load_dataset_slice(dataset, limit=0, timeout=0, offset=0):
     """Load one dataset shard, preferring an implementation-level seek."""
     # Historical callers use ``None`` for an unbounded load.  Normalize it at
@@ -500,7 +520,9 @@ class EvalTask:
             if runtime:
                 eval_kwargs["runtime"] = runtime
             try:
-                score = dict(self.evaluator(output, reference, **eval_kwargs))
+                score = dict(
+                    self.evaluator(output, reference, **eval_doc_kwargs(eval_kwargs))
+                )
             except FillerOnlyReferenceSkipped as exc:
                 skip_data = {
                     "ref": reference,
@@ -535,7 +557,10 @@ class EvalTask:
                 _tag_exception(exc, "prompt")
                 raise
             score, ans = self._eval(
-                i, real_prompt, doc.get(self.dataset.ref_col, ""), **doc
+                i,
+                real_prompt,
+                doc.get(self.dataset.ref_col, ""),
+                **eval_doc_kwargs(doc),
             )
             if score is None:
                 return i, None, ans, 0, 1
@@ -617,7 +642,9 @@ class EvalTask:
                 score = dict(doc["eval_info"]["eval"])
             else:
                 try:
-                    score = dict(self.evaluator(output, reference, **doc))
+                    score = dict(
+                        self.evaluator(output, reference, **eval_doc_kwargs(doc))
+                    )
                 except FillerOnlyReferenceSkipped as exc:
                     skip_data = {
                         "ref": reference,

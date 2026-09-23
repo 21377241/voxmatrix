@@ -58,25 +58,36 @@ class PracticeWER(AggPolicy):
         return {"wer(%)": compute_wer(refl, predl, self.lang) * 100}
 
 
+def _is_failed_score_row(item: Dict[str, any]) -> bool:
+    if not isinstance(item, dict):
+        return False
+    if item.get("failure") in (1, True, "1"):
+        return True
+    return bool(item.get("error_class"))
+
+
 class ACC(AggPolicy):
 
     def __call__(self, score_detail: List[Dict[str, any]]) -> Dict[str, float]:
-        # Accuracy is a core contract: malformed rows should fail loudly instead
-        # of being converted into an {"error": ...} payload by AggPolicy.
+        # Accuracy is a core contract: malformed *scored* rows should fail
+        # loudly instead of being converted into an {"error": ...} payload.
+        # Internal failure rows (TypeError / missing pred) must not abort the
+        # rest of a multi-task suite the way Job 20955 did.
         return self._agg(score_detail)
 
     def _agg(self, score_detail: List[Dict[str, any]]) -> Dict[str, float]:
         from sklearn.metrics import accuracy_score
 
-        if not score_detail:
+        scored = [
+            item for item in score_detail if not _is_failed_score_row(item)
+        ]
+        if not scored:
             accuracy = 0.0
-        elif all("match" in item for item in score_detail):
-            accuracy = sum(float(item["match"]) for item in score_detail) / len(
-                score_detail
-            )
+        elif all("match" in item for item in scored):
+            accuracy = sum(float(item["match"]) for item in scored) / len(scored)
         else:
-            predl = [str(item["pred"]) for item in score_detail]
-            refl = [str(item["ref"]) for item in score_detail]
+            predl = [str(item["pred"]) for item in scored]
+            refl = [str(item["ref"]) for item in scored]
             accuracy = float(accuracy_score(refl, predl))
         return {"acc": accuracy, "acc(%)": accuracy * 100}
 

@@ -266,15 +266,44 @@ class SpeakerCountEvaluator(Evaluator):
                 parsed = first_present(value.get("count"), value.get("speaker_count"), pred)
         except (TypeError, ValueError):
             pass
-        try:
-            pred_count = int(parsed)
-            ref_count = int(expected)
-            valid = 1
-        except (TypeError, ValueError):
-            pred_count = -1
-            ref_count = int(expected) if str(expected).isdigit() else -2
+        pred_count = _coerce_count(parsed)
+        ref_count = _coerce_count(expected)
+        valid = int(pred_count is not None)
+        if ref_count is None:
+            # Keep a sentinel so aggregation still sees the sample, but never mark correct.
+            ref_count = -2
             valid = 0
-        return {"speaker_count_acc": int(valid and pred_count == ref_count), "speaker_count_valid": valid}
+            pred_count = pred_count if pred_count is not None else -1
+        elif pred_count is None:
+            pred_count = -1
+        return {
+            "speaker_count_acc": int(valid and pred_count == ref_count),
+            "speaker_count_valid": valid,
+        }
+
+
+def _coerce_count(value: Any) -> Optional[int]:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if value >= 0 else None
+    if isinstance(value, float) and value.is_integer():
+        return int(value) if value >= 0 else None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return int(text)
+    except ValueError:
+        pass
+    match = re.search(r"-?\d+", text)
+    if not match:
+        return None
+    try:
+        count = int(match.group(0))
+    except ValueError:
+        return None
+    return count if count >= 0 else None
 
 
 class SpeakerVerificationEvaluator(Evaluator):

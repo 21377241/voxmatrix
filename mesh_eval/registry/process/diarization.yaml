@@ -1,0 +1,3 @@
+mesh-diarization-normalize:
+  class: mesh_eval.process.diarization.DiarizationNormalize
+  args: {}

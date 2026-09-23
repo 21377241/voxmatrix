@@ -10,6 +10,10 @@ fense:
   class: audio_evals.evaluator.fense.FENSE
   args: {}
 
+translation-metrics:
+  class: audio_evals.evaluator.translation.TranslationMetrics
+  args: {}
+
 exist-match:
   class: audio_evals.evaluator.base.ExistMatch
   args: {}

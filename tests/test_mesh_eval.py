@@ -10,7 +10,12 @@ from datasets import Dataset, DatasetDict
 
 from audio_evals.registry import Registry
 from audio_evals.agg.original_benchmark import OriginalACC
-from audio_evals.eval_task import EvalTask, _audio_duration_seconds, _measured_runtime
+from audio_evals.eval_task import (
+    EvalTask,
+    _audio_duration_seconds,
+    _measured_runtime,
+    eval_doc_kwargs,
+)
 from audio_evals.utils import merge_data4view
 from audio_evals.process.speech import Speech2text
 from audio_evals.recorder import Recorder
@@ -646,6 +651,59 @@ def test_eval_task_slices_dataset_and_offsets_event_ids(tmp_path):
     assert {
         json.loads(line)["id"] for line in event_path.read_text().splitlines()
     } == {2}
+
+
+def test_eval_doc_kwargs_moves_structured_reference():
+    kwargs = eval_doc_kwargs(
+        {
+            "text": "yes",
+            "prompt": "keep-out",
+            "idx": 3,
+            "reference": {"label": "yes"},
+            "WavPath": "clip.wav",
+        }
+    )
+    assert "reference" not in kwargs
+    assert "prompt" not in kwargs
+    assert "idx" not in kwargs
+    assert kwargs["reference_obj"] == {"label": "yes"}
+    assert kwargs["text"] == "yes"
+
+
+def test_eval_task_run_accepts_structured_reference(tmp_path):
+    class Prompt:
+        def load(self, **doc):
+            return "prompt"
+
+    class Predictor:
+        def inference(self, prompt):
+            return "yes"
+
+    class Evaluator:
+        def __call__(self, pred, ref, **kwargs):
+            assert "reference" not in kwargs
+            assert kwargs["reference_obj"]["label"] == "yes"
+            return {"pred": pred, "ref": ref, "match": int(str(pred) == str(ref))}
+
+    class SliceDataset:
+        ref_col = "text"
+
+    event_path = tmp_path / "structured-ref.jsonl"
+    task = EvalTask(
+        dataset=SliceDataset(),
+        prompt=Prompt(),
+        predictor=Predictor(),
+        evaluator=Evaluator(),
+        post_process=[],
+        agg=lambda rows: {},
+        recorder=Recorder(str(event_path)),
+    )
+    idx, score, ans, err, skip = task._run(
+        0, {"text": "yes", "reference": {"label": "yes"}}
+    )
+    assert (idx, err, skip) == (0, 0, 0)
+    assert score["pred"] == "yes"
+    assert ans == "yes"
 
 
 def test_merge_event_shards_reaggregates_global_scores(tmp_path):

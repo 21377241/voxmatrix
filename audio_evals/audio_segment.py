@@ -12,12 +12,21 @@ def _write_with_soundfile(source: Path, target: Path, start: float, end: float) 
 
     open_kwargs = {}
     if source.suffix.lower() == ".pcm":
-        open_kwargs = {
-            "samplerate": 16000,
-            "channels": 1,
-            "format": "RAW",
-            "subtype": "PCM_16",
-        }
+        # MISP CSOBx3: 8ch s32le @ 16kHz (utt_clips / smoke #4). Other pcm defaults to mono s16le.
+        if "MISP" in str(source) or "CSOBx" in str(source):
+            open_kwargs = {
+                "samplerate": 16000,
+                "channels": 8,
+                "format": "RAW",
+                "subtype": "PCM_32",
+            }
+        else:
+            open_kwargs = {
+                "samplerate": 16000,
+                "channels": 1,
+                "format": "RAW",
+                "subtype": "PCM_16",
+            }
     with sound_file.SoundFile(str(source), mode="r", **open_kwargs) as handle:
         start_frame = int(start * handle.samplerate)
         frame_count = max(1, int((end - start) * handle.samplerate))
@@ -41,7 +50,10 @@ def _write_with_ffmpeg(source: Path, target: Path, start: float, end: float) -> 
         raise RuntimeError("soundfile could not decode the source and ffmpeg is unavailable")
     command = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y"]
     if source.suffix.lower() == ".pcm":
-        command.extend(["-f", "s16le", "-ar", "16000", "-ac", "1"])
+        if "MISP" in str(source) or "CSOBx" in str(source):
+            command.extend(["-f", "s32le", "-ar", "16000", "-ac", "8"])
+        else:
+            command.extend(["-f", "s16le", "-ar", "16000", "-ac", "1"])
     command.extend(
         [
             "-ss",
@@ -51,6 +63,10 @@ def _write_with_ffmpeg(source: Path, target: Path, start: float, end: float) -> 
             "-i",
             str(source),
             "-vn",
+            "-ac",
+            "1",
+            "-ar",
+            "16000",
             "-acodec",
             "pcm_s16le",
             str(target),
@@ -74,7 +90,7 @@ def materialize_audio_segment(value: Dict[str, Any]) -> str:
     )
     cache_root.mkdir(parents=True, exist_ok=True)
     fingerprint = hashlib.sha256(
-        f"mono-v1\0{source.resolve()}\0{start:.6f}\0{end:.6f}".encode("utf-8")
+        f"mono-v2-misp8chs32\0{source.resolve()}\0{start:.6f}\0{end:.6f}".encode("utf-8")
     ).hexdigest()
     target = cache_root / fingerprint[:2] / f"{fingerprint}.wav"
     if target.is_file() and target.stat().st_size > 44:

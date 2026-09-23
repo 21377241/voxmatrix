@@ -6,6 +6,13 @@ export VOXMATRIX_FULL_EVAL_ROOT="${VOXMATRIX_FULL_EVAL_ROOT:-/mnt/afs/users/wang
 export MESH_FULL_EVAL_ROOT="${MESH_FULL_EVAL_ROOT:-$VOXMATRIX_FULL_EVAL_ROOT}"
 export VOXMATRIX_SUBSET_MANIFEST="${VOXMATRIX_SUBSET_MANIFEST:-${VOXMATRIX_ROOT}/annotation/benchmark_subset_manifest.jsonl}"
 export VOXMATRIX_PYTHON="${VOXMATRIX_PYTHON:-/mnt/afs/conda/envs/audioeval/bin/python}"
+# isolate.py shells out to `uv`; keep the audioeval toolchain on PATH for GPU jobs.
+_AUDIOEVAL_BIN="$(dirname "$VOXMATRIX_PYTHON")"
+case ":${PATH}:" in
+  *":${_AUDIOEVAL_BIN}:"*) ;;
+  *) export PATH="${_AUDIOEVAL_BIN}:${PATH}" ;;
+esac
+unset _AUDIOEVAL_BIN
 export NATIVE_LIMIT="${NATIVE_LIMIT:-${W1_LIMIT:-10}}"
 export W1_LIMIT="${NATIVE_LIMIT}"
 export TOKENIZERS_PARALLELISM=false

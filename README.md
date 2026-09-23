@@ -29,8 +29,9 @@ tasks, safety checks, and runtime measurements.
 Model checkpoints, full datasets, generated audio, and evaluation results are
 not stored in this repository.
 
-The clean-mainline entry is `suites/native/` (10 samples per capability).
-Capability routing uses `annotation/benchmark_subset_manifest.jsonl`.
+The clean-mainline entry is `suites/native/` (10 samples per executable
+capability × dataset pair). Capability routing uses
+`annotation/benchmark_subset_manifest.jsonl`.
 
 ## Installation
 

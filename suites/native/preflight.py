@@ -25,6 +25,10 @@ os.environ.setdefault(
     "/mnt/afs/users/wangyl/vocal_bench/work/full_eval",
 )
 os.environ.setdefault("MESH_FULL_EVAL_ROOT", os.environ["VOXMATRIX_FULL_EVAL_ROOT"])
+os.environ.setdefault(
+    "VOXMATRIX_SUBSET_MANIFEST",
+    str(ROOT / "annotation" / "benchmark_subset_manifest.jsonl"),
+)
 
 from audio_evals.main import preload_dataset  # noqa: E402
 from audio_evals.registry import Registry  # noqa: E402
@@ -53,12 +57,20 @@ def _load_catalog() -> dict:
     return yaml.safe_load((HERE / "catalog.yaml").read_text())
 
 
-def _task_name(cap_id: str) -> str:
-    return f"native-task-{cap_id.replace('_', '-')}"
+def _slot_id(item: dict) -> str:
+    return str(item.get("id") or item.get("capability") or "").strip()
 
 
-def _benchmark_id(cap_id: str) -> str:
-    return f"native-{cap_id.replace('_', '-')}"
+def _capability_id(item: dict) -> str:
+    return str(item.get("capability") or item.get("id") or "").strip()
+
+
+def _task_name(item: dict) -> str:
+    return f"native-task-{_slot_id(item).replace('_', '-')}"
+
+
+def _benchmark_id(item: dict) -> str:
+    return f"native-{_slot_id(item).replace('_', '-')}"
 
 
 def _dump_yaml(path: Path, payload: dict) -> None:
@@ -93,9 +105,9 @@ def _make_suite(
     benchmarks = []
     for item in rows:
         spec = {
-            "benchmark_id": _benchmark_id(item["id"]),
+            "benchmark_id": _benchmark_id(item),
             "dataset": item["dataset"],
-            "task": _task_name(item["id"]),
+            "task": _task_name(item),
             "prompt": item["prompt"],
             "evaluator": item["evaluator"],
             "agg": item["agg"],
@@ -139,6 +151,18 @@ def _make_suite(
 def main() -> int:
     catalog = _load_catalog()
     limit = int(os.environ.get("NATIVE_LIMIT") or os.environ.get("W1_LIMIT") or catalog.get("limit") or 10)
+    # Comma-separated capability ids, e.g. long_form_asr. Empty = all catalog slots.
+    capability_filter = {
+        part.strip()
+        for part in str(os.environ.get("NATIVE_CAPABILITY_FILTER") or "").split(",")
+        if part.strip()
+    }
+    # Comma-separated catalog slot ids, e.g. acoustic_scene__mmsu. Empty = all slots.
+    slot_filter = {
+        part.strip()
+        for part in str(os.environ.get("NATIVE_SLOT_FILTER") or "").split(",")
+        if part.strip()
+    }
     default_model = str(catalog["model"])
     speech_model = str(catalog["speech_model"])
     baseline = load_annotation_baseline()
@@ -146,6 +170,8 @@ def main() -> int:
     report = {
         "catalog": str(HERE / "catalog.yaml"),
         "limit": limit,
+        "capability_filter": sorted(capability_filter),
+        "slot_filter": sorted(slot_filter),
         "annotation_baseline": baseline.path,
         "annotation_baseline_sha256": baseline.sha256,
         "annotation_baseline_records": len(baseline),
@@ -178,15 +204,23 @@ def main() -> int:
     task_registry: dict = {}
 
     for item in catalog["capabilities"]:
-        cap_id = item["id"]
+        slot_id = _slot_id(item)
+        cap_id = _capability_id(item)
+        bench_id = str(item.get("benchmark") or "")
         entry = {
-            "id": cap_id,
+            "id": slot_id,
+            "capability": cap_id,
+            "benchmark": bench_id,
             "catalog_status": item.get("status"),
             "suite": item.get("suite"),
             "dataset": item.get("dataset"),
             "note": item.get("note") or item.get("reason") or "",
         }
-        coverage = baseline.executable_records(cap_id)
+        if capability_filter and cap_id not in capability_filter:
+            continue
+        if slot_filter and slot_id not in slot_filter:
+            continue
+        coverage = baseline.executable_records(cap_id) if cap_id else []
         entry["annotation_records"] = len(coverage)
         entry["annotation_benchmarks"] = sorted(
             {row["benchmark"]["id"] for row in coverage}
@@ -196,13 +230,8 @@ def main() -> int:
         if item.get("suite") == "none" or item.get("status") == "blocked":
             entry["runtime_status"] = "blocked"
             entry["reason"] = item.get("reason") or "catalog blocked"
-            if not coverage and not entry["reason"].startswith("Annotation baseline"):
-                entry["reason"] = (
-                    item.get("reason")
-                    or f"annotation baseline has no executable {cap_id} records"
-                )
-            report["blocked"].append(cap_id)
-            report["capabilities"][cap_id] = entry
+            report["blocked"].append(slot_id)
+            report["capabilities"][slot_id] = entry
             continue
         if not coverage:
             entry.update(
@@ -213,8 +242,20 @@ def main() -> int:
                     ),
                 }
             )
-            report["blocked"].append(cap_id)
-            report["capabilities"][cap_id] = entry
+            report["blocked"].append(slot_id)
+            report["capabilities"][slot_id] = entry
+            continue
+        if bench_id and bench_id not in entry["annotation_benchmarks"]:
+            entry.update(
+                {
+                    "runtime_status": "blocked",
+                    "reason": (
+                        f"annotation baseline has no executable {cap_id}/{bench_id}"
+                    ),
+                }
+            )
+            report["blocked"].append(slot_id)
+            report["capabilities"][slot_id] = entry
             continue
 
         dataset_name = item["dataset"]
@@ -226,8 +267,8 @@ def main() -> int:
                     "reason": f"dataset not registered: {dataset_name}",
                 }
             )
-            report["blocked"].append(cap_id)
-            report["capabilities"][cap_id] = entry
+            report["blocked"].append(slot_id)
+            report["capabilities"][slot_id] = entry
             continue
 
         for kind, key in (
@@ -237,7 +278,7 @@ def main() -> int:
         ):
             registered = getattr(registry, f"_{kind}")
             if key not in registered:
-                errors.append(f"{cap_id}: {kind} not registered: {key}")
+                errors.append(f"{slot_id}: {kind} not registered: {key}")
 
         try:
             loaded = preload_dataset(dataset, limit=limit)
@@ -250,8 +291,8 @@ def main() -> int:
                     "loaded": 0,
                 }
             )
-            report["blocked"].append(cap_id)
-            report["capabilities"][cap_id] = entry
+            report["blocked"].append(slot_id)
+            report["capabilities"][slot_id] = entry
             continue
 
         missing_audio = []
@@ -271,21 +312,21 @@ def main() -> int:
         if not rows:
             entry["runtime_status"] = "blocked"
             entry["reason"] = "loaded 0 rows"
-            report["blocked"].append(cap_id)
-            report["capabilities"][cap_id] = entry
+            report["blocked"].append(slot_id)
+            report["capabilities"][slot_id] = entry
             continue
         if missing_audio:
             errors.append(
-                f"{cap_id}: {len(missing_audio)}/{len(rows)} audio files missing"
+                f"{slot_id}: {len(missing_audio)}/{len(rows)} audio files missing"
             )
         suite_name = item.get("suite") or "main"
         model_name = item.get("model") or (
             speech_model if suite_name == "tts" else default_model
         )
-        task_registry[_task_name(cap_id)] = _make_task_yaml(item, model_name)
+        task_registry[_task_name(item)] = _make_task_yaml(item, model_name)
         runnable[suite_name].append(item)
-        report["runnable_" + suite_name].append(cap_id)
-        report["capabilities"][cap_id] = entry
+        report["runnable_" + suite_name].append(slot_id)
+        report["capabilities"][slot_id] = entry
 
     OUTPUT.mkdir(parents=True, exist_ok=True)
     RUNTIME_REGISTRY.mkdir(parents=True, exist_ok=True)
@@ -296,13 +337,20 @@ def main() -> int:
         str(HERE / "registry"),
         str(OUTPUT / "registry"),
     ]
+    suite_main = OUTPUT / "suite.runtime.yaml"
+    suite_tts = OUTPUT / "suite_tts.runtime.yaml"
+    # Drop stale suites so a filtered preflight cannot accidentally re-run old slots.
+    for stale in (suite_main, suite_tts):
+        if stale.is_file():
+            stale.unlink()
+    suite_dir = str(os.environ.get("NATIVE_SUITE_DIR") or "main").strip() or "main"
     if runnable["main"]:
         _dump_yaml(
-            OUTPUT / "suite.runtime.yaml",
+            suite_main,
             _make_suite(
-                run_id="native-main",
+                run_id=f"native-{suite_dir}",
                 model_name=default_model,
-                output_root=OUTPUT / "main",
+                output_root=OUTPUT / suite_dir,
                 registry_paths=registry_paths,
                 rows=runnable["main"],
                 limit=limit,
@@ -310,7 +358,7 @@ def main() -> int:
         )
     if runnable["tts"]:
         _dump_yaml(
-            OUTPUT / "suite_tts.runtime.yaml",
+            suite_tts,
             _make_suite(
                 run_id="native-tts",
                 model_name=speech_model,
@@ -329,7 +377,17 @@ def main() -> int:
     report["blocked_count"] = len(report["blocked"])
     out_path = OUTPUT / "preflight.json"
     out_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
-    print(json.dumps(report, ensure_ascii=False, indent=2))
+    summary = {
+        "ok": report["ok"],
+        "runnable_count": report["runnable_count"],
+        "blocked_count": report["blocked_count"],
+        "runnable_main": report["runnable_main"],
+        "runnable_tts": report["runnable_tts"],
+        "blocked": report["blocked"],
+        "errors": errors,
+        "preflight": str(out_path),
+    }
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
     if fatal or audio_errors:
         print(
             f"\npreflight FAILED ({len(errors)} issues) -> {out_path}",

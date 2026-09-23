@@ -20,6 +20,6 @@ qwen3-omni-thinking:
   class: audio_evals.models.qwen3_omni.Qwen3Omni
   args:
     path: /mnt/afs/models/Qwen3-Omni-30B-A3B-Thinking
-    max_new_tokens: 2048
+    max_new_tokens: 512
     env_path: envs/qwen3-omni
     requirements_path: audio_evals/lib/qwen3-omni/requirements.txt

@@ -1029,7 +1029,7 @@ benchmarks:
     - speaker_count_acc
     evaluators:
     - mesh-speaker-count
-    prompt: mesh-external-classification
+    prompt: mesh-speaker-count
     use_bucket: diagnostic_evidence
     data:
       local_path: ${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/mmsu/final/manifest.jsonl

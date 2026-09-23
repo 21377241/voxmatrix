@@ -1,8 +1,9 @@
 """Independent ASR for semantic LLM-judge template A1 (source audio transcript).
 
 Default backends (local weights):
-  - en / mix → Whisper-large-v3 @ /mnt/afs/models/whisper-large-v3
   - zh → FunASR paraformer-zh @ /mnt/afs/models/paraformer-zh
+  - en / mix / ja / de / it / es / ... → Whisper-large-v3
+    (MMSU speech_translation is multilingual, not zh/en only)
 
 Results are cached under ``cache_dir`` keyed by wav path + mtime + size + lang.
 """
@@ -39,13 +40,95 @@ def _cache_path(cache_dir: Path, fp: str, lang: str) -> Path:
     return cache_dir / f"{fp}.{lang}.json"
 
 
+# Canonical cache/backend lang -> Whisper `language=` code (None = auto-detect).
+# Names accepted from Native indexes (e.g. MMSU japanese/german/...).
+_LANG_ALIASES = {
+    "zh": "zh",
+    "zh-cn": "zh",
+    "zh_cn": "zh",
+    "chinese": "zh",
+    "cmn": "zh",
+    "mandarin": "zh",
+    "en": "en",
+    "eng": "en",
+    "english": "en",
+    "ja": "ja",
+    "jp": "ja",
+    "jpn": "ja",
+    "japanese": "ja",
+    "de": "de",
+    "deu": "de",
+    "ger": "de",
+    "german": "de",
+    "it": "it",
+    "ita": "it",
+    "italian": "it",
+    "es": "es",
+    "spa": "es",
+    "spanish": "es",
+    "castilian": "es",
+    "fr": "fr",
+    "fra": "fr",
+    "fre": "fr",
+    "french": "fr",
+    "ko": "ko",
+    "kor": "ko",
+    "korean": "ko",
+    "ru": "ru",
+    "rus": "ru",
+    "russian": "ru",
+    "pt": "pt",
+    "por": "pt",
+    "portuguese": "pt",
+    "ar": "ar",
+    "ara": "ar",
+    "arabic": "ar",
+    "hi": "hi",
+    "hin": "hi",
+    "hindi": "hi",
+    "mix": "mix",
+    "code_switch": "mix",
+    "cs": "mix",
+    "mixed": "mix",
+    "zh-en": "mix",
+    "en-zh": "mix",
+    "auto": "auto",
+}
+
+# HF Whisper pipeline expects English language *names* in generate_kwargs.
+_WHISPER_HF_NAME = {
+    "zh": "chinese",
+    "en": "english",
+    "ja": "japanese",
+    "de": "german",
+    "it": "italian",
+    "es": "spanish",
+    "fr": "french",
+    "ko": "korean",
+    "ru": "russian",
+    "pt": "portuguese",
+    "ar": "arabic",
+    "hi": "hindi",
+}
+
+
 def normalize_lang(lang: Optional[str]) -> str:
-    text = (lang or "en").strip().lower()
-    if text in ("zh", "zh-cn", "zh_cn", "chinese", "cmn"):
-        return "zh"
-    if text in ("mix", "code_switch", "cs", "mixed", "zh-en", "en-zh"):
-        return "mix"
-    return "en"
+    """Return canonical lang for cache key / backend routing.
+
+    Unknown labels fall back to ``auto`` (Whisper language detection) instead of
+    forcing English — MMSU speech_translation mixes ja/de/it/es/zh.
+    """
+    text = (lang or "").strip().lower()
+    if not text:
+        return "auto"
+    return _LANG_ALIASES.get(text, "auto")
+
+
+def _cache_only_enabled(explicit: Optional[bool] = None) -> bool:
+    if explicit is not None:
+        return bool(explicit)
+    raw = os.environ.get("JUDGE_ASR_CACHE_ONLY", "").strip().lower()
+    return raw in ("1", "true", "yes", "on")
 
 
 def transcribe_for_judge(
@@ -53,8 +136,13 @@ def transcribe_for_judge(
     lang: Optional[str] = None,
     cache_dir: Optional[str] = None,
     force: bool = False,
+    cache_only: Optional[bool] = None,
 ) -> str:
-    """Return transcript text for judge A1. Raises on hard failure."""
+    """Return transcript text for judge A1. Raises on hard failure.
+
+    When ``cache_only`` / ``JUDGE_ASR_CACHE_ONLY=1``, never load Whisper/paraformer;
+    raise if the cache miss so the judge process stays free of ASR VRAM.
+    """
     if not wav_path or not os.path.isfile(wav_path):
         raise FileNotFoundError(f"wav not found: {wav_path}")
     lang_n = normalize_lang(lang)
@@ -68,6 +156,12 @@ def transcribe_for_judge(
             text = str(data.get("text") or "").strip()
             if text:
                 return text
+
+    if _cache_only_enabled(cache_only):
+        raise FileNotFoundError(
+            f"ASR cache miss (cache_only): wav={wav_path} lang={lang_n} "
+            f"cache_dir={cache}"
+        )
 
     if lang_n == "zh":
         backend = os.environ.get("JUDGE_ASR_BACKEND", "local").strip().lower()
@@ -87,10 +181,9 @@ def transcribe_for_judge(
                 text = _transcribe_whisper(wav_path, language="zh")
                 asr_name = "whisper-zh-fallback"
     else:
-        # en + mix: Whisper (local large-v3 or API whisper-1)
-        text = _transcribe_whisper(
-            wav_path, language=None if lang_n == "mix" else "en"
-        )
+        # en / mix / auto / ja / de / ... → Whisper-large-v3
+        whisper_lang = None if lang_n in ("mix", "auto") else lang_n
+        text = _transcribe_whisper(wav_path, language=whisper_lang)
         asr_name = "whisper"
 
     text = (text or "").strip()
@@ -121,7 +214,7 @@ def _transcribe_whisper(wav_path: str, language: Optional[str] = "en") -> str:
         client = OpenAI()
         with open(wav_path, "rb") as handle:
             kwargs = {"model": os.environ.get("JUDGE_WHISPER_API_MODEL", "whisper-1"), "file": handle}
-            if language in ("en", "zh"):
+            if language:
                 kwargs["language"] = language
             result = client.audio.transcriptions.create(**kwargs)
         return str(getattr(result, "text", result) or "").strip()
@@ -140,10 +233,9 @@ def _transcribe_whisper(wav_path: str, language: Optional[str] = "en") -> str:
                 device=0 if device.startswith("cuda") else -1,
             )
         gen_kwargs = {"task": "transcribe"}
-        if language == "en":
-            gen_kwargs["language"] = "english"
-        elif language == "zh":
-            gen_kwargs["language"] = "chinese"
+        hf_name = _WHISPER_HF_NAME.get(language or "", language)
+        if hf_name:
+            gen_kwargs["language"] = hf_name
         # Long audio (>30s) requires timestamps for HF Whisper long-form path.
         result = _whisper_model(
             wav_path,

@@ -34,7 +34,7 @@ mesh-router-prompt:
       speech_understanding:paralinguistic: mesh-classification
       speech_understanding:sound_event: mesh-classification
       speech_understanding:acoustic_scene: mesh-classification
-      speaker:speaker_count: mesh-speaker
+      speaker:speaker_count: mesh-speaker-count
       speaker:speaker_verification: mesh-speaker-verification
       speaker:diarization: mesh-diarization
       speaker:speaker_attribution: mesh-speaker-attribution

@@ -276,6 +276,59 @@ def build_mmsu(capability: str) -> list[dict]:
     for row in rows:
         row["capability"] = capability
         row["protocol"] = capability
+        if capability == "code_switch":
+            # MMSU source is multiple-choice, but the Native code-switch task
+            # evaluates open answers.  Do not leak A/B/C/D options to the model.
+            question = str(row.get("question") or "")
+            question = re.split(r"\nA\.\s", question, maxsplit=1)[0].strip()
+            row["question"] = (
+                f"{question}\n\nAnswer the question using the audio. Output only the answer."
+            )
+        elif capability == "acoustic_scene":
+            # Keep the four scene options, but ask for the scene label (not A/B/C/D)
+            # so scoring matches other AS slots via mesh-classification.
+            question = str(row.get("question") or "")
+            opts = re.findall(r"^([A-D])\.\s*(.+)$", question, flags=re.M)
+            stem = re.split(r"\nA\.\s*", question, maxsplit=1)[0].strip()
+            labels = [text.strip() for _, text in opts]
+            answer = str(row.get("answer") or row.get("text") or "").strip()
+            if answer in dict(opts):
+                answer = dict(opts)[answer].strip()
+            if labels:
+                row["closed_labels"] = labels
+                row["choice_a"] = labels[0] if len(labels) > 0 else ""
+                row["choice_b"] = labels[1] if len(labels) > 1 else ""
+                row["choice_c"] = labels[2] if len(labels) > 2 else ""
+                row["choice_d"] = labels[3] if len(labels) > 3 else ""
+                row["question"] = (
+                    f"{stem} Choose exactly one label from: {', '.join(labels)}. "
+                    f"Return only the scene label."
+                )
+            row["answer"] = answer
+            row["text"] = answer
+        elif capability == "speaker_count":
+            # MMSU official is MCQ ("N people"); Native open track asks for an
+            # integer only so mesh-speaker-count can score speaker_count_acc.
+            question = str(row.get("question") or "")
+            opts = re.findall(r"^([A-D])\.\s*(.+)$", question, flags=re.M)
+            stem = re.split(r"\nA\.\s*", question, maxsplit=1)[0].strip()
+            answer = str(row.get("answer") or row.get("text") or "").strip()
+            choice_map = {k: v.strip() for k, v in opts}
+            if answer in choice_map:
+                answer = choice_map[answer]
+            match = re.search(r"\d+", answer)
+            count = int(match.group(0)) if match else None
+            row["question"] = (
+                f"{stem or 'How many different speakers are in the audio?'} "
+                "Output only a single integer."
+            )
+            if count is not None:
+                row["answer"] = count
+                row["text"] = count
+                row["count"] = count
+            else:
+                row["answer"] = answer
+                row["text"] = answer
     return rows
 
 
@@ -523,43 +576,78 @@ def build_libritts() -> list[dict]:
 
 
 def build_voxceleb1() -> list[dict]:
+    """Native smoke: 5 same + 5 diff trials, stride across veri_test (not first-10)."""
     veri = Path(
         "/mnt/afs/users/wangyl/benchmark_annotation_audit/native_v2_pipeline/references/voxceleb1/veri_test.txt"
     )
-    # Try common roots
     roots = [
         Path("/mnt/afs/oss_data/datasets/03_multi_speaker/VoxCeleb_1_2_multi_speaker_multi_speaker/juliuscn/voxceleb/vox1/wav"),
         Path("/mnt/afs/oss_data/datasets/03_multi_speaker/VoxCeleb1/wav"),
         Path("/mnt/afs/eval_data/03_multi_speaker/VoxCeleb1/wav"),
     ]
     root = next((r for r in roots if r.is_dir()), None)
-    rows = []
     if root is None or not veri.is_file():
-        return rows
+        return []
+
+    same: list[dict] = []
+    diff: list[dict] = []
     with veri.open(encoding="utf-8") as handle:
-        for line in handle:
-            if len(rows) >= LIMIT:
-                break
+        for idx, line in enumerate(handle):
             parts = line.strip().split()
             if len(parts) != 3:
                 continue
-            label, p1, p2 = parts
+            label_s, p1, p2 = parts
+            try:
+                label = int(label_s)
+            except ValueError:
+                continue
             w1, w2 = root / p1, root / p2
             if not w1.is_file() or not w2.is_file():
                 continue
-            rows.append(
-                {
-                    "sample_id": f"vox1_{Path(p1).stem}_{Path(p2).stem}",
-                    "dataset": "voxceleb1",
-                    "capability": "speaker_verification",
-                    "protocol": "speaker_verification",
-                    "WavPath": str(w1),
-                    "WavPath2": str(w2),
-                    "label": int(label),
-                    "text": int(label),
-                    "source_index": str(veri),
-                }
-            )
+            row = {
+                "sample_id": f"voxceleb1_veri_{idx:05d}_{'same' if label == 1 else 'diff'}",
+                "dataset": "voxceleb1",
+                "capability": "speaker_verification",
+                "protocol": "speaker_verification",
+                "WavPath": str(w1),
+                "WavPath2": str(w2),
+                "label": label,
+                "text": label,
+                "same_speaker": bool(label == 1),
+                "enroll_relpath": p1,
+                "test_relpath": p2,
+                "source_index": str(veri),
+                "source_line": idx,
+            }
+            (same if label == 1 else diff).append(row)
+
+    def _stride_take(pool: list[dict], n: int) -> list[dict]:
+        if not pool:
+            return []
+        if len(pool) <= n:
+            return pool[:n]
+        step = max(1, len(pool) // n)
+        picked = [pool[i * step] for i in range(n)]
+        # de-dup if step collapses
+        seen = set()
+        out = []
+        for row in picked:
+            sid = row["sample_id"]
+            if sid in seen:
+                continue
+            seen.add(sid)
+            out.append(row)
+        for row in pool:
+            if len(out) >= n:
+                break
+            if row["sample_id"] not in seen:
+                seen.add(row["sample_id"])
+                out.append(row)
+        return out[:n]
+
+    half = max(1, LIMIT // 2)
+    rows = _stride_take(same, half) + _stride_take(diff, LIMIT - half)
+    rows.sort(key=lambda r: int(r["source_line"]))
     return rows
 
 
@@ -791,6 +879,15 @@ def build_code_switch_vocalbench() -> list[dict]:
     return build_vocalbench_json(path, "vocalbench_zh", "code_switch", root)
 
 
+def build_code_switch_vocalbench_open_ended() -> list[dict]:
+    root = Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench-zh")
+    path = root / "json" / "cs_open_ended.json"
+    rows = build_vocalbench_json(path, "vocalbench_zh", "code_switch", root)
+    for row in rows:
+        row["subset"] = "code_switch_open_ended"
+    return rows
+
+
 BUILDERS: dict[tuple[str, str], callable] = {}
 
 
@@ -848,6 +945,9 @@ def register():
         Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench-zh"),
     )
     BUILDERS[("code_switch", "vocalbench_zh")] = build_code_switch_vocalbench
+    BUILDERS[("code_switch", "vocalbench_zh_open_ended")] = (
+        build_code_switch_vocalbench_open_ended
+    )
 
     BUILDERS[("qa", "uro_bench")] = lambda: build_uro(
         Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/URO-Bench/basic/APE-zh/test.jsonl"),

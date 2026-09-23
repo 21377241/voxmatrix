@@ -20,6 +20,17 @@ mesh-external-qa:
           - type: text
             value: "{{ question | default('Listen to the audio and answer concisely.') }}"
 
+mesh-code-switch-open-ended:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: "Listen to the speech in the audio and answer the question concisely in 2-4 sentences. Do not use bullet points or long explanations.\n\nQuestion: {{ question }}"
+
 mesh-external-classification:
   class: audio_evals.prompt.base.Prompt
   args:
@@ -171,6 +182,17 @@ mesh-speaker:
           - type: text
             value: "Analyze the speakers and return the requested result as JSON."
 
+mesh-speaker-count:
+  class: audio_evals.prompt.base.Prompt
+  args:
+    template:
+      - role: user
+        contents:
+          - type: audio
+            value: "{{WavPath}}"
+          - type: text
+            value: "{{ question | default('Listen to the audio and count how many distinct speakers are present. Output only a single integer.') }}"
+
 mesh-speaker-verification:
   class: audio_evals.prompt.base.Prompt
   args:
@@ -206,7 +228,22 @@ mesh-diarization:
           - type: audio
             value: "{{WavPath}}"
           - type: text
-            value: "Return speaker diarization as JSON only: {\"segments\": [{\"start\": 0.0, \"end\": 1.0, \"speaker\": \"speaker_1\"}]}."
+            value: |-
+              Listen to the audio and perform speaker diarization.
+
+              Return JSON only (no markdown, no extra keys):
+              {"segments":[{"start":<seconds>,"end":<seconds>,"speaker":"<id>"}]}
+
+              Requirements:
+              - This audio is {{ audio_duration_seconds | default(30) }} seconds long.
+              - start and end are floats in seconds, relative to the beginning of THIS audio (0 = start of the clip).
+              - Every segment MUST satisfy 0 <= start < end <= {{ audio_duration_seconds | default(30) }}. Never emit timestamps beyond the audio length.
+              - speaker ids are anonymous labels such as spk0, spk1, spk2, ...
+              - Include one segment for each contiguous speech region you hear; keep chronological order.
+              - Merge consecutive regions from the same speaker; do not chop speech into fixed 1-second slices.
+              - Stop once the timeline reaches the end of the audio; do not continue inventing segments.
+              - Do not output transcript text.
+              - Do not invent a single placeholder segment; the timestamps must match the speech in the audio.
 
 mesh-speaker-attribution:
   class: audio_evals.prompt.base.Prompt
@@ -217,7 +254,18 @@ mesh-speaker-attribution:
           - type: audio
             value: "{{WavPath}}"
           - type: text
-            value: "Transcribe the meeting and assign each utterance to a speaker. Return chronological JSON only: {\"utterances\": [{\"speaker\": \"speaker_1\", \"text\": \"...\"}]}."
+            value: |-
+              Transcribe the meeting and assign each utterance to a speaker.
+
+              Return JSON only (no markdown fences, no extra keys):
+              {"utterances":[{"speaker":"speaker_1","text":"..."}]}
+
+              Requirements:
+              - Top-level object MUST have key "utterances" (an array). Do not return a bare array.
+              - Every item MUST use keys "speaker" and "text" exactly (never {"speaker_1","text":...}).
+              - speaker ids are anonymous labels such as speaker_1, speaker_2, ...
+              - Keep chronological order; do not invent placeholder text.
+              - Do not wrap the JSON in ``` fences.
 
 mesh-multi-turn:
   class: audio_evals.prompt.base.Prompt

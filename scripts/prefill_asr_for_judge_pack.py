@@ -19,6 +19,11 @@ def main() -> int:
     parser.add_argument("--pack", type=Path, required=True)
     parser.add_argument("--asr-cache", type=Path, required=True)
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Ignore existing ASR cache and re-transcribe every sample",
+    )
     args = parser.parse_args()
 
     # Default CUDA for speed during dedicated prefill; runner clears cache before Omni.
@@ -45,23 +50,27 @@ def main() -> int:
             skip += 1
             print(f"[{i}/{len(rows)}] SKIP missing wav sample_id={sample.get('sample_id')}")
             continue
+        lang = sample.get("lang") or sample.get("source_lang")
+        if not lang and sample.get("capability") in ("code_switch", "code-switch", "cs"):
+            lang = "mix"
         try:
             text = transcribe_for_judge(
                 wav,
-                lang=sample.get("lang"),
+                lang=lang,
                 cache_dir=str(args.asr_cache),
+                force=bool(args.force),
             )
             if text.strip():
                 ok += 1
                 print(
                     f"[{i}/{len(rows)}] OK id={sample.get('sample_id')} "
-                    f"chars={len(text)} lang={sample.get('lang')}",
+                    f"chars={len(text)} lang={lang}",
                     flush=True,
                 )
             else:
                 fail += 1
                 print(
-                    f"[{i}/{len(rows)}] EMPTY id={sample.get('sample_id')} lang={sample.get('lang')}",
+                    f"[{i}/{len(rows)}] EMPTY id={sample.get('sample_id')} lang={lang}",
                     flush=True,
                 )
         except Exception as exc:  # noqa: BLE001
