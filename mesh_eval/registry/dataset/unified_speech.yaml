@@ -588,30 +588,6 @@ full-audio-caption-clotho:
     ref_col: text
     protocol: audio_caption
     benchmark_id: full-audio-caption-clotho
-full-code-switch-mmsu:
-  class: mesh_eval.dataset.native.NativeClipDataset
-  args:
-    f_name: mesh_eval/data/full/code_switch/code_switch_mmsu.jsonl
-    default_task: full-code-switch-mmsu
-    ref_col: text
-    protocol: code_switch
-    benchmark_id: full-code-switch-mmsu
-full-code-switch-vocalbench-zh:
-  class: mesh_eval.dataset.native.NativeClipDataset
-  args:
-    f_name: mesh_eval/data/full/code_switch/code_switch_vocalbench_zh.jsonl
-    default_task: full-code-switch-vocalbench-zh
-    ref_col: text
-    protocol: code_switch
-    benchmark_id: full-code-switch-vocalbench-zh
-full-code-switch-vocalbench-zh-open-ended:
-  class: mesh_eval.dataset.native.NativeClipDataset
-  args:
-    f_name: mesh_eval/data/full/code_switch/code_switch_vocalbench_zh_open_ended.jsonl
-    default_task: full-code-switch-vocalbench-zh-open-ended
-    ref_col: text
-    protocol: code_switch
-    benchmark_id: full-code-switch-vocalbench-zh-open-ended
 full-acoustic-scene-dcase2013-scenes:
   class: mesh_eval.dataset.native.NativeClipDataset
   args:
@@ -620,14 +596,6 @@ full-acoustic-scene-dcase2013-scenes:
     ref_col: text
     protocol: acoustic_scene
     benchmark_id: full-acoustic-scene-dcase2013-scenes
-full-acoustic-scene-mmsu:
-  class: mesh_eval.dataset.native.NativeClipDataset
-  args:
-    f_name: mesh_eval/data/full/acoustic_scene/acoustic_scene_mmsu.jsonl
-    default_task: full-acoustic-scene-mmsu
-    ref_col: text
-    protocol: acoustic_scene
-    benchmark_id: full-acoustic-scene-mmsu
 full-acoustic-scene-tut-sound-events-2017:
   class: mesh_eval.dataset.native.NativeClipDataset
   args:
@@ -644,19 +612,51 @@ full-acoustic-scene-tut-urban-acoustic-scenes-2018-mobile:
     ref_col: text
     protocol: acoustic_scene
     benchmark_id: full-acoustic-scene-tut-urban-acoustic-scenes-2018-mobile
-full-mmsu-speaker-count:
+full-sound-event-mavd-traffic:
   class: mesh_eval.dataset.native.NativeClipDataset
   args:
-    f_name: mesh_eval/data/full/speaker_count/speaker_count_mmsu.jsonl
-    default_task: full-mmsu-speaker-count
+    f_name: mesh_eval/data/full/sound_event/sound_event_mavd_traffic.jsonl
+    default_task: full-sound-event-mavd-traffic
     ref_col: text
-    protocol: speaker_count
-    benchmark_id: full-mmsu-speaker-count
-full-speaker-verification-voxceleb1:
+    protocol: sound_event_multilabel
+    benchmark_id: full-sound-event-mavd-traffic
+full-sound-event-sonyc-ust-v23:
   class: mesh_eval.dataset.native.NativeClipDataset
   args:
-    f_name: mesh_eval/data/full/speaker_verification/speaker_verification_voxceleb1.jsonl
-    default_task: full-speaker-verification-voxceleb1
+    f_name: mesh_eval/data/full/sound_event/sound_event_sonyc_ust_v23.jsonl
+    default_task: full-sound-event-sonyc-ust-v23
     ref_col: text
-    protocol: speaker_verification
-    benchmark_id: full-speaker-verification-voxceleb1
+    protocol: sound_event_multilabel
+    benchmark_id: full-sound-event-sonyc-ust-v23
+full-sound-event-tut-sound-events-2017:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/full/sound_event/sound_event_tut_sound_events_2017.jsonl
+    default_task: full-sound-event-tut-sound-events-2017
+    ref_col: text
+    protocol: sound_event
+    benchmark_id: full-sound-event-tut-sound-events-2017
+full-qa-ear-wdyl:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/full/qa/qa_ear_wdyl.jsonl
+    default_task: full-qa-ear-wdyl
+    ref_col: text
+    protocol: qa
+    benchmark_id: full-qa-ear-wdyl
+full-qa-voicebench:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/full/qa/qa_voicebench.jsonl
+    default_task: full-qa-voicebench
+    ref_col: text
+    protocol: qa
+    benchmark_id: full-qa-voicebench
+full-audio-reasoning-voicebench:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/full/audio_reasoning/audio_reasoning_voicebench.jsonl
+    default_task: full-audio-reasoning-voicebench
+    ref_col: text
+    protocol: audio_reasoning
+    benchmark_id: full-audio-reasoning-voicebench

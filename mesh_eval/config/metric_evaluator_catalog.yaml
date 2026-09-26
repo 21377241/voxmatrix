@@ -72,6 +72,7 @@ metrics:
   unauthorized_accept: {category: edge, evaluator: mesh-authorization, status: ready_cpu}
   target_speaker_acc: {category: edge, evaluator: mesh-target-speaker, status: ready_cpu}
   mis_execution: {category: edge, evaluator: mesh-target-speaker, status: ready_cpu}
+  missed_execution: {category: edge, evaluator: mesh-target-speaker, status: ready_cpu}
   constraint_satisfaction: {category: agent, evaluator: ifeval, status: ready_cpu}
   attack_success_rate: {category: safety, evaluator: harm, status: ready_cpu}
   llm_judge:

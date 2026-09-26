@@ -146,7 +146,7 @@ default_metrics:
   speaker_verification: [eer, auc]
   diarization: [der]
   speaker_attribution: [cpcer, attribution_acc]
-  target_speaker: [target_speaker_acc, mis_execution]
+  target_speaker: [target_speaker_acc, mis_execution, missed_execution]
   spoof_detection: [eer, auc]
   qa: [exact_match, text_f1]
   instruction_following: [constraint_satisfaction]

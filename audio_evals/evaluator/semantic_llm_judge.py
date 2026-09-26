@@ -254,8 +254,11 @@ class SemanticLLMJudgeEvaluator(Evaluator):
                                 {
                                     "type": "text",
                                     "value": (
-                                        "You are a helpful assistant who tries to help "
-                                        "answer the user's question."
+                                        "You are a strict evaluation judge. "
+                                        "Reason concisely if needed, but always "
+                                        "end with a single final label line only "
+                                        "(score 1-5, or Yes/No) as required by "
+                                        "the user prompt. Never omit that label."
                                     ),
                                 }
                             ],

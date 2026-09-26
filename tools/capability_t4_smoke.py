@@ -1618,9 +1618,8 @@ def _score(row: Mapping[str, Any], prediction: str) -> dict[str, Any]:
         "vocalbench",
         "vocalbench_zh",
     }:
-        qid = str(row.get("native_id") or "")
-        match = re.search(r"(\d+)$", qid)
-        requires_audio = bool(match and int(match.group(1)) < 200)
+        # Full speech IF policy: every VocalBench instruction row needs generated audio.
+        requires_audio = True
         return _rubric_score(
             prediction,
             {

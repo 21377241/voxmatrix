@@ -879,7 +879,7 @@ benchmarks:
     group: full_eval_source
     registry_dataset: full-libritts-tts-source
     task: speech_output
-    capability: tts_correctness
+    capability: speech_generation
     answer_type: audio
     language: en
     scenario: phone
@@ -896,11 +896,30 @@ benchmarks:
     prompt: qwen3-omni-tts-en
     use_bucket: diagnostic_evidence
     data:
-      local_path: ${VOXMATRIX_FULL_EVAL_ROOT:-data/full_eval}/libritts/final/manifest.jsonl
-      split: test_dev
+      local_path: mesh_eval/data/full/speech_generation/speech_generation_libritts.jsonl
+      split: test-clean
     requirements:
     - TTS-capable model output and prepared ASR scorer
-    smoke_status: source_ready_requires_tts_inference
+    smoke_status: full_index_ready
+  full-speech-generation-libritts:
+    display_name: LibriTTS Full Speech Generation
+    group: full_eval_source
+    registry_dataset: full-speech-generation-libritts
+    task: speech_output
+    capability: speech_generation
+    answer_type: audio
+    language: en
+    metrics:
+    - content_acc
+    evaluators:
+    - seed-tts-eval-asr-wer-en
+    prompt: qwen3-omni-tts-en
+    use_bucket: diagnostic_evidence
+    data:
+      local_path: mesh_eval/data/full/speech_generation/speech_generation_libritts.jsonl
+      split: test-clean
+    smoke_status: full_index_ready
+
   full-spoken-squad-qa:
     display_name: Spoken SQuAD Full QA
     group: full_eval_objective
@@ -1275,7 +1294,7 @@ benchmarks:
     registry_dataset: t4-vocalbench-instruction-following
     task: agent
     capability: instruction_following
-    answer_type: text
+    answer_type: audio
     language: en
     scenario: phone
     condition:
@@ -1287,22 +1306,22 @@ benchmarks:
     metrics:
     - constraint_satisfaction
     evaluators:
-    - mesh-agent-rubric
+    - mesh-agent-rubric-audio
     prompt: mesh-agent-rubric
     use_bucket: diagnostic_evidence
     data:
       local_path: ${VOXMATRIX_VOCALBENCH_ROOT:-/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench}
       split: test
     requirements:
-    - official rubric judge; audio output for first 200 instruction rows
-    smoke_status: requires_api_or_generated_audio
+    - full speech output + local multimodal audio rubric judge for all instruction rows
+    smoke_status: requires_generated_audio_and_local_audio_judge
   t4-if-vocalbench-zh:
     display_name: T4 Instruction Following - VocalBench-zh
     group: t4_capability_audit
     registry_dataset: t4-vocalbench-zh-instruction-following
     task: agent
     capability: instruction_following
-    answer_type: text
+    answer_type: audio
     language: zh
     scenario: phone
     condition:
@@ -1314,15 +1333,15 @@ benchmarks:
     metrics:
     - constraint_satisfaction
     evaluators:
-    - mesh-agent-rubric
+    - mesh-agent-rubric-audio
     prompt: mesh-agent-rubric
     use_bucket: diagnostic_evidence
     data:
       local_path: ${VOXMATRIX_VOCALBENCH_ZH_ROOT:-/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench-zh}
       split: test
     requirements:
-    - official rubric judge; audio output for first 200 instruction rows
-    smoke_status: requires_api_or_generated_audio
+    - full speech output + local multimodal audio rubric judge for all instruction rows
+    smoke_status: requires_generated_audio_and_local_audio_judge
   t4-if-voicebench:
     display_name: T4 Instruction Following - VoiceBench IFEval
     group: t4_capability_audit

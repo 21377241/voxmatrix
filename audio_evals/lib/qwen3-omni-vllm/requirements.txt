@@ -1,0 +1,6 @@
+# Qwen3-Omni listen→text via vLLM
+#
+# Prefer an already-prepared env (see qwen3_omni_long_audio/envs/vllm).
+# Registry entries set requirements_path to "" so isolate will not reinstall.
+# This file is only for documenting the stack used by that env:
+#   vllm>=0.30, transformers==5.17.0, qwen-omni-utils, soundfile, torch(CUDA)

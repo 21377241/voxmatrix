@@ -217,7 +217,7 @@ mesh-target-speaker:
           - type: audio
             value: "{{WavPath2}}"
           - type: text
-            value: "Treat the first recording as enrollment and the second as a command. Return JSON only as {\"should_execute\": true} when the command speaker matches enrollment, otherwise false."
+            value: "Treat the first recording as enrollment and the second as a command. Return JSON only as {\"should_execute\": true} when the command speaker matches enrollment, or {\"should_execute\": false} otherwise."
 
 mesh-diarization:
   class: audio_evals.prompt.base.Prompt

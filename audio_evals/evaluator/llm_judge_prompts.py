@@ -28,11 +28,29 @@ MM_PREFACE = (
     "better reflects the user's true intent. Do not score TTS quality.\n\n"
 )
 
-OUTPUT_SCORE = (
-    "After evaluating, please output the score only without anything else.\n"
-    "You don’t need to provide any explanations."
+# Thinking models often burn the token budget inside <think> and never emit a
+# score. Prefer a clear final label over a hard CoT length cap.
+_OUTPUT_THINKING_RULES = (
+    "Rules for your reply (mandatory):\n"
+    "- You MAY reason briefly in private (a short <think>...</think> block "
+    "is fine). Aim for concise reasoning; avoid multi-paragraph essays or "
+    "re-stating long rubrics.\n"
+    "- The CRITICAL requirement: always finish with a conclusive label. "
+    "After any reasoning, the FINAL line of your message must be ONLY the "
+    "required label below — nothing else on that line.\n"
+    "- Never end inside reasoning. Do not omit the final label line.\n"
 )
-OUTPUT_YESNO = 'Please only output a single "Yes" or "No". Do not output anything else.'
+
+OUTPUT_SCORE = (
+    _OUTPUT_THINKING_RULES
+    + "Final line: a single integer from 1 to 5 (example: 4).\n"
+    "Do not omit the final score line. Do not add explanations after it."
+)
+OUTPUT_YESNO = (
+    _OUTPUT_THINKING_RULES
+    + 'Final line: only Yes or No (capitalized).\n'
+    "Do not omit the Yes/No line. Do not add explanations after it."
+)
 
 # Shared scene for text-content judging (spoken input → text response).
 _TEXT_SCENE = (

@@ -175,9 +175,15 @@ def _resolve_save_path(spec: Dict[str, Any], output_root: str, benchmark_id: str
 
 
 def prepare_benchmarks(
-    config: Dict[str, Any], model_name: str, output_root: str
+    config: Dict[str, Any],
+    model_name: str,
+    output_root: str,
+    *,
+    phase: str = "all",
 ) -> List[PreparedBenchmark]:
     """Load/validate every benchmark before the shared predictor occupies GPUs."""
+    if phase not in {"all", "inference", "evaluation"}:
+        raise ValueError("phase must be all, inference, or evaluation")
     raw_benchmarks = config.get("benchmarks")
     if not isinstance(raw_benchmarks, list) or not raw_benchmarks:
         raise ValueError("suite config requires a non-empty benchmarks list")
@@ -200,6 +206,7 @@ def prepare_benchmarks(
                 f"but the session model is {model_name!r}"
             )
 
+        save_path = _resolve_save_path(spec, output_root, benchmark_id)
         dataset = registry.get_dataset(dataset_name)
         if dataset is None:
             raise KeyError(f"dataset is not registered: {dataset_name}")
@@ -210,8 +217,17 @@ def prepare_benchmarks(
                 ref_col=dataset.ref_col,
                 col_aliases=dataset.col_aliases,
             )
-        if spec.get("resume"):
-            dataset = dataset.resume_from(str(spec["resume"]))
+        resume_path = spec.get("resume")
+        if phase == "evaluation" and not resume_path and not spec.get("inf_file"):
+            resume_path = save_path
+        if resume_path:
+            resume_path = str(resume_path)
+            if not os.path.isfile(resume_path):
+                raise FileNotFoundError(
+                    f"benchmark {benchmark_id} phase={phase} needs resume file: "
+                    f"{resume_path}"
+                )
+            dataset = dataset.resume_from(resume_path)
         if spec.get("dataset_ref_col"):
             dataset.reset_ref_col(str(spec["dataset_ref_col"]))
         if spec.get("inf_file"):
@@ -266,7 +282,12 @@ def prepare_benchmarks(
                     benchmark_id,
                 )
                 continue
-        save_path = _resolve_save_path(spec, output_root, benchmark_id)
+        # Evaluation-only / split jobs always use the two-phase eval path so
+        # saved inference is replayed without loading the speech SUT.
+        two_phase = bool(spec.get("two_phase", False)) or phase in {
+            "inference",
+            "evaluation",
+        }
         prepared.append(
             PreparedBenchmark(
                 benchmark_id=benchmark_id,
@@ -275,7 +296,7 @@ def prepare_benchmarks(
                 save_path=save_path,
                 overall_path=save_path[: -len(".jsonl")] + "-overall.json",
                 event_id_offset=offset,
-                two_phase=bool(spec.get("two_phase", False)),
+                two_phase=two_phase,
                 evaluation_workers=evaluation_workers,
             )
         )
@@ -294,7 +315,11 @@ class EvaluationSession:
         self.inference_workers = inference_workers
         self._released = False
 
-    def run(self, benchmarks: List[PreparedBenchmark]) -> Dict[str, Any]:
+    def run(
+        self, benchmarks: List[PreparedBenchmark], phase: str = "all"
+    ) -> Dict[str, Any]:
+        if phase not in {"all", "inference", "evaluation"}:
+            raise ValueError("phase must be all, inference, or evaluation")
         results = {}
 
         def create_task(benchmark):
@@ -319,31 +344,55 @@ class EvaluationSession:
                 ),
             )
 
-        def save_result(benchmark, result):
+        def save_result(benchmark, result, status="ok"):
             _atomic_json(benchmark.overall_path, result[0])
             results[benchmark.benchmark_id] = {
-                "status": "ok",
+                "status": status,
                 "save": benchmark.save_path,
                 "overall": benchmark.overall_path,
                 "result": result[0],
             }
 
+        def save_inference_only(benchmark, state):
+            # Inference events are already on disk via the recorder; write a
+            # lightweight overall stub so downstream jobs can detect readiness.
+            stub = {
+                "phase": "inference",
+                "inference_fail_count": int(state.get("error_count") or 0),
+                "sample_count": len(state.get("results") or []),
+            }
+            _atomic_json(benchmark.overall_path, stub)
+            results[benchmark.benchmark_id] = {
+                "status": "inference_done",
+                "save": benchmark.save_path,
+                "overall": benchmark.overall_path,
+                "result": stub,
+            }
+
         try:
-            if any(benchmark.two_phase for benchmark in benchmarks):
+            use_phased = phase in {"inference", "evaluation"} or any(
+                benchmark.two_phase for benchmark in benchmarks
+            )
+            if use_phased:
                 # Resource-phased suite: complete every model inference first,
                 # release the shared GPU predictor once, then load/run all
                 # post-processors and evaluators (for example speech ASR).
                 pending = []
                 for benchmark in benchmarks:
                     logger.info(
-                        "Running deferred inference for benchmark %s",
+                        "Running deferred inference for benchmark %s (phase=%s)",
                         benchmark.benchmark_id,
+                        phase,
                     )
                     task = create_task(benchmark)
                     quiz = task.load_quiz(0, 0, 0, 0)
                     state = task.run_inference_phase(quiz, self.inference_workers)
                     pending.append((benchmark, task, quiz, state))
                 self.release()
+                if phase == "inference":
+                    for benchmark, _task, _quiz, state in pending:
+                        save_inference_only(benchmark, state)
+                    return results
                 for benchmark, task, quiz, state in pending:
                     result = task.run_evaluation_phase(
                         quiz,
@@ -440,7 +489,9 @@ def _suite_aggregation_options(
     }
 
 
-def run_suite(config: Dict[str, Any]) -> Dict[str, Any]:
+def run_suite(config: Dict[str, Any], phase: str = "all") -> Dict[str, Any]:
+    if phase not in {"all", "inference", "evaluation"}:
+        raise ValueError("phase must be all, inference, or evaluation")
     for path in config.get("registry_paths") or []:
         registry.add_registry_paths([path])
     model_name = str(config.get("model") or "")
@@ -456,14 +507,29 @@ def run_suite(config: Dict[str, Any]) -> Dict[str, Any]:
     os.makedirs(output_root, exist_ok=True)
 
     aggregation_options = _suite_aggregation_options(config, output_root)
-    benchmarks = prepare_benchmarks(config, model_name, output_root)
-    # This call happens exactly once after all datasets are ready.
-    predictor, inference_workers, using_pool = create_predictor(
-        model_name, _pool_options(config), logger
+    if phase == "inference":
+        # Aggregation needs eval events; skip until the judge job finishes.
+        aggregation_options = None
+    benchmarks = prepare_benchmarks(
+        config, model_name, output_root, phase=phase
     )
+    # This call happens exactly once after all datasets are ready.
+    if phase == "evaluation":
+        from audio_evals.main import ReplayOnlyModel
+
+        logger.info(
+            "Evaluation-only phase: skipping speech SUT load (ReplayOnlyModel)"
+        )
+        predictor = ReplayOnlyModel()
+        inference_workers = 1
+        using_pool = False
+    else:
+        predictor, inference_workers, using_pool = create_predictor(
+            model_name, _pool_options(config), logger
+        )
     session = EvaluationSession(predictor, inference_workers)
     started_at = datetime.now(timezone.utc).isoformat()
-    results = session.run(benchmarks)
+    results = session.run(benchmarks, phase=phase)
     suite_aggregation = None
     if aggregation_options is not None:
         from mesh_eval.scripts.reaggregate_events import aggregate_event_files
@@ -492,6 +558,7 @@ def run_suite(config: Dict[str, Any]) -> Dict[str, Any]:
     manifest = {
         "schema_version": "evaluation-session/1.0",
         "run_id": run_id,
+        "phase": phase,
         "started_at": started_at,
         "completed_at": datetime.now(timezone.utc).isoformat(),
         "model": model_name,
@@ -514,12 +581,18 @@ def main() -> None:
     )
     parser.add_argument("--config", required=True)
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument(
+        "--phase",
+        choices=["all", "inference", "evaluation"],
+        default=os.environ.get("VOXMATRIX_SESSION_PHASE", "all"),
+        help="all=infer+eval; inference=speech SUT only; evaluation=replay judge/ASR only",
+    )
     args = parser.parse_args()
     logging.basicConfig(
         level=logging.DEBUG if args.debug else logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
-    result = run_suite(_load_config(args.config))
+    result = run_suite(_load_config(args.config), phase=args.phase)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

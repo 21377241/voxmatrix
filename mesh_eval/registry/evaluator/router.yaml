@@ -53,6 +53,7 @@ mesh-router-evaluator:
       unauthorized_accept: mesh-authorization
       target_speaker_acc: mesh-target-speaker
       mis_execution: mesh-target-speaker
+      missed_execution: mesh-target-speaker
       speaker_count_acc: mesh-speaker-count
       der: mesh-diarization
       jer: mesh-jer

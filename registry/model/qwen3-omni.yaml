@@ -1,11 +1,76 @@
+# Default stack: vLLM-Omni (qwen3_omni_long_audio/envs/vllm_omni).
+# - Listen→text (SUT + Thinking judge): Omni thinker-only
+# - Speech/TTS: Omni thinker→talker→code2wav (needs ≥2 GPU for bundled deploy)
+# Rollback: *-hf (transformers) / *-plain-vllm (stock vLLM 0.30 thinker)
+
 qwen3-omni-audio:
+  class: audio_evals.models.qwen3_omni_vllm_omni.Qwen3OmniVLLMOmni
+  args:
+    path: /mnt/afs/models/Qwen3-Omni-30B-A3B-Instruct
+    speech: false
+    max_new_tokens: 8192
+    max_model_len: 32768
+    truncation: "false"
+    temperature: 0.0
+    env_path: /mnt/afs/users/wangyl/qwen3_omni_long_audio/envs/vllm_omni
+    requirements_path: ""
+
+qwen3-omni-speech:
+  class: audio_evals.models.qwen3_omni_vllm_omni.Qwen3OmniVLLMOmni
+  args:
+    path: /mnt/afs/models/Qwen3-Omni-30B-A3B-Instruct
+    speech: true
+    speaker: Ethan
+    max_model_len: 32768
+    gpu_memory_utilization: 0.88
+    temperature: 0.6
+    env_path: /mnt/afs/users/wangyl/qwen3_omni_long_audio/envs/vllm_omni
+    requirements_path: ""
+
+# Alias kept for older submit scripts.
+qwen3-omni-speech-vllm-omni:
+  class: audio_evals.models.qwen3_omni_vllm_omni.Qwen3OmniVLLMOmni
+  args:
+    path: /mnt/afs/models/Qwen3-Omni-30B-A3B-Instruct
+    speech: true
+    speaker: Ethan
+    max_model_len: 32768
+    gpu_memory_utilization: 0.88
+    temperature: 0.6
+    env_path: /mnt/afs/users/wangyl/qwen3_omni_long_audio/envs/vllm_omni
+    requirements_path: ""
+
+# Cap thinker tokens for judge; short-output prompt rules in llm_judge_prompts.
+qwen3-omni-thinking:
+  class: audio_evals.models.qwen3_omni_vllm_omni.Qwen3OmniVLLMOmni
+  args:
+    path: /mnt/afs/models/Qwen3-Omni-30B-A3B-Thinking
+    speech: false
+    max_new_tokens: 2048
+    max_model_len: 32768
+    truncation: "false"
+    temperature: 0.0
+    env_path: /mnt/afs/users/wangyl/qwen3_omni_long_audio/envs/vllm_omni
+    requirements_path: ""
+
+# --- Rollbacks ---
+
+qwen3-omni-audio-hf:
   class: audio_evals.models.qwen3_omni.Qwen3Omni
   args:
     path: /mnt/afs/models/Qwen3-Omni-30B-A3B-Instruct
     env_path: envs/qwen3-omni
     requirements_path: audio_evals/lib/qwen3-omni/requirements.txt
 
-qwen3-omni-speech:
+qwen3-omni-thinking-hf:
+  class: audio_evals.models.qwen3_omni.Qwen3Omni
+  args:
+    path: /mnt/afs/models/Qwen3-Omni-30B-A3B-Thinking
+    max_new_tokens: 2048
+    env_path: envs/qwen3-omni
+    requirements_path: audio_evals/lib/qwen3-omni/requirements.txt
+
+qwen3-omni-speech-hf:
   class: audio_evals.models.qwen3_omni.Qwen3Omni
   args:
     path: /mnt/afs/models/Qwen3-Omni-30B-A3B-Instruct
@@ -14,12 +79,23 @@ qwen3-omni-speech:
     env_path: envs/qwen3-omni
     requirements_path: audio_evals/lib/qwen3-omni/requirements.txt
 
-# Cap thinker tokens for judge speed; 128 caused widespread parse_failed (truncated CoT).
-# 512 keeps short score answers while allowing enough reasoning to emit the final score.
-qwen3-omni-thinking:
-  class: audio_evals.models.qwen3_omni.Qwen3Omni
+# Stock vLLM thinker (0.30), pre-Omni migration.
+qwen3-omni-audio-plain-vllm:
+  class: audio_evals.models.qwen3_omni_vllm.Qwen3OmniVLLM
+  args:
+    path: /mnt/afs/models/Qwen3-Omni-30B-A3B-Instruct
+    max_new_tokens: 8192
+    max_model_len: 32768
+    truncation: "false"
+    env_path: /mnt/afs/users/wangyl/qwen3_omni_long_audio/envs/vllm
+    requirements_path: ""
+
+qwen3-omni-thinking-plain-vllm:
+  class: audio_evals.models.qwen3_omni_vllm.Qwen3OmniVLLM
   args:
     path: /mnt/afs/models/Qwen3-Omni-30B-A3B-Thinking
-    max_new_tokens: 512
-    env_path: envs/qwen3-omni
-    requirements_path: audio_evals/lib/qwen3-omni/requirements.txt
+    max_new_tokens: 2048
+    max_model_len: 32768
+    truncation: "false"
+    env_path: /mnt/afs/users/wangyl/qwen3_omni_long_audio/envs/vllm
+    requirements_path: ""

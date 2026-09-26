@@ -42,6 +42,12 @@ MODEL_ENV = Path("/mnt/afs/users/wangyl/VoxMatrix/envs/qwen3-omni")
 OUTPUT = HERE / "output"
 RUNTIME_REGISTRY = OUTPUT / "registry" / "eval_task"
 
+# Catalog capability may be renamed while annotation still uses the historical
+# capability id (spoken_slu ← instruction_following for FSC/SLURP).
+ANNOTATION_CAPABILITY_ALIASES: dict[str, tuple[str, ...]] = {
+    "spoken_slu": ("spoken_slu", "instruction_following"),
+}
+
 
 def _audio_path(row: dict) -> str:
     input_obj = row.get("input") or {}
@@ -163,8 +169,12 @@ def main() -> int:
         for part in str(os.environ.get("NATIVE_SLOT_FILTER") or "").split(",")
         if part.strip()
     }
-    default_model = str(catalog["model"])
-    speech_model = str(catalog["speech_model"])
+    default_model = str(
+        os.environ.get("NATIVE_MODEL") or catalog["model"]
+    )
+    speech_model = str(
+        os.environ.get("NATIVE_SPEECH_MODEL") or catalog["speech_model"]
+    )
     baseline = load_annotation_baseline()
     errors: list[str] = []
     report = {
@@ -220,7 +230,15 @@ def main() -> int:
             continue
         if slot_filter and slot_id not in slot_filter:
             continue
-        coverage = baseline.executable_records(cap_id) if cap_id else []
+        coverage = []
+        for ann_cap in ANNOTATION_CAPABILITY_ALIASES.get(cap_id, (cap_id,)):
+            coverage.extend(baseline.executable_records(ann_cap) if ann_cap else [])
+        if bench_id:
+            coverage = [
+                row
+                for row in coverage
+                if str((row.get("benchmark") or {}).get("id") or "") == bench_id
+            ]
         entry["annotation_records"] = len(coverage)
         entry["annotation_benchmarks"] = sorted(
             {row["benchmark"]["id"] for row in coverage}

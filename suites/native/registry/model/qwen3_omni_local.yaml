@@ -1,11 +1,48 @@
+# Native suite aliases — default stack = vLLM-Omni (envs/vllm_omni).
+
 qwen3-omni-local:
-  class: audio_evals.models.qwen3_omni.Qwen3Omni
+  class: audio_evals.models.qwen3_omni_vllm_omni.Qwen3OmniVLLMOmni
   args:
     path: /mnt/afs/models/Qwen3-Omni-30B-A3B-Instruct
-    env_path: /mnt/afs/users/wangyl/VoxMatrix/envs/qwen3-omni
+    speech: false
+    max_new_tokens: 8192
+    max_model_len: 32768
+    truncation: "false"
+    temperature: 0.0
+    env_path: /mnt/afs/users/wangyl/qwen3_omni_long_audio/envs/vllm_omni
     requirements_path: ""
 
+# Catalog `speech_model` points here; now vLLM-Omni TTS (was HF).
 qwen3-omni-speech-local:
+  class: audio_evals.models.qwen3_omni_vllm_omni.Qwen3OmniVLLMOmni
+  args:
+    path: /mnt/afs/models/Qwen3-Omni-30B-A3B-Instruct
+    speech: true
+    speaker: Ethan
+    speech_output_dir: /mnt/afs/users/wangyl/VoxMatrix-clean/suites/native/output/tts/speech_wavs
+    max_model_len: 32768
+    gpu_memory_utilization: 0.88
+    temperature: 0.6
+    startup_timeout: 3600.0
+    env_path: /mnt/afs/users/wangyl/qwen3_omni_long_audio/envs/vllm_omni
+    requirements_path: ""
+
+# Alias for older submit scripts (same as speech-local).
+qwen3-omni-speech-vllm-omni-local:
+  class: audio_evals.models.qwen3_omni_vllm_omni.Qwen3OmniVLLMOmni
+  args:
+    path: /mnt/afs/models/Qwen3-Omni-30B-A3B-Instruct
+    speech: true
+    speaker: Ethan
+    speech_output_dir: /mnt/afs/users/wangyl/VoxMatrix-clean/suites/native/output/tts/speech_wavs
+    max_model_len: 32768
+    gpu_memory_utilization: 0.88
+    temperature: 0.6
+    startup_timeout: 3600.0
+    env_path: /mnt/afs/users/wangyl/qwen3_omni_long_audio/envs/vllm_omni
+    requirements_path: ""
+
+qwen3-omni-speech-hf-local:
   class: audio_evals.models.qwen3_omni.Qwen3Omni
   args:
     path: /mnt/afs/models/Qwen3-Omni-30B-A3B-Instruct

@@ -541,6 +541,11 @@ def to_runtime_sample(
             continue
         key = "WavPath" if index == 0 else f"WavPath{index + 1}"
         runtime[key] = str(audio["uri"])
+    # Prefer the current-turn path when history audios are listed first in
+    # input.audio (multi_turn / AudioAgentBench). Fallbacks stay audio[0].
+    current_audio = input_obj.get("audio_path")
+    if current_audio not in (None, ""):
+        runtime["WavPath"] = str(current_audio)
     for field in ("question", "instruction", "choices", "turns"):
         if field in input_obj:
             runtime[field] = copy.deepcopy(input_obj[field])

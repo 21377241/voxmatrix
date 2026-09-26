@@ -278,6 +278,25 @@ def test_canonical_runtime_event_projection_and_v1_loader_compatibility():
     assert validate_record(normalized, ref_col="text") == []
 
 
+def test_runtime_wavpath_prefers_audio_path_over_history_head():
+    sample = canonical_sample()
+    sample["input"] = {
+        "audio": [
+            {"uri": "/history/turn_000.wav", "role": "user"},
+            {"uri": "/current/turn_015.wav", "role": "user"},
+        ],
+        "audio_path": "/current/turn_015.wav",
+        "messages": [],
+    }
+    runtime = to_runtime_sample(
+        sample,
+        protocol_mode="formal",
+        run_context={"benchmark_id": "vehicle-asr"},
+    )
+    assert runtime["WavPath"] == "/current/turn_015.wav"
+    assert runtime["WavPath2"] == "/current/turn_015.wav"
+
+
 def test_v2_aggregation_reports_slice_coverage_provenance_and_small_samples():
     rows = [
         {

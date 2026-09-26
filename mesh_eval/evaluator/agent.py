@@ -32,6 +32,10 @@ from mesh_eval.evaluator.utils import (
     f1_from_items,
     reference_object,
 )
+from mesh_eval.evaluator.vocalbench_if import (
+    parse_vocalbench_correct_incorrect,
+    vocalbench_official_judge_prompt,
+)
 
 
 def _as_bool(value: Any) -> Optional[bool]:
@@ -386,11 +390,6 @@ class AgentRubricEvaluator(Evaluator):
     def _resolve_judge(self) -> Callable[..., Any]:
         if self.judge is not None:
             return self.judge
-        if not (os.environ.get("OPENAI_API_KEY") or os.environ.get("LLMCenterUserToken")):
-            raise RuntimeError(
-                f"{self.rubric_kind} judge requires OPENAI_API_KEY or "
-                "LLMCenterUserToken; refusing to emit a numeric score"
-            )
         from audio_evals.registry import registry
 
         model_name = self.model_name
@@ -400,18 +399,86 @@ class AgentRubricEvaluator(Evaluator):
             and os.environ.get("LLMCenterUserToken")
         ):
             model_name = "mb-gpt4o-mini"
-        model = registry.get_model(model_name)
+        local_judge = str(model_name).startswith("qwen3-omni")
+        if not local_judge and not (
+            os.environ.get("OPENAI_API_KEY") or os.environ.get("LLMCenterUserToken")
+        ):
+            raise RuntimeError(
+                f"{self.rubric_kind} judge requires OPENAI_API_KEY or "
+                "LLMCenterUserToken; refusing to emit a numeric score"
+            )
+        # Local vLLM/Omni judges must be process-singletons: registry.get_model()
+        # instantiates a fresh OfflineModel (new GPU subprocess) on every call,
+        # which OOMs when sample N+1 starts while sample N's judge still holds
+        # the cards. Prefer the shared cache used by VoiceBench evaluators.
+        if local_judge:
+            from audio_evals.evaluator.voice_bench import get_judge_model
+
+            model = get_judge_model(model_name)
+        else:
+            model = registry.get_model(model_name)
         if model is None:
             raise RuntimeError(f"judge model is not registered: {model_name}")
 
         def call(payload: Any, **kwargs: Any) -> Any:
             if isinstance(payload, Mapping):
-                if self.rubric_kind == "IHBench":
+                rubric = payload.get("rubric")
+                reference = payload.get("reference") or {}
+                protocol = ""
+                if isinstance(rubric, Mapping):
+                    protocol = str(rubric.get("protocol") or "")
+                lang_hint = str(reference.get("language") or "").lower()
+                if lang_hint.startswith("zh"):
+                    language = "zh"
+                elif lang_hint.startswith("en"):
+                    language = "en"
+                else:
+                    criteria_preview = (
+                        str(rubric.get("judgment_criteria") or "")
+                        if isinstance(rubric, Mapping)
+                        else ""
+                    )
+                    language = (
+                        "zh"
+                        if any("\u4e00" <= ch <= "\u9fff" for ch in criteria_preview[:80])
+                        else "en"
+                    )
+
+                if protocol == "vocalbench_instruction_official" and isinstance(rubric, Mapping):
+                    question = str(
+                        rubric.get("instruction")
+                        or reference.get("question")
+                        or payload.get("prompt")
+                        or ""
+                    )
+                    criteria = str(rubric.get("judgment_criteria") or "")
+                    pred = payload.get("prediction")
+                    # Official semantic stage judges text; if pred is a wav path, ask the
+                    # multimodal judge to transcribe then apply the official criteria.
+                    response_text = pred if not (
+                        isinstance(pred, str) and pred.endswith((".wav", ".flac", ".mp3", ".ogg"))
+                    ) else (
+                        "[Spoken audio attached. Transcribe the spoken response first, then "
+                        "judge only by the Judgment Criteria.]"
+                    )
+                    text_prompt = vocalbench_official_judge_prompt(
+                        question=question,
+                        response=str(response_text),
+                        criteria=criteria or question,
+                        language=language,
+                    )
+                elif self.rubric_kind == "IHBench":
                     output_contract = (
                         'Return JSON only as {"tf_win": 0|0.5|1, '
                         '"rq_pass": 0|1, "reason": string}. Compare the candidate '
                         "with the baseline for task fulfillment (0=baseline wins, "
                         "0.5=tie, 1=candidate wins), then apply all response-quality rubrics."
+                    )
+                    text_prompt = (
+                        "You are a strict speech-agent benchmark judge. "
+                        + output_contract
+                        + "\nEvaluation payload:\n"
+                        + json.dumps(payload, ensure_ascii=False, default=str)
                     )
                 else:
                     output_contract = (
@@ -419,16 +486,45 @@ class AgentRubricEvaluator(Evaluator):
                         "where score is between 0 and 1 and measures satisfaction "
                         "of the supplied benchmark rubric."
                     )
-                prompt = (
-                    "You are a strict speech-agent benchmark judge. "
-                    + output_contract
-                    + "\nEvaluation payload:\n"
-                    + json.dumps(payload, ensure_ascii=False, default=str)
+                    text_prompt = (
+                        "You are a strict speech-agent benchmark judge. "
+                        + output_contract
+                        + "\nEvaluation payload:\n"
+                        + json.dumps(payload, ensure_ascii=False, default=str)
+                    )
+
+                if local_judge:
+                    audio_paths = _prediction_audio_paths(payload.get("prediction"), {})
+                    contents: List[Dict[str, Any]] = []
+                    if self.audio_judge and audio_paths:
+                        contents.extend(
+                            {"type": "audio", "value": path} for path in audio_paths
+                        )
+                    contents.append({"type": "text", "value": text_prompt})
+                    raw = model.inference([{"role": "user", "contents": contents}])
+                else:
+                    raw = model.inference(
+                        text_prompt, temperature=0, max_tokens=2048, **kwargs
+                    )
+            elif local_judge:
+                raw = model.inference(
+                    [
+                        {
+                            "role": "user",
+                            "contents": [{"type": "text", "value": str(payload)}],
+                        }
+                    ]
                 )
             else:
-                prompt = payload
-            return model.inference(prompt, temperature=0, max_tokens=2048, **kwargs)
+                raw = model.inference(
+                    payload, temperature=0, max_tokens=2048, **kwargs
+                )
+            if isinstance(raw, Mapping):
+                return raw.get("text", raw)
+            return raw
 
+        # Cache so subsequent samples reuse the same isolated judge process.
+        self.judge = call
         return call
 
     @staticmethod
@@ -458,6 +554,10 @@ class AgentRubricEvaluator(Evaluator):
     def _parse_judge_result(value: Any) -> Dict[str, Any]:
         if isinstance(value, Mapping):
             return dict(value)
+        # Official VocalBench semantic labels before generic JSON/score parsing.
+        vb = parse_vocalbench_correct_incorrect(value)
+        if vb is not None:
+            return {"score": vb, "reason": str(value)}
         try:
             parsed = extract_json(value)
             if isinstance(parsed, Mapping):

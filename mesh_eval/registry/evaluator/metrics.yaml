@@ -58,6 +58,15 @@ mesh-agent-rubric:
   class: mesh_eval.evaluator.agent.AgentRubricEvaluator
   args: {}
 
+# VocalBench IF speech track: official FR semantic (Correct/Incorrect criteria) +
+# Thinking Omni multimodal judge (Instruct is SUT). Acoustic gates still TBD.
+mesh-agent-rubric-audio:
+  class: mesh_eval.evaluator.agent.AgentRubricEvaluator
+  args:
+    require_audio: true
+    audio_judge: true
+    model_name: qwen3-omni-thinking
+
 mesh-ifeval:
   class: mesh_eval.evaluator.agent.IFEvalAdapter
   args: {}

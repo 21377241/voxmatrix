@@ -161,6 +161,74 @@ def take(gen, limit: int = LIMIT) -> list[dict]:
     return rows
 
 
+def _mmsu_task_key(sample_id: str) -> str:
+    """MMSU_accent_identification_<uuid> -> accent_identification."""
+    sid = str(sample_id or "")
+    if not sid.startswith("MMSU_"):
+        return "unknown"
+    rest = sid[len("MMSU_") :]
+    # uuid segment starts at first hyphen-containing token
+    parts = rest.split("_")
+    for i, part in enumerate(parts):
+        if "-" in part:
+            return "_".join(parts[:i]) if i else "unknown"
+    return rest.rsplit("_", 1)[0] if "_" in rest else rest
+
+
+def build_paralinguistic_mmsu() -> list[dict]:
+    """Closed-label PR: round-robin across MMSU paralinguistic subtasks."""
+    prefixes = MMSU_PREFIX["paralinguistic_recognition"]
+    by_task: dict[str, list[dict]] = {}
+    for row in iter_mmsu(prefixes=prefixes):
+        task = _mmsu_task_key(row["sample_id"])
+        by_task.setdefault(task, []).append(row)
+    # round-robin for subtype diversity
+    rows: list[dict] = []
+    tasks = sorted(by_task)
+    idx = 0
+    while len(rows) < LIMIT and tasks:
+        task = tasks[idx % len(tasks)]
+        bucket = by_task[task]
+        if bucket:
+            rows.append(bucket.pop(0))
+        if not bucket:
+            tasks = [t for t in tasks if by_task[t]]
+            if not tasks:
+                break
+            idx = 0
+            continue
+        idx += 1
+    # apply closed-label rewrite via build_mmsu post-process path
+    out = []
+    for row in rows[:LIMIT]:
+        row = dict(row)
+        row["capability"] = "paralinguistic_recognition"
+        row["protocol"] = "paralinguistic_recognition"
+        question = str(row.get("question") or "")
+        opts = re.findall(r"^([A-D])\.\s*(.+)$", question, flags=re.M)
+        stem = re.split(r"\nA\.\s*", question, maxsplit=1)[0].strip()
+        labels = [text.strip() for _, text in opts]
+        answer = str(row.get("answer") or row.get("text") or "").strip()
+        choice_map = {k: v.strip() for k, v in opts}
+        if answer in choice_map:
+            answer = choice_map[answer]
+        if labels:
+            row["closed_labels"] = labels
+            row["choice_a"] = labels[0] if len(labels) > 0 else ""
+            row["choice_b"] = labels[1] if len(labels) > 1 else ""
+            row["choice_c"] = labels[2] if len(labels) > 2 else ""
+            row["choice_d"] = labels[3] if len(labels) > 3 else ""
+            row["question"] = (
+                f"{stem} Choose exactly one label from: {', '.join(labels)}. "
+                f"Return only the attribute label."
+            )
+        row["answer"] = answer
+        row["text"] = answer
+        row["subset"] = _mmsu_task_key(row["sample_id"])
+        out.append(row)
+    return out
+
+
 def build_mavd() -> list[dict]:
     """Crop short event windows from L0 MAVD flac using timestamps."""
     jsonl = Path("/mnt/afs/eval_data/benchmarks/MAVD-traffic/manifests/sound_event.jsonl")
@@ -268,6 +336,26 @@ def build_sonyc() -> list[dict]:
     return rows
 
 
+def _strip_mcq_stem(question: str) -> str:
+    """Drop A/B/C/D choice blocks (newline or inline after 'select from...')."""
+    text = str(question or "").strip()
+    text = re.split(
+        r"(?i)\s*Please select from the choices below\s*:", text, maxsplit=1
+    )[0].strip()
+    text = re.split(r"\nA\.\s*", text, maxsplit=1)[0].strip()
+    text = re.split(r"\s+A\.\s+", text, maxsplit=1)[0].strip()
+    return text
+
+
+def _open_qa_instruction(stem: str, *, zh: bool = False) -> str:
+    stem = stem.strip()
+    if zh:
+        return f"{stem}\n\n根据音频作答，只输出答案。"
+    return (
+        f"{stem}\n\nAnswer the question using the audio. Output only the answer."
+    )
+
+
 def build_mmsu(capability: str) -> list[dict]:
     if capability == "audio_reasoning":
         rows = take(iter_mmsu(exclude=MMSU_REASONING_EXCLUDE))
@@ -284,9 +372,40 @@ def build_mmsu(capability: str) -> list[dict]:
             row["question"] = (
                 f"{question}\n\nAnswer the question using the audio. Output only the answer."
             )
-        elif capability == "acoustic_scene":
-            # Keep the four scene options, but ask for the scene label (not A/B/C/D)
-            # so scoring matches other AS slots via mesh-classification.
+        elif capability == "audio_reasoning":
+            # Source is MCQ; Native AR is open QA (option text as gold).
+            question = str(row.get("question") or "")
+            opts = re.findall(r"^([A-D])\.\s*(.+)$", question, flags=re.M)
+            choice_map = {k: v.strip() for k, v in opts}
+            stem = _strip_mcq_stem(question)
+            answer = str(row.get("answer") or row.get("text") or "").strip()
+            answer_letter = ""
+            if answer in choice_map:
+                answer_letter = answer
+                answer = choice_map[answer]
+            elif answer.upper() in choice_map:
+                answer_letter = answer.upper()
+                answer = choice_map[answer_letter]
+            else:
+                for letter, text in choice_map.items():
+                    if text == answer:
+                        answer_letter = letter
+                        break
+            row["question_mcq_original"] = question
+            if choice_map:
+                row["choice_a"] = choice_map.get("A", "")
+                row["choice_b"] = choice_map.get("B", "")
+                row["choice_c"] = choice_map.get("C", "")
+                row["choice_d"] = choice_map.get("D", "")
+            if answer_letter:
+                row["answer_letter"] = answer_letter
+            row["question"] = _open_qa_instruction(stem)
+            row["answer"] = answer
+            row["text"] = answer
+            row["protocol"] = "open_qa"
+        elif capability in ("acoustic_scene", "sound_event", "paralinguistic_recognition"):
+            # Keep the four options, but ask for the label text (not A/B/C/D)
+            # so scoring matches other closed slots via mesh-classification.
             question = str(row.get("question") or "")
             opts = re.findall(r"^([A-D])\.\s*(.+)$", question, flags=re.M)
             stem = re.split(r"\nA\.\s*", question, maxsplit=1)[0].strip()
@@ -294,6 +413,11 @@ def build_mmsu(capability: str) -> list[dict]:
             answer = str(row.get("answer") or row.get("text") or "").strip()
             if answer in dict(opts):
                 answer = dict(opts)[answer].strip()
+            kind = {
+                "acoustic_scene": "scene",
+                "sound_event": "event",
+                "paralinguistic_recognition": "attribute",
+            }[capability]
             if labels:
                 row["closed_labels"] = labels
                 row["choice_a"] = labels[0] if len(labels) > 0 else ""
@@ -302,7 +426,7 @@ def build_mmsu(capability: str) -> list[dict]:
                 row["choice_d"] = labels[3] if len(labels) > 3 else ""
                 row["question"] = (
                     f"{stem} Choose exactly one label from: {', '.join(labels)}. "
-                    f"Return only the scene label."
+                    f"Return only the {kind} label."
                 )
             row["answer"] = answer
             row["text"] = answer
@@ -360,11 +484,32 @@ def build_msswift_caption(jsonl: Path, root: Path, dataset: str) -> list[dict]:
     return rows
 
 
+def _esc50_closed_labels(meta: Path) -> list[str]:
+    cats: set[str] = set()
+    with meta.open(encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            cat = str(row.get("category") or "").strip()
+            if cat:
+                cats.add(cat)
+    return sorted(cats)
+
+
 def build_esc50() -> list[dict]:
+    """Fold-5 ESC-50 closed-set smoke: one sample per class when possible.
+
+    Never put the gold label into ``question`` (old leak made accuracy fake).
+    Prefer the audited 8p31 smoke via ``migrate_sound_event_p8`` when registered.
+    """
     root = Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/ESC-50/ESC-50-master")
     meta = root / "meta" / "esc50.csv"
     audio = root / "audio"
-    rows = []
+    closed = _esc50_closed_labels(meta)
+    prompt = (
+        "Return exactly one ESC-50 label from this list: "
+        + ", ".join(closed)
+        + ". Return only the event label."
+    )
+    by_cat: dict[str, list[dict]] = {}
     with meta.open(encoding="utf-8") as handle:
         for row in csv.DictReader(handle):
             if str(row.get("fold")) != "5":
@@ -372,8 +517,8 @@ def build_esc50() -> list[dict]:
             wav = audio / row["filename"]
             if not wav.is_file():
                 continue
-            label = row["category"]
-            rows.append(
+            label = str(row["category"]).strip()
+            by_cat.setdefault(label, []).append(
                 {
                     "sample_id": f"esc50_{Path(row['filename']).stem}",
                     "dataset": "esc50",
@@ -382,13 +527,179 @@ def build_esc50() -> list[dict]:
                     "WavPath": str(wav),
                     "text": label,
                     "answer": label,
-                    "question": f"Identify the sound event. Label: {label}",
+                    "closed_labels": closed,
+                    "question": prompt,
                     "source_index": str(meta),
                 }
             )
-            if len(rows) >= LIMIT:
+    # round-robin across classes for diversity
+    rows: list[dict] = []
+    cats = sorted(by_cat)
+    idx = 0
+    while len(rows) < LIMIT and cats:
+        cat = cats[idx % len(cats)]
+        bucket = by_cat[cat]
+        if bucket:
+            rows.append(bucket.pop(0))
+        if not bucket:
+            cats = [c for c in cats if by_cat[c]]
+            if not cats:
                 break
+            idx = 0
+            continue
+        idx += 1
+    return rows[:LIMIT]
+
+
+def migrate_sound_event_p8(bench: str) -> list[dict]:
+    """Import audited 8p31 sound_event smoke (闭集 / 切片 / 多标签)."""
+    src = P8 / f"sound_event_{bench}_smoke" / f"sound_event_{bench}_10.jsonl"
+    rows = migrate_smoke_manifest(src, "sound_event", bench, f"sound_event_{bench}")
+    for row in rows:
+        row["capability"] = "sound_event"
+        if bench == "mmsu":
+            labels = [
+                str(row.get(k) or "").strip()
+                for k in ("choice_a", "choice_b", "choice_c", "choice_d")
+                if str(row.get(k) or "").strip()
+            ]
+            stem = re.split(
+                r"\nA\.\s*", str(row.get("question") or ""), maxsplit=1
+            )[0].strip()
+            answer = str(row.get("answer") or row.get("text") or "").strip()
+            letter_map = {
+                "A": row.get("choice_a"),
+                "B": row.get("choice_b"),
+                "C": row.get("choice_c"),
+                "D": row.get("choice_d"),
+            }
+            if answer in letter_map and letter_map[answer]:
+                answer = str(letter_map[answer]).strip()
+            if labels:
+                row["closed_labels"] = labels
+                row["question"] = (
+                    f"{stem} Choose exactly one label from: {', '.join(labels)}. "
+                    f"Return only the event label."
+                )
+            row["answer"] = answer
+            row["text"] = answer
+            row["protocol"] = "sound_event"
+        elif bench in ("mavd_traffic", "sonyc_ust_v23"):
+            labels = row.get("labels") or row.get("answer")
+            if isinstance(labels, str):
+                labels = [x.strip() for x in labels.split(",") if x.strip()]
+            if not isinstance(labels, list):
+                labels = [str(labels)] if labels else []
+            labels = [str(x).strip() for x in labels if str(x).strip()]
+            row["labels"] = labels
+            row["answer"] = labels
+            row["text"] = ", ".join(labels)
+            row["protocol"] = row.get("protocol") or "sound_event_multilabel"
+            closed = (
+                MAVD_CLOSED_LABELS if bench == "mavd_traffic" else SONYC_CLOSED_LABELS
+            )
+            row["closed_labels"] = list(closed)
+            if bench == "mavd_traffic":
+                row["question"] = (
+                    "Identify all traffic sound events present in the audio. "
+                    "Choose zero or more labels from this closed list only: "
+                    + ", ".join(closed)
+                    + ". Return a comma-separated list of labels from the list, "
+                    "with no explanations."
+                )
+            else:
+                row["question"] = (
+                    "Name the prominent urban sound event(s) you hear. "
+                    "Choose zero or more labels from this closed list only: "
+                    + ", ".join(closed)
+                    + ". Return a comma-separated list of labels from the list, "
+                    "with no explanations."
+                )
+        else:
+            # esc50 / tut: keep closed-set question from 8p31
+            answer = str(row.get("answer") or row.get("text") or "").strip()
+            row["answer"] = answer
+            row["text"] = answer
+            row["protocol"] = row.get("protocol") or "sound_event"
+            if bench == "tut_sound_events_2017" and not str(row.get("question") or "").strip():
+                closed = row.get("closed_labels") or [
+                    "brakes squeaking",
+                    "car",
+                    "children",
+                    "large vehicle",
+                    "people speaking",
+                    "people walking",
+                ]
+                row["closed_labels"] = closed
+                row["question"] = (
+                    "Identify the labelled sound event. Choose exactly one label from: "
+                    + ", ".join(closed)
+                    + ". Return only the event label."
+                )
     return rows
+
+
+MAVD_CLOSED_LABELS = [
+    "bus",
+    "bus/brakes",
+    "bus/compressor",
+    "bus/engine_accelerating",
+    "bus/engine_idling",
+    "bus/wheel_rolling",
+    "car",
+    "car/brakes",
+    "car/engine_accelerating",
+    "car/engine_idling",
+    "car/wheel_rolling",
+    "chatter",
+    "motorcycle",
+    "motorcycle/brakes",
+    "motorcycle/engine_accelerating",
+    "motorcycle/engine_idling",
+    "music",
+    "other",
+    "truck",
+    "truck/brakes",
+    "truck/compressor",
+    "truck/engine_accelerating",
+    "truck/engine_idling",
+]
+
+SONYC_CLOSED_LABELS = [
+    "alert signal",
+    "car alarm",
+    "car horn",
+    "chainsaw",
+    "dog",
+    "dog barking whining",
+    "engine",
+    "engine of uncertain size",
+    "hoe ram",
+    "human voice",
+    "jackhammer",
+    "large crowd",
+    "large sounding engine",
+    "machinery impact",
+    "medium sounding engine",
+    "mobile music",
+    "music",
+    "music from uncertain source",
+    "non machinery impact",
+    "other unknown alert signal",
+    "other unknown human voice",
+    "other unknown impact machinery",
+    "other unknown powered saw",
+    "person or small group shouting",
+    "person or small group talking",
+    "pile driver",
+    "powered saw",
+    "reverse beeper",
+    "rock drill",
+    "siren",
+    "small medium rotating saw",
+    "small sounding engine",
+    "stationary music",
+]
 
 
 def build_spoken_squad() -> list[dict]:
@@ -432,6 +743,7 @@ def build_spoken_squad() -> list[dict]:
 def build_vocalbench_json(path: Path, dataset: str, capability: str, root: Path) -> list[dict]:
     data = json.loads(path.read_text(encoding="utf-8"))
     rows = []
+    zh = "zh" in dataset.lower() or "zh" in path.name.lower()
     for item in data:
         if len(rows) >= LIMIT:
             break
@@ -452,12 +764,14 @@ def build_vocalbench_json(path: Path, dataset: str, capability: str, root: Path)
         ).strip()
         if not answer:
             continue
+        if capability == "audio_reasoning" and question:
+            question = _open_qa_instruction(question, zh=zh)
         rows.append(
             {
                 "sample_id": str(item.get("Qid") or item.get("id") or f"{dataset}_{len(rows):04d}"),
                 "dataset": dataset,
                 "capability": capability,
-                "protocol": capability,
+                "protocol": "open_qa" if capability == "audio_reasoning" else capability,
                 "WavPath": str(wav),
                 "question": question,
                 "answer": answer,
@@ -495,12 +809,19 @@ def build_uro(path: Path, capability: str) -> list[dict]:
             ).strip()
             if not answer:
                 continue
+            protocol = capability
+            if capability == "audio_reasoning" and question:
+                # MuChoEval (MuChoMusic) MCQ has intentional IR/CU/IU distractors;
+                # Native AR uses open QA (short-label gold), not the MCQ protocol.
+                stem = _strip_mcq_stem(question)
+                question = _open_qa_instruction(stem)
+                protocol = "open_qa"
             rows.append(
                 {
                     "sample_id": str(doc.get("id") or f"uro_{len(rows):04d}"),
                     "dataset": "uro_bench",
                     "capability": capability,
-                    "protocol": capability,
+                    "protocol": protocol,
                     "WavPath": str(wav),
                     "question": question,
                     "answer": answer,
@@ -828,41 +1149,212 @@ def migrate_smoke_manifest(src: Path, capability: str, dataset: str, dest_name: 
     return rows
 
 
+def _qa_answer_text(answer) -> str:
+    if isinstance(answer, list):
+        parts = [str(x).strip() for x in answer if x is not None and str(x).strip()]
+        return parts[0] if parts else ""
+    if answer is None:
+        return ""
+    return str(answer).strip()
+
+
+def migrate_qa_p8_smoke(
+    src: Path,
+    dataset: str,
+    *,
+    require_answer: bool = True,
+    short_track_only: bool = False,
+) -> list[dict]:
+    """Import 8p31 QA smoke metadata (乙组抽样) into Native indexes."""
+    if not src.is_file():
+        return []
+    rows: list[dict] = []
+    for line in src.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        doc = json.loads(line)
+        if short_track_only:
+            track = doc.get("qa_track")
+            sid = str(doc.get("sample_id") or "")
+            if track == "open":
+                continue
+            if track not in ("short", None) and not (
+                sid.startswith("knowledge-") or sid.startswith("chinese_knowledge-")
+            ):
+                continue
+        wav = Path(doc.get("WavPath") or doc.get("audio_locator") or "")
+        if not wav.is_file():
+            continue
+        answer_text = _qa_answer_text(doc.get("answer"))
+        if require_answer and not answer_text:
+            continue
+        question = str(doc.get("question") or "").strip()
+        if not question:
+            continue
+        rows.append(
+            {
+                "sample_id": str(doc.get("sample_id") or f"{dataset}_{len(rows):04d}"),
+                "dataset": dataset,
+                "capability": "qa",
+                "protocol": "qa",
+                "subset": doc.get("subset_id") or doc.get("subset"),
+                "WavPath": str(wav),
+                "question": question,
+                "answer": answer_text,
+                "text": answer_text,
+                "answers": doc.get("answer") if isinstance(doc.get("answer"), list) else None,
+                "qa_track": doc.get("qa_track") or "short",
+                "source_index": str(src),
+                "record_id": doc.get("record_id"),
+            }
+        )
+        if len(rows) >= LIMIT:
+            break
+    return rows
+
+
+def build_qa_vocalbench_from_p8() -> list[dict]:
+    """Catalog knowledge short-track: use 8p31 knowledge smoke, pad to 10."""
+    short = migrate_qa_p8_smoke(
+        P8 / "qa_vocalbench_smoke" / "qa_vocalbench_knowledge_10.jsonl",
+        "vocalbench",
+    )
+    if len(short) < LIMIT:
+        short = migrate_qa_p8_smoke(
+            P8 / "qa_vocalbench_smoke" / "qa_vocalbench_10.jsonl",
+            "vocalbench",
+            short_track_only=True,
+        )
+    if len(short) >= LIMIT:
+        return short[:LIMIT]
+    have = {r["sample_id"] for r in short}
+    data = json.loads(
+        Path(
+            "/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench/json/knowledge.json"
+        ).read_text(encoding="utf-8")
+    )
+    root = Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench")
+    step = max(1, len(data) // 40)
+    for idx in range(0, len(data), step):
+        if len(short) >= LIMIT:
+            break
+        item = data[idx]
+        sid = str(item.get("Qid") or item.get("id") or "")
+        if not sid or sid in have:
+            continue
+        rel = item.get("Audio") or item.get("audio") or ""
+        wav = root / "audio" / rel
+        if not wav.is_file():
+            wav = root / rel
+        if not wav.is_file():
+            continue
+        answer = str(item.get("Answer") or item.get("answer") or "").strip()
+        question = str(item.get("Question") or item.get("question") or "").strip()
+        if not answer or not question:
+            continue
+        short.append(
+            {
+                "sample_id": sid,
+                "dataset": "vocalbench",
+                "capability": "qa",
+                "protocol": "qa",
+                "subset": "knowledge",
+                "WavPath": str(wav),
+                "question": question,
+                "answer": answer,
+                "text": answer,
+                "qa_track": "short",
+                "source_index": str(root / "json" / "knowledge.json"),
+            }
+        )
+        have.add(sid)
+    return short[:LIMIT]
+
+
+def build_qa_uro_from_p8() -> list[dict]:
+    """Keep 8p31 rows with gold; pad with APE-zh target_text items."""
+    rows = migrate_qa_p8_smoke(
+        P8 / "qa_uro_bench_smoke" / "qa_uro_bench_10.jsonl",
+        "uro_bench",
+        require_answer=True,
+    )
+    if len(rows) >= LIMIT:
+        return rows[:LIMIT]
+    have = {r["sample_id"] for r in rows}
+    for extra in build_uro(
+        Path(
+            "/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/URO-Bench/basic/APE-zh/test.jsonl"
+        ),
+        "qa",
+    ):
+        if len(rows) >= LIMIT:
+            break
+        if extra["sample_id"] in have:
+            continue
+        rows.append(extra)
+        have.add(extra["sample_id"])
+    return rows[:LIMIT]
+
+
+def build_qa_voicebench_from_p8() -> list[dict]:
+    """8p31 MMSU-open gold (2) + openbookqa pad (has reference + wav)."""
+    rows = migrate_qa_p8_smoke(
+        P8 / "qa_voicebench_smoke" / "qa_voicebench_mmsu_open_2.jsonl",
+        "voicebench",
+        require_answer=True,
+    )
+    if len(rows) >= LIMIT:
+        return rows[:LIMIT]
+    have = {r["sample_id"] for r in rows}
+    for extra in build_voicebench_parquet("qa"):
+        if len(rows) >= LIMIT:
+            break
+        if extra["sample_id"] in have:
+            continue
+        rows.append(extra)
+        have.add(extra["sample_id"])
+    return rows[:LIMIT]
+
+
 def build_voicebench_parquet(capability: str) -> list[dict]:
+    """VoiceBench: prefer subsets with gold + exported wav under VoiceBench_wav."""
     import pyarrow.parquet as pq
 
     root = Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/AudioBench/VoiceBench")
+    wav_root = Path(
+        "/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/AudioBench/VoiceBench_wav/wav"
+    )
     if capability == "qa":
-        path = root / "alpacaeval_full" / "test-00000-of-00001.parquet"
+        # openbookqa has reference letters; alpacaeval_full is open-ended (no gold).
+        subset = "openbookqa"
+        path = root / "openbookqa" / "test-00000-of-00001.parquet"
+        shard = "test-00000-of-00001"
     else:
+        subset = "bbh"
         path = root / "bbh" / "test-00000-of-00023.parquet"
+        shard = "test-00000-of-00023"
     if not path.is_file():
         return []
     table = pq.read_table(path)
     rows = []
-    for i in range(min(LIMIT * 5, table.num_rows)):
+    for i in range(table.num_rows):
         if len(rows) >= LIMIT:
             break
         item = {col: table.column(col)[i].as_py() for col in table.column_names}
-        # VoiceBench often embeds audio bytes; skip if no path
-        audio = item.get("audio") or item.get("path") or item.get("file")
         answer = item.get("reference") or item.get("answer") or item.get("output")
         question = item.get("prompt") or item.get("question") or ""
-        wav = None
-        if isinstance(audio, dict) and audio.get("path"):
-            wav = Path(audio["path"])
-        elif isinstance(audio, str) and Path(audio).is_file():
-            wav = Path(audio)
-        if wav is None or not wav.is_file():
-            continue
         if answer in (None, ""):
+            continue
+        wav = wav_root / subset / shard / f"{shard}_row{i}.wav"
+        if not wav.is_file():
             continue
         rows.append(
             {
-                "sample_id": f"voicebench_{capability}_{i}",
+                "sample_id": f"voicebench_{subset}_{i}",
                 "dataset": "voicebench",
                 "capability": capability,
                 "protocol": capability,
+                "subset": subset,
                 "WavPath": str(wav),
                 "question": str(question),
                 "answer": str(answer),
@@ -902,35 +1394,39 @@ def register():
         Path("/mnt/afs/oss_data/datasets/99_auxiliary_or_out_of_scope/Clotho"),
         "clotho",
     )
-    BUILDERS[("sound_event", "esc50")] = build_esc50
-    BUILDERS[("qa", "spoken_squad")] = build_spoken_squad
+    BUILDERS[("sound_event", "esc50")] = lambda: migrate_sound_event_p8("esc50") or build_esc50()
+    BUILDERS[("qa", "spoken_squad")] = lambda: migrate_qa_p8_smoke(
+        P8 / "qa_spoken_squad_smoke" / "qa_spoken_squad_10.jsonl",
+        "spoken_squad",
+    )
     BUILDERS[("speech_translation", "covost2")] = build_covost
     BUILDERS[("speech_generation", "libritts")] = build_libritts
     BUILDERS[("speaker_verification", "voxceleb1")] = build_voxceleb1
 
     for cap in (
         "acoustic_scene",
-        "sound_event",
         "code_switch",
         "speech_translation",
         "spoof_detection",
         "speaker_count",
-        "paralinguistic_recognition",
         "audio_reasoning",
     ):
         BUILDERS[(cap, "mmsu")] = lambda c=cap: build_mmsu(c)
-
-    BUILDERS[("qa", "vocalbench")] = lambda: build_vocalbench_json(
-        Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench/json/knowledge.json"),
-        "vocalbench",
-        "qa",
-        Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench"),
+    # Prefer audited 8p31 MMSU non-verbal smoke (closed label text + mesh-classification).
+    BUILDERS[("sound_event", "mmsu")] = (
+        lambda: migrate_sound_event_p8("mmsu") or build_mmsu("sound_event")
     )
-    BUILDERS[("qa", "vocalbench_zh")] = lambda: build_vocalbench_json(
-        Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench-zh/json/chinese_knowledge.json"),
+    BUILDERS[("paralinguistic_recognition", "mmsu")] = build_paralinguistic_mmsu
+
+    BUILDERS[("qa", "vocalbench")] = build_qa_vocalbench_from_p8
+    BUILDERS[("qa", "vocalbench_zh")] = lambda: migrate_qa_p8_smoke(
+        P8 / "qa_vocalbench_zh_smoke" / "qa_vocalbench_zh_10.jsonl",
         "vocalbench_zh",
-        "qa",
-        Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench-zh"),
+    )
+    BUILDERS[("qa", "uro_bench")] = build_qa_uro_from_p8
+    BUILDERS[("qa", "ear_wdyl")] = lambda: migrate_qa_p8_smoke(
+        P8 / "qa_ear_wdyl_smoke" / "qa_ear_wdyl_10.jsonl",
+        "ear_wdyl",
     )
     BUILDERS[("audio_reasoning", "vocalbench")] = lambda: build_vocalbench_json(
         Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench/json/reasoning.json"),
@@ -949,10 +1445,6 @@ def register():
         build_code_switch_vocalbench_open_ended
     )
 
-    BUILDERS[("qa", "uro_bench")] = lambda: build_uro(
-        Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/URO-Bench/basic/APE-zh/test.jsonl"),
-        "qa",
-    )
     BUILDERS[("audio_reasoning", "uro_bench")] = lambda: build_uro(
         Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/URO-Bench/pro/MuChoEval-en/test.jsonl"),
         "audio_reasoning",
@@ -969,19 +1461,23 @@ def register():
         "tut_sound_events_2017",
     )
     BUILDERS[("acoustic_scene", "tut_urban_acoustic_scenes_2018_mobile")] = build_tut2018
-    # Build directly from the external L0 manifests.  Do not use prior native
-    # JSONL output as an implicit source of truth.
-    BUILDERS[("sound_event", "mavd_traffic")] = build_mavd
-    BUILDERS[("sound_event", "sonyc_ust_v23")] = build_sonyc
-    BUILDERS[("sound_event", "tut_sound_events_2017")] = lambda: build_from_l0_manifest(
-        Path("/mnt/afs/eval_data/benchmarks/TUT-Sound-Events-2017/manifests/sound_event.jsonl"),
-        "sound_event",
-        "tut_sound_events_2017",
+    # Prefer audited 8p31 smoke (MAVD/TUT event clips + multilabel / closed-set).
+    # Fallback builders still exist for offline rebuild without 8p31.
+    BUILDERS[("sound_event", "mavd_traffic")] = (
+        lambda: migrate_sound_event_p8("mavd_traffic") or build_mavd()
     )
-    BUILDERS[("qa", "ear_wdyl")] = lambda: build_from_l0_manifest(
-        Path("/mnt/afs/eval_data/benchmarks/EAR/manifests/ear_wdyl.jsonl"),
-        "qa",
-        "ear_wdyl",
+    BUILDERS[("sound_event", "sonyc_ust_v23")] = (
+        lambda: migrate_sound_event_p8("sonyc_ust_v23") or build_sonyc()
+    )
+    BUILDERS[("sound_event", "tut_sound_events_2017")] = (
+        lambda: migrate_sound_event_p8("tut_sound_events_2017")
+        or build_from_l0_manifest(
+            Path(
+                "/mnt/afs/eval_data/benchmarks/TUT-Sound-Events-2017/manifests/sound_event.jsonl"
+            ),
+            "sound_event",
+            "tut_sound_events_2017",
+        )
     )
 
     # diar / attr / target_speaker: migrate physical clips into eval_clips
@@ -1023,9 +1519,20 @@ def register():
     )
 
     def voicebench_qa():
-        return build_voicebench_parquet("qa")
+        return build_qa_voicebench_from_p8()
 
     def voicebench_ar():
+        # Prefer 8p31 BBH smoke (exported wav + gold); parquet VoiceBench_wav
+        # layout is incomplete for bbh shards.
+        rows = migrate_qa_p8_smoke(
+            P8 / "audio_reasoning_voicebench_smoke" / "audio_reasoning_voicebench_10.jsonl",
+            "voicebench",
+        )
+        for row in rows:
+            row["capability"] = "audio_reasoning"
+            row["protocol"] = "open_qa"
+        if len(rows) >= LIMIT:
+            return rows[:LIMIT]
         return build_voicebench_parquet("audio_reasoning")
 
     BUILDERS[("qa", "voicebench")] = voicebench_qa

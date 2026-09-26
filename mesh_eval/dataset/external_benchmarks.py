@@ -11,6 +11,7 @@ from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple
 
 from audio_evals.config import get_environment
 from mesh_eval.dataset.full_eval import FullEvalDataset
+from mesh_eval.evaluator.vocalbench_if import rubric_mapping_from_item
 
 
 DEFAULT_AUDIO_AGENT_ROOT = Path(
@@ -921,20 +922,18 @@ class VocalBenchDataset(_T4NativeDataset):
         for index, item in enumerate(payload):
             audio_path = self.root / "audio" / str(item.get("Audio") or item.get("audio"))
             if instruction:
-                # VocalBench's first 200 instruction examples include speech
-                # style/emotion/speed requirements; text-only output cannot
-                # receive a complete official score for these rows.
-                requires_audio = index < 200
+                # Native IF policy: VocalBench instruction_following is scored as
+                # full speech output (content + delivery constraints). Text-only
+                # preds are not a complete official score for this benchmark.
+                requires_audio = True
                 reference = {
                     "question": item.get("Question"),
-                    "rubric": {
-                        "instruction": item.get("Question"),
-                        "category": item.get("Category"),
-                        "subcategory": item.get("Sub-category"),
-                    },
+                    "rubric": rubric_mapping_from_item(item, self.language),
                     "instruction_ids": _nonempty(item.get("instruction_id_list"), _nonempty(item.get("instruction_ids"), [])),
                     "kwargs": _nonempty(item.get("kwargs"), []),
                     "requires_audio_output": requires_audio,
+                    "text_emo": item.get("Text_emo"),
+                    "language": self.language,
                 }
                 row = {
                     "dataset": self.dataset_id,
@@ -943,19 +942,33 @@ class VocalBenchDataset(_T4NativeDataset):
                     "scenario": "phone",
                     "condition": {"acoustic": "clean", "spatial": "near_field", "speaker": "single_speaker", "device": "phone_mic", "interaction": "single_turn"},
                     "metrics": ["constraint_satisfaction"],
-                    "evaluators": ["mesh-agent-rubric"],
+                    "evaluators": ["mesh-agent-rubric-audio"],
                     "prompt_name": "mesh-agent-rubric",
-                    "answer_type": "audio" if requires_audio else "text",
-                    "output_schema": "audio@1" if requires_audio else "answer@1",
-                    "parser_name": "generated_audio@1" if requires_audio else "answer_text@1",
+                    "answer_type": "audio",
+                    "output_schema": "audio@1",
+                    "parser_name": "generated_audio@1",
                     "required_reference": ["rubric"],
                     "use_bucket": "diagnostic_evidence",
                     "split": "test",
                     "language": self.language,
-                    "input": {"audio": _audio_descriptor_input([str(audio_path)]), "audio_path": str(audio_path), "question": "Follow every spoken instruction exactly and return only the requested result."},
+                    "input": {
+                        "audio": _audio_descriptor_input([str(audio_path)]),
+                        "audio_path": str(audio_path),
+                        "question": (
+                            "Listen to the spoken instruction. Produce a spoken response that "
+                            "satisfies every content and delivery constraint (including emotion, "
+                            "speed, format, and length). Speak the answer; do not only return text."
+                        ),
+                    },
                     "reference": reference,
                     "sample_id": f"{self.dataset_id}_instruction_{item.get('Qid', index)}",
-                    "label_meta": {"sources": {"audio_path": "native", "reference": "native"}, "question": item.get("Question"), "requires_audio_output": requires_audio},
+                    "label_meta": {
+                        "sources": {"audio_path": "native", "reference": "native"},
+                        "question": item.get("Question"),
+                        "category": item.get("Category"),
+                        "subcategory": item.get("Sub-category"),
+                        "requires_audio_output": requires_audio,
+                    },
                 }
             else:
                 context = item.get("Context") or []
@@ -984,9 +997,41 @@ class VocalBenchDataset(_T4NativeDataset):
                     "label_meta": {"sources": {"audio_path": "native", "answer": "native"}, "context_turns": len(context)},
                 }
             rows.append(row)
-            if limit and len(rows) >= limit:
-                break
+        if instruction and limit:
+            return _stratify_vocalbench_instruction(rows, limit)
+        if limit:
+            return rows[:limit]
         return rows
+
+
+def _stratify_vocalbench_instruction(rows: List[Dict[str, Any]], limit: int) -> List[Dict[str, Any]]:
+    """Round-robin across Category so Native smoke is not stuck on Paralinguistic."""
+    if limit <= 0 or limit >= len(rows):
+        return rows[:limit] if limit else rows
+    buckets: Dict[str, List[Dict[str, Any]]] = {}
+    for row in rows:
+        category = str(
+            ((row.get("label_meta") or {}).get("category"))
+            or ((row.get("reference") or {}).get("rubric") or {}).get("category")
+            or "unknown"
+        )
+        buckets.setdefault(category, []).append(row)
+    order = sorted(buckets.keys())
+    selected: List[Dict[str, Any]] = []
+    index = 0
+    while len(selected) < limit:
+        progressed = False
+        for category in order:
+            bucket = buckets[category]
+            if index < len(bucket):
+                selected.append(bucket[index])
+                progressed = True
+                if len(selected) >= limit:
+                    break
+        if not progressed:
+            break
+        index += 1
+    return selected
 
 
 class StepEvalAudioToolCallDataset(_T4NativeDataset):

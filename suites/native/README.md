@@ -64,6 +64,7 @@ bash suites/native/submit.sh
 - 异构指标不能合成 NativeVoiceBench 总分。
 - `ok`：可行性分；`diagnostic`：链路通，不当主榜；`blocked`：无数据或协议无效。
 - `code_switch` 当前为混语 QA（adapted）：MMSU / open_ended 用 ROUGE-L，knowledge 用 qa-exist-match；语义辅轨走 LLM-Judge（见 `scripts/submit_code_switch_local_judge.sh`）。无 MER 主榜。
+- `audio_reasoning`：统一 open QA；MMSU/VocalBench 用 ROUGE-L，URO/VocalBench-zh/VoiceBench 用 qa-exist-match；语义辅轨 LLM-Judge（见 `scripts/submit_audio_reasoning_local_judge.sh`）。
 - `target_speaker` 不是 VoxCeleb：AISHELL-5 注册对，`WavPath`/`WavPath2` 在 `eval_clips/`。
 - `long_form_asr` 不是整场会：固定 30–60s 窗，与句级 `asr` 区分；构建输入来自 L0 时间戳 / msswift，不经 utt_clips。
 - `diarization` / `speaker_attribution`：30s 窗在 `eval_clips/<cap>/<bench>/`，不再引用 `smoke_diar_all` / `smoke_attr_all`。

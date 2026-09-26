@@ -36,13 +36,32 @@ READY_SENTINEL = "__QWEN3_OMNI_READY__"
 
 def load_model(path, **kwargs):
     stage(f"load_model_start path={path}")
-    model = Qwen3OmniMoeForConditionalGeneration.from_pretrained(
-        path,
-        torch_dtype="auto",
-        device_map="auto",
-        attn_implementation="flash_attention_2",
+    # Single-GPU Native jobs: pin to cuda:0. device_map="auto" can place
+    # layers/tensors on CPU; flash_attention_2 then fails with
+    # NotImplementedError (... arguments from the 'CPU' backend).
+    load_args = {
+        "torch_dtype": "auto",
+        "device_map": "cuda:0",
         **kwargs,
-    )
+    }
+    try:
+        model = Qwen3OmniMoeForConditionalGeneration.from_pretrained(
+            path,
+            attn_implementation="flash_attention_2",
+            **load_args,
+        )
+        stage("load_model_attn=flash_attention_2")
+    except Exception as exc:
+        print(
+            f"flash_attention_2 unavailable ({exc}); loading sdpa attention",
+            flush=True,
+        )
+        model = Qwen3OmniMoeForConditionalGeneration.from_pretrained(
+            path,
+            attn_implementation="sdpa",
+            **load_args,
+        )
+        stage("load_model_attn=sdpa")
     stage("load_model_model_done")
 
     processor = Qwen3OmniMoeProcessor.from_pretrained(path)
@@ -122,7 +141,18 @@ if __name__ == "__main__":
                 padding=True,
                 use_audio_in_video=USE_AUDIO_IN_VIDEO,
             )
-            inputs = inputs.to(model.device).to(model.dtype)
+            # Prefer explicit CUDA; model.device can be misleading under device_map.
+            target = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+            inputs = inputs.to(target).to(model.dtype)
+            if target.type != "cuda" and getattr(
+                model.config, "_attn_implementation", ""
+            ) == "flash_attention_2":
+                print(
+                    "Error: flash_attention_2 requires CUDA inputs; "
+                    "refusing CPU fallback for this request",
+                    flush=True,
+                )
+                continue
 
             # Inference: Generation of the output text and audio
             generation_kwargs = {}
