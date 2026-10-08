@@ -90,6 +90,11 @@ class MeshAgg(AggPolicy):
             "resource_status",
             ["task", "capability", "language"],
             ["task", "capability", "use_bucket"],
+            "window_bucket",
+            ["capability", "window_bucket"],
+            ["task", "capability", "benchmark_id", "window_bucket"],
+            "dialogue_category",
+            ["task", "capability", "benchmark_id", "dialogue_category"],
             *CONDITION_FIELDS,
             *[["scenario", field, "capability"] for field in CONDITION_FIELDS],
             *_v2_slice_fields(),
@@ -326,7 +331,9 @@ class MeshAgg(AggPolicy):
             return
 
         languages = {
-            str(row.get("language") or default_language).lower()
+            str(
+                row.get("wer_language") or row.get("language") or default_language
+            ).lower()
             for row, _pred, _ref in pairs
         }
         if len(languages) != 1:

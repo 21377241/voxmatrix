@@ -1,0 +1,6 @@
+{
+  "repo": "https://github.com/Design-Arena/audio-arena-bench",
+  "commit": "f42531af60a6061b3de0ca0dbabf7b80e3df7099",
+  "files": "benchmarks/<name>_bench/system.py (system_instruction, prompt_visible_knowledge_base)",
+  "knowledge_base": "identical to AudioAgentBench/<name>-bench/benchmark/knowledge_base.txt"
+}

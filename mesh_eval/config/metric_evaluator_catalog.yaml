@@ -85,6 +85,40 @@ metrics:
     evaluator: qa_with_reference
     status: requires_api
     dependencies: ["OPENAI_API_KEY + gpt-4o-mini or LLMCenterUserToken + mb-gpt4o-mini", network access]
+  multi_round_acc:
+    category: judge
+    evaluator: mesh-dialogue-vocalbench
+    status: requires_offline_model
+    dependencies: [qwen3-omni-thinking]
+    notes: VocalBench utils/multi_round.py Correct/Wrong judge
+  mtbench_score:
+    category: judge
+    evaluator: mesh-dialogue-mtbench
+    status: requires_offline_model
+    dependencies: [qwen3-omni-thinking]
+    notes: FastChat MT-Bench single-answer grading, 1-10 per turn
+  turn_pass:
+    category: judge
+    evaluator: mesh-dialogue-aab
+    status: requires_offline_model
+    dependencies: [qwen3-omni-thinking]
+    notes: audio-arena-bench rehydrated judge; all scored dimensions pass
+  rubric_score:
+    category: judge
+    evaluator: mesh-dialogue-mtalk-rubric
+    status: requires_offline_model
+    dependencies: [qwen3-omni-thinking]
+    notes: MTalk rubric protocol, share of satisfied general + specific criteria
+  rubric_general:
+    category: judge
+    evaluator: mesh-dialogue-mtalk-rubric
+    status: requires_offline_model
+    dependencies: [qwen3-omni-thinking]
+  rubric_specific:
+    category: judge
+    evaluator: mesh-dialogue-mtalk-rubric
+    status: requires_offline_model
+    dependencies: [qwen3-omni-thinking]
 
   speaker_count_acc: {category: speaker, evaluator: mesh-speaker-count, status: ready_cpu}
   der:

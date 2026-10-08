@@ -29,10 +29,10 @@ echo "[native-speech-vllm-omni] omni_env=$ENV_OMNI"
 echo "[native-speech-vllm-omni] CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>}"
 "$ENV_OMNI/bin/python" -c 'import vllm_omni,vllm,transformers; print("vllm_omni", getattr(vllm_omni,"__version__", "?"), "vllm", vllm.__version__, "tf", transformers.__version__)'
 "$PY" "$HERE/preflight.py"
-SUITE_TTS="$HERE/output/suite_tts.runtime.yaml"
+SUITE_TTS="$NATIVE_OUTPUT_DIR/suite_tts.runtime.yaml"
 [[ -f "$SUITE_TTS" ]] || { echo "missing $SUITE_TTS" >&2; exit 1; }
 "$PY" -c 'import torch; assert torch.cuda.is_available(); print("cuda", torch.cuda.device_count())'
 echo "[native-speech-vllm-omni] running tts suite (LibriTTS + VocalBench IF)"
 "$PY" -m audio_evals.session --config "$SUITE_TTS"
 echo "[native-speech-vllm-omni] done"
-ls -la "$HERE/output/tts" 2>/dev/null | head -30
+ls -la "$NATIVE_OUTPUT_DIR/tts" 2>/dev/null | head -30

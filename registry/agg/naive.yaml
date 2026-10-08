@@ -46,6 +46,17 @@ wer:
   class: audio_evals.agg.base.PracticeWER
   args: {}
 
+wer-zh-windowed:
+  class: audio_evals.agg.base.PracticeWER
+  args:
+    lang: zh
+    group_by: [window_bucket]
+
+wer-windowed:
+  class: audio_evals.agg.base.PracticeWER
+  args:
+    group_by: [window_bucket]
+
 cer:
   class: audio_evals.agg.base.CER
   args: {}

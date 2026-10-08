@@ -10,5 +10,5 @@ exec "$JOB" submit "$HERE/run.sh" \
   -g 1 \
   -N vox-native \
   --project-root "$ROOT" \
-  --output-root "$ROOT/suites/native/output" \
+  --output-root "$ROOT/outputs/native_runs" \
   "$@"

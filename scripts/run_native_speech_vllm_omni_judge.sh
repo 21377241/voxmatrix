@@ -17,7 +17,7 @@ unset NATIVE_CAPABILITY_FILTER || true
 export VOXMATRIX_SESSION_PHASE=evaluation
 PY="${VOXMATRIX_PYTHON}"
 
-TTS_OUT="$HERE/output/tts"
+TTS_OUT="$NATIVE_OUTPUT_DIR/tts"
 VOCAL="$TTS_OUT/native-instruction-following--vocalbench.jsonl"
 LIBRI="$TTS_OUT/native-speech-generation--libritts.jsonl"
 for f in "$VOCAL" "$LIBRI"; do
@@ -28,12 +28,9 @@ for f in "$VOCAL" "$LIBRI"; do
 done
 
 # Fail fast if replay audio paths point at vanished /tmp files.
-"$PY" - <<'PY'
+"$PY" - "$VOCAL" "$LIBRI" <<'PY'
 import json, os, sys
-paths = [
-    "/mnt/afs/users/wangyl/VoxMatrix-clean/suites/native/output/tts/native-instruction-following--vocalbench.jsonl",
-    "/mnt/afs/users/wangyl/VoxMatrix-clean/suites/native/output/tts/native-speech-generation--libritts.jsonl",
-]
+paths = sys.argv[1:]
 missing = []
 for p in paths:
     with open(p) as f:
@@ -61,7 +58,7 @@ PY
 
 echo "[native-speech-judge] phase=evaluation limit=$NATIVE_LIMIT slots=$NATIVE_SLOT_FILTER"
 "$PY" "$HERE/preflight.py"
-SUITE_TTS="$HERE/output/suite_tts.runtime.yaml"
+SUITE_TTS="$NATIVE_OUTPUT_DIR/suite_tts.runtime.yaml"
 [[ -f "$SUITE_TTS" ]] || { echo "missing $SUITE_TTS" >&2; exit 1; }
 "$PY" -c 'import torch; assert torch.cuda.is_available(); print("cuda", torch.cuda.device_count())'
 "$PY" -m audio_evals.session --config "$SUITE_TTS" --phase evaluation

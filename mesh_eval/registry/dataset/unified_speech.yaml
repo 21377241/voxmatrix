@@ -95,7 +95,7 @@ ihbench-interruption-offline:
 native-aishell4-long-form-asr:
   class: mesh_eval.dataset.native.NativeClipDataset
   args:
-    f_name: mesh_eval/data/native/aishell_4_long_form_30_60.jsonl
+    f_name: mesh_eval/data/native/aishell_4_long_form_windowed.jsonl
     default_task: native-aishell4-long-form-asr
     ref_col: text
     protocol: long_form_asr
@@ -103,7 +103,7 @@ native-aishell4-long-form-asr:
 native-alimeeting-long-form-asr:
   class: mesh_eval.dataset.native.NativeClipDataset
   args:
-    f_name: mesh_eval/data/native/alimeeting_long_form_30_60.jsonl
+    f_name: mesh_eval/data/native/alimeeting_long_form_windowed.jsonl
     default_task: native-alimeeting-long-form-asr
     ref_col: text
     protocol: long_form_asr
@@ -111,7 +111,7 @@ native-alimeeting-long-form-asr:
 native-ami-long-form-asr:
   class: mesh_eval.dataset.native.NativeClipDataset
   args:
-    f_name: mesh_eval/data/native/ami_long_form_30_60.jsonl
+    f_name: mesh_eval/data/native/ami_long_form_windowed.jsonl
     default_task: native-ami-long-form-asr
     ref_col: text
     protocol: long_form_asr
@@ -119,27 +119,11 @@ native-ami-long-form-asr:
 native-chime6-long-form-asr:
   class: mesh_eval.dataset.native.NativeClipDataset
   args:
-    f_name: mesh_eval/data/native/chime_6_long_form_30_60.jsonl
+    f_name: mesh_eval/data/native/chime_6_long_form_windowed.jsonl
     default_task: native-chime6-long-form-asr
     ref_col: text
     protocol: long_form_asr
     benchmark_id: native-chime6-long-form-asr
-native-misp-long-form-asr:
-  class: mesh_eval.dataset.native.NativeClipDataset
-  args:
-    f_name: mesh_eval/data/native/misp_long_form_30_60.jsonl
-    default_task: native-misp-long-form-asr
-    ref_col: text
-    protocol: long_form_asr
-    benchmark_id: native-misp-long-form-asr
-native-sbcsae-long-form-asr:
-  class: mesh_eval.dataset.native.NativeClipDataset
-  args:
-    f_name: mesh_eval/data/native/sbcsae_long_form_30_60.jsonl
-    default_task: native-sbcsae-long-form-asr
-    ref_col: text
-    protocol: long_form_asr
-    benchmark_id: native-sbcsae-long-form-asr
 native-asr-aishell-1:
   class: mesh_eval.dataset.native.NativeClipDataset
   args:
@@ -463,7 +447,7 @@ native-code-switch-vocalbench-zh-open-ended:
 native-diarization-aishell-4:
   class: mesh_eval.dataset.native.NativeClipDataset
   args:
-    f_name: mesh_eval/data/native/diarization_aishell_4.jsonl
+    f_name: mesh_eval/data/native/diarization_aishell_4_windowed.jsonl
     default_task: native-diarization-aishell-4
     ref_col: text
     protocol: diarization
@@ -471,7 +455,7 @@ native-diarization-aishell-4:
 native-diarization-alimeeting:
   class: mesh_eval.dataset.native.NativeClipDataset
   args:
-    f_name: mesh_eval/data/native/diarization_alimeeting.jsonl
+    f_name: mesh_eval/data/native/diarization_alimeeting_windowed.jsonl
     default_task: native-diarization-alimeeting
     ref_col: text
     protocol: diarization
@@ -479,7 +463,7 @@ native-diarization-alimeeting:
 native-diarization-ami:
   class: mesh_eval.dataset.native.NativeClipDataset
   args:
-    f_name: mesh_eval/data/native/diarization_ami.jsonl
+    f_name: mesh_eval/data/native/diarization_ami_windowed.jsonl
     default_task: native-diarization-ami
     ref_col: text
     protocol: diarization
@@ -487,7 +471,7 @@ native-diarization-ami:
 native-diarization-chime-6:
   class: mesh_eval.dataset.native.NativeClipDataset
   args:
-    f_name: mesh_eval/data/native/diarization_chime_6.jsonl
+    f_name: mesh_eval/data/native/diarization_chime_6_windowed.jsonl
     default_task: native-diarization-chime-6
     ref_col: text
     protocol: diarization
@@ -495,23 +479,15 @@ native-diarization-chime-6:
 native-speaker-attribution-aishell-4:
   class: mesh_eval.dataset.native.NativeClipDataset
   args:
-    f_name: mesh_eval/data/native/speaker_attribution_aishell_4.jsonl
+    f_name: mesh_eval/data/native/speaker_attribution_aishell_4_windowed.jsonl
     default_task: native-speaker-attribution-aishell-4
     ref_col: text
     protocol: speaker_attribution
     benchmark_id: native-speaker-attribution-aishell-4
-native-speaker-attribution-aishell-5:
-  class: mesh_eval.dataset.native.NativeClipDataset
-  args:
-    f_name: mesh_eval/data/native/speaker_attribution_aishell_5.jsonl
-    default_task: native-speaker-attribution-aishell-5
-    ref_col: text
-    protocol: speaker_attribution
-    benchmark_id: native-speaker-attribution-aishell-5
 native-speaker-attribution-alimeeting:
   class: mesh_eval.dataset.native.NativeClipDataset
   args:
-    f_name: mesh_eval/data/native/speaker_attribution_alimeeting.jsonl
+    f_name: mesh_eval/data/native/speaker_attribution_alimeeting_windowed.jsonl
     default_task: native-speaker-attribution-alimeeting
     ref_col: text
     protocol: speaker_attribution
@@ -519,7 +495,7 @@ native-speaker-attribution-alimeeting:
 native-speaker-attribution-ami:
   class: mesh_eval.dataset.native.NativeClipDataset
   args:
-    f_name: mesh_eval/data/native/speaker_attribution_ami.jsonl
+    f_name: mesh_eval/data/native/speaker_attribution_ami_windowed.jsonl
     default_task: native-speaker-attribution-ami
     ref_col: text
     protocol: speaker_attribution
@@ -660,3 +636,11 @@ full-audio-reasoning-voicebench:
     ref_col: text
     protocol: audio_reasoning
     benchmark_id: full-audio-reasoning-voicebench
+native-speaker-attribution-chime-6:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/speaker_attribution_chime_6_windowed.jsonl
+    default_task: native-speaker-attribution-chime-6
+    ref_col: text
+    protocol: speaker_attribution
+    benchmark_id: native-speaker-attribution-chime-6

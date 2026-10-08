@@ -91,6 +91,8 @@ class NativeClipDataset(Dataset):
         row = dict(record)
         row.setdefault("dataset", self.benchmark_id)
         row.setdefault("benchmark_id", self.benchmark_id)
+        if row.get("bucket"):
+            row.setdefault("window_bucket", row["bucket"])
         input_obj = dict(row.get("input") or {})
         wav = (
             row.get("WavPath")

@@ -295,6 +295,8 @@ def _event_dimensions(doc):
         "capability",
         "scenario",
         "use_bucket",
+        "window_bucket",
+        "dialogue_category",
         "split",
         "language",
         "measurement_protocol",

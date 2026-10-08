@@ -9,10 +9,11 @@ cd "$ROOT"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 PY="${VOXMATRIX_PYTHON}"
 
-echo "[native] python=$PY cuda=$CUDA_VISIBLE_DEVICES"
+echo "[native] python=$PY cuda=$CUDA_VISIBLE_DEVICES output=$NATIVE_OUTPUT_DIR"
 "$PY" "$HERE/preflight.py"
-SUITE_MAIN="$HERE/output/suite.runtime.yaml"
-SUITE_TTS="$HERE/output/suite_tts.runtime.yaml"
+OUT="$NATIVE_OUTPUT_DIR"
+SUITE_MAIN="$OUT/suite.runtime.yaml"
+SUITE_TTS="$OUT/suite_tts.runtime.yaml"
 [[ -f "$SUITE_MAIN" || -f "$SUITE_TTS" ]] || {
   echo "[native] no runtime suite generated" >&2
   exit 1
@@ -28,4 +29,4 @@ if [[ -f "$SUITE_TTS" ]]; then
   "$PY" -m audio_evals.session --config "$SUITE_TTS"
 fi
 echo "[native] done"
-ls -la "$HERE/output" "$HERE/output/main" "$HERE/output/tts" 2>/dev/null || true
+ls -la "$OUT" "$OUT/main" "$OUT/tts" 2>/dev/null || true

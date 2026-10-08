@@ -1,0 +1,9 @@
+# Rehydrated Run Override
+This run was produced in single-step rehydration mode. Each turn was evaluated in a fresh isolated session with golden prior context.
+
+For this run:
+- Do NOT do any cross-turn realignment.
+- Do NOT shift tool-use credit across turns for early or late function calls.
+- Treat each turn independently.
+- Keep the penalty absorption rules within the current turn only: if the model missed a tool call because it over-clarified or forgot hydrated state, land that penalty on ambiguity_handling or state_tracking when that dimension is available.
+- Set `realignment_notes` to a brief note that cross-turn realignment was disabled for this rehydrated run.

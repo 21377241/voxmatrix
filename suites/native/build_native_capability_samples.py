@@ -28,7 +28,6 @@ MMSU_JSONL = MMSU_ROOT / "mmsu_audioqa.jsonl"
 # Existing smoke window packs: physical clips only; rewrite into eval_clips/.
 SMOKE_DIAR = Path("/mnt/afs/users/wangyl/VoxMatrix/smoke_diar_all")
 SMOKE_ATTR = Path("/mnt/afs/users/wangyl/VoxMatrix/smoke_attr_all")
-SMOKE_TS = Path("/mnt/afs/users/wangyl/VoxMatrix/smoke_ts_all")
 P8 = Path("/mnt/afs/users/wangyl/8p31/runs")
 
 MMSU_PREFIX = {
@@ -1511,12 +1510,7 @@ def register():
         "alimeeting",
         "attr",
     )
-    BUILDERS[("target_speaker", "aishell_5")] = lambda: migrate_smoke_manifest(
-        SMOKE_TS / "aishell_5" / "manifest.jsonl",
-        "target_speaker",
-        "aishell_5",
-        "ts",
-    )
+    # target_speaker Native rows are written by scripts/build_full_target_speaker_indexes.py.
 
     def voicebench_qa():
         return build_qa_voicebench_from_p8()

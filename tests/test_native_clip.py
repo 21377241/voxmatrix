@@ -178,7 +178,8 @@ def test_native_asr_points_at_l0_not_full_eval_or_utt_clips():
     assert all("utt_clips" not in row["WavPath"] for row in aishell5)
     assert all(Path(row["WavPath"]).is_file() for row in aishell5)
     assert all(row.get("src_audio") for row in aishell5)
-    assert aishell5[0]["text"] == "读吧。"
+    assert len({row["src_audio"] for row in aishell5}) >= 5
+    assert all(row["end_time"] - row["start_time"] >= 1.5 for row in aishell5)
 
     aishell1 = NativeClipDataset(
         f_name=str(NATIVE / "asr_aishell_1.jsonl"),
@@ -200,12 +201,10 @@ def test_native_asr_points_at_l0_not_full_eval_or_utt_clips():
     assert all(row["text"].isascii() for row in cv)
 
 
-def test_native_long_form_uses_30_60_windows():
+def test_native_long_form_uses_windowed_ondevice_smoke():
     catalog = CATALOG.read_text()
     assert "dataset: native-aishell4-long-form-asr" in catalog
     assert "dataset: native-ami-long-form-asr" in catalog
-    assert "dataset: native-sbcsae-long-form-asr" in catalog
-    assert "dataset: native-asr-sbcsae" in catalog
     lf_datasets = []
     current = False
     for line in catalog.splitlines():
@@ -220,16 +219,19 @@ def test_native_long_form_uses_30_60_windows():
     assert lf_datasets and all("long-form-asr" in d for d in lf_datasets), lf_datasets
 
     rows = NativeClipDataset(
-        f_name=str(NATIVE / "aishell_4_long_form_30_60.jsonl"),
+        f_name=str(NATIVE / "aishell_4_long_form_windowed.jsonl"),
         default_task="native-aishell4-long-form-asr",
         protocol="long_form_asr",
         benchmark_id="native-aishell4-long-form-asr",
     ).load(10)
-    assert len(rows) == 10
+    assert len(rows) >= 3
     durs = [float(r["audio_duration_seconds"]) for r in rows]
-    assert all(30.0 <= d <= 60.0 for d in durs)
-    assert all("long_form_windows" in r["WavPath"] for r in rows)
+    assert all(25.0 <= d <= 330.0 for d in durs)  # S/M/L/XL smoke buckets
+    assert all("windowed_ondevice" in r["WavPath"] for r in rows)
     assert all(r.get("text") for r in rows)
+    assert all(r.get("bucket") in {"S", "M", "L", "XL"} for r in rows)
+    assert all(r.get("crop_family_id") for r in rows)
+    assert "XL" in {r.get("bucket") for r in rows}
 
 
 def test_catalog_native_clip_wavpaths_exclude_utt_smoke_8p31():
@@ -268,18 +270,44 @@ def test_catalog_native_clip_wavpaths_exclude_utt_smoke_8p31():
     assert checked >= 50, checked
 
 
-def test_diar_attr_use_eval_clips_not_smoke_trees():
-    for name, fname in (
-        ("native-diarization-aishell-4", "diarization_aishell_4.jsonl"),
-        ("native-speaker-attribution-aishell-5", "speaker_attribution_aishell_5.jsonl"),
+def test_diar_attr_use_windowed_families():
+    for name, fname, protocol in (
+        ("native-diarization-aishell-4", "diarization_aishell_4_windowed.jsonl", "diarization"),
+        ("native-speaker-attribution-chime-6", "speaker_attribution_chime_6_windowed.jsonl", "speaker_attribution"),
     ):
         rows = NativeClipDataset(
             f_name=str(NATIVE / fname),
             default_task=name,
-            protocol="diarization" if "diar" in name else "speaker_attribution",
+            protocol=protocol,
             benchmark_id=name,
-        ).load(10)
-        assert len(rows) == 10
-        assert all("eval_clips" in row["WavPath"] for row in rows)
+        ).load(0)
+        assert len(rows) == 80
+        assert [r["window_bucket"] for r in rows[:8]] == ["S", "M", "L", "XL"] * 2
+        assert len({r["crop_family_id"] for r in rows}) == 20
+        assert all("windowed_ondevice" in row["WavPath"] for row in rows)
         assert all(all(m not in row["WavPath"] for m in FORBIDDEN_PATH_MARKERS) for row in rows)
         assert all(Path(row["WavPath"]).is_file() for row in rows)
+
+
+def test_native_slots_are_strict_subsets_of_full():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "align_native_to_full", ROOT / "scripts" / "align_native_to_full.py"
+    )
+    align = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(align)
+    problems = []
+    for slot, capability, native_path in align.runnable_slots():
+        full_path = align.full_path_for(slot, capability, native_path)
+        if not full_path.is_file():
+            problems.append(f"{slot}: missing {full_path.name}")
+            continue
+        native = align.load_jsonl(native_path)
+        full = align.load_jsonl(full_path)
+        for row, hit in zip(native, align.match_rows(slot, native, full)):
+            if hit is None:
+                problems.append(f"{slot}: {row.get('sample_id')} not in Full")
+            elif align.eval_view(row) != align.eval_view(align.aligned_row(row, hit)):
+                problems.append(f"{slot}: {row.get('sample_id')} differs from Full")
+    assert problems == [], problems[:20]

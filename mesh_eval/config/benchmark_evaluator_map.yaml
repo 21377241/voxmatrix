@@ -1509,9 +1509,9 @@ benchmarks:
       device: smart_speaker
       interaction: multi_turn
     metrics:
-    - llm_judge
+    - turn_pass
     evaluators:
-    - mesh-agent-rubric
+    - mesh-dialogue-aab
     prompt: mesh-contextual-audio
     use_bucket: diagnostic_evidence
     data:
@@ -1519,8 +1519,8 @@ benchmarks:
       split: test
       view: dialogue
     requirements:
-    - judge credentials; no lexical score as official result
-    smoke_status: requires_api
+    - audio-arena-bench rehydrated judge (golden text history); local qwen3-omni-thinking
+    smoke_status: requires_offline_model
   t4-dialogue-mtalk:
     display_name: T4 Multi-turn Dialogue - MTalk-Bench
     group: t4_capability_audit
@@ -1537,17 +1537,17 @@ benchmarks:
       device: phone_mic
       interaction: multi_turn
     metrics:
-    - llm_judge
+    - rubric_score
     evaluators:
-    - mesh-agent-rubric
+    - mesh-dialogue-mtalk-rubric
     prompt: mesh-contextual-audio
     use_bucket: diagnostic_evidence
     data:
       local_path: ${VOXMATRIX_MTALK_ROOT:-/mnt/afs/eval_data/benchmarks/MTalk-Bench}
       split: test
     requirements:
-    - speech-to-speech output every turn; rubric/arena judge; no single-model ELO
-    smoke_status: requires_generated_audio_and_api
+    - speech-to-speech output every turn; official rubric judge on concatenated dialogue audio; no single-model ELO
+    smoke_status: requires_generated_audio_and_offline_model
   t4-dialogue-vocalbench:
     display_name: T4 Multi-turn Dialogue - VocalBench
     group: t4_capability_audit
@@ -1564,17 +1564,17 @@ benchmarks:
       device: phone_mic
       interaction: multi_turn
     metrics:
-    - llm_judge
+    - multi_round_acc
     evaluators:
-    - mesh-agent-rubric
+    - mesh-dialogue-vocalbench
     prompt: mesh-contextual-audio
     use_bucket: diagnostic_evidence
     data:
       local_path: ${VOXMATRIX_VOCALBENCH_ROOT:-/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench}
       split: test
     requirements:
-    - official multi-round judge
-    smoke_status: requires_api
+    - official utils/multi_round.py judge; local qwen3-omni-thinking
+    smoke_status: requires_offline_model
   t4-dialogue-vocalbench-zh:
     display_name: T4 Multi-turn Dialogue - VocalBench-zh
     group: t4_capability_audit
@@ -1591,17 +1591,17 @@ benchmarks:
       device: phone_mic
       interaction: multi_turn
     metrics:
-    - llm_judge
+    - multi_round_acc
     evaluators:
-    - mesh-agent-rubric
+    - mesh-dialogue-vocalbench
     prompt: mesh-contextual-audio
     use_bucket: diagnostic_evidence
     data:
       local_path: ${VOXMATRIX_VOCALBENCH_ZH_ROOT:-/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench-zh}
       split: test
     requirements:
-    - official multi-round judge
-    smoke_status: requires_api
+    - official utils/multi_round.py judge; local qwen3-omni-thinking
+    smoke_status: requires_offline_model
   t4-dialogue-voicebench:
     display_name: T4 Multi-turn Dialogue - VoiceBench MTBench
     group: t4_capability_audit
@@ -1618,17 +1618,17 @@ benchmarks:
       device: phone_mic
       interaction: multi_turn
     metrics:
-    - llm_judge
+    - mtbench_score
     evaluators:
-    - mesh-agent-rubric
+    - mesh-dialogue-mtbench
     prompt: mesh-contextual-audio
     use_bucket: diagnostic_evidence
     data:
       local_path: ${VOXMATRIX_VOICEBENCH_ROOT:-/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/AudioBench/VoiceBench}
       split: test
     requirements:
-    - two audio turns; contextual judge credentials
-    smoke_status: requires_api
+    - two audio turns; FastChat MT-Bench single-answer judge; local qwen3-omni-thinking
+    smoke_status: requires_offline_model
   t4-clarification-audioagentbench:
     display_name: T4 Clarification - AudioAgentBench
     group: t4_capability_audit

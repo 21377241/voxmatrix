@@ -14,8 +14,8 @@ PY="${VOXMATRIX_PYTHON}"
 
 echo "[native-if] python=$PY cuda=$CUDA_VISIBLE_DEVICES slots=$NATIVE_SLOT_FILTER"
 "$PY" "$HERE/preflight.py"
-SUITE_MAIN="$HERE/output/suite.runtime.yaml"
-SUITE_TTS="$HERE/output/suite_tts.runtime.yaml"
+SUITE_MAIN="$NATIVE_OUTPUT_DIR/suite.runtime.yaml"
+SUITE_TTS="$NATIVE_OUTPUT_DIR/suite_tts.runtime.yaml"
 [[ -f "$SUITE_MAIN" || -f "$SUITE_TTS" ]] || {
   echo "[native-if] no runtime suite generated" >&2
   exit 1
@@ -30,4 +30,4 @@ if [[ -f "$SUITE_TTS" ]]; then
   "$PY" -m audio_evals.session --config "$SUITE_TTS"
 fi
 echo "[native-if] done"
-ls -la "$HERE/output/main"/native-instruction* "$HERE/output/tts"/native-instruction* 2>/dev/null || true
+ls -la "$NATIVE_OUTPUT_DIR/main"/native-instruction* "$NATIVE_OUTPUT_DIR/tts"/native-instruction* 2>/dev/null || true

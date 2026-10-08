@@ -20,6 +20,7 @@ class WER(Evaluator):
             raise FillerOnlyReferenceSkipped(label, self.lang, reason=skip_reason)
         return {
             "wer%": compute_wer([label], [pred], language=self.lang) * 100,
+            "wer_language": self.lang,
         }
 
 
@@ -34,7 +35,10 @@ class CER(Evaluator):
         skip_reason = get_reference_skip_reason(label, "zh")
         if skip_reason:
             raise FillerOnlyReferenceSkipped(label, "zh", reason=skip_reason)
-        return {"cer%": compute_wer([label], [pred], language="zh") * 100}
+        return {
+            "cer%": compute_wer([label], [pred], language="zh") * 100,
+            "wer_language": "zh",
+        }
 
 
 from jiwer import compute_measures

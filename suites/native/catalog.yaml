@@ -166,43 +166,50 @@ capabilities:
   benchmark: mmsu
   status: blocked
   suite: none
-  reason: "Suspended 2026-09-26: audio_reasoning not evaluated for now."
+  reason: 'Suspended 2026-09-26: audio_reasoning not evaluated for now.'
+  subset_record_id: mmsu__test__reasoning_subtasks__audio_reasoning__audio_reasoning__unknown__unknown__7c8c7c228d
 - id: audio_reasoning__uro_bench
   capability: audio_reasoning
   benchmark: uro_bench
   status: blocked
   suite: none
-  reason: "Suspended 2026-09-26: audio_reasoning not evaluated for now."
+  reason: 'Suspended 2026-09-26: audio_reasoning not evaluated for now.'
+  subset_record_id: uro_bench__test__multimodal_reasoning__audio_reasoning__audio_reasoning__unknown__unknown__562abe4806
 - id: audio_reasoning__vocalbench
   capability: audio_reasoning
   benchmark: vocalbench
   status: blocked
   suite: none
-  reason: "Suspended 2026-09-26: audio_reasoning not evaluated for now."
+  reason: 'Suspended 2026-09-26: audio_reasoning not evaluated for now.'
+  subset_record_id: vocalbench__test__reasoning__audio_reasoning__audio_reasoning__unknown__unknown__0acea9acd5
 - id: audio_reasoning__vocalbench_zh
   capability: audio_reasoning
   benchmark: vocalbench_zh
   status: blocked
   suite: none
-  reason: "Suspended 2026-09-26: audio_reasoning not evaluated for now."
+  reason: 'Suspended 2026-09-26: audio_reasoning not evaluated for now.'
+  subset_record_id: vocalbench_zh__test__reasoning__audio_reasoning__audio_reasoning__unknown__unknown__376b7ea833
 - id: audio_reasoning__voicebench
   capability: audio_reasoning
   benchmark: voicebench
   status: blocked
   suite: none
-  reason: "Suspended 2026-09-26: audio_reasoning not evaluated for now."
+  reason: 'Suspended 2026-09-26: audio_reasoning not evaluated for now.'
+  subset_record_id: voicebench__test__bbh__audio_reasoning__audio_reasoning__unknown__unknown__2439ca597d
 - id: clarification__audioagentbench_suite
   capability: clarification
   benchmark: audioagentbench_suite
   status: blocked
   suite: none
-  reason: "Suspended 2026-09-26: clarification not evaluated for now."
+  reason: 'Suspended 2026-09-26: clarification not evaluated for now.'
+  subset_record_id: audioagentbench_suite__test__clarification__clarification__clarification__home__unknown__28ce06958e
 - id: clarification__ear_wdyl
   capability: clarification
   benchmark: ear_wdyl
   status: blocked
   suite: none
-  reason: "Suspended 2026-09-26: clarification not evaluated for now."
+  reason: 'Suspended 2026-09-26: clarification not evaluated for now.'
+  subset_record_id: ear_wdyl__test__wdyl_kw_repair__clarification_repair__clarification__unknown__unknown__eab199784a
 - id: code_switch__mmsu
   capability: code_switch
   benchmark: mmsu
@@ -230,46 +237,63 @@ capabilities:
 - id: diarization__aishell_4
   capability: diarization
   benchmark: aishell_4
-  status: diagnostic
+  status: ok
   suite: main
   dataset: native-diarization-aishell-4
   prompt: mesh-diarization
   evaluator: mesh-diarization
   agg: mesh
-  note: 30s windows; prompt-v2 + normalize; DER.
+  post_process:
+  - mesh-diarization-normalize
+  limit_step: 4
+  note: Windowed on-device S/M/L/XL nested families (eval_data/windowed_ondevice;
+    20 families x 4 buckets). Continuous crop. prompt-v2 + normalize; window-DER.
   subset_record_id: aishell_4__test__test__diarization__diarization__meeting__large_meeting__f8fb6c07cf
 - id: diarization__alimeeting
   capability: diarization
   benchmark: alimeeting
-  status: diagnostic
+  status: ok
   suite: main
   dataset: native-diarization-alimeeting
   prompt: mesh-diarization
   evaluator: mesh-diarization
   agg: mesh
-  note: 30s windows; prompt-v2 + normalize; DER.
+  post_process:
+  - mesh-diarization-normalize
+  limit_step: 4
+  note: Windowed on-device S/M/L/XL nested families (eval_data/windowed_ondevice;
+    20 families x 4 buckets). Continuous crop. prompt-v2 + normalize; window-DER.
   subset_record_id: alimeeting__test__Eval_Ali_far__diarization__diarization__meeting__small_meeting__9f42942349
 - id: diarization__ami
   capability: diarization
   benchmark: ami
-  status: diagnostic
+  status: ok
   suite: main
   dataset: native-diarization-ami
   prompt: mesh-diarization
   evaluator: mesh-diarization
   agg: mesh
-  note: 30s windows; prompt-v2 + normalize; DER.
+  post_process:
+  - mesh-diarization-normalize
+  limit_step: 4
+  note: Windowed on-device S/M/L/XL nested families (eval_data/windowed_ondevice;
+    20 families x 4 buckets). AMI SDM utterance overlay. prompt-v2 + normalize; window-DER.
   subset_record_id: ami__test__ihm_test__diarization__diarization__meeting__small_meeting__6166d4dbfd
 - id: diarization__chime_6
   capability: diarization
   benchmark: chime_6
-  status: diagnostic
+  status: ok
   suite: main
   dataset: native-diarization-chime-6
   prompt: mesh-diarization
   evaluator: mesh-diarization
   agg: mesh
-  note: 30s windows; prompt-v2 + normalize; DER.
+  post_process:
+  - mesh-diarization-normalize
+  limit_step: 4
+  note: Windowed on-device S/M/L/XL nested families (eval_data/windowed_ondevice;
+    20 families x 4 buckets). CHiME-6 ref-array 4-ch mean crop. prompt-v2 + normalize;
+    window-DER.
   subset_record_id: chime_6__test__ref_array_test__diarization__diarization__home__kitchen_dining__e0092c5300
 - id: diarization__misp
   capability: diarization
@@ -283,7 +307,7 @@ capabilities:
   benchmark: fluent_speech_commands
   status: blocked
   suite: none
-  reason: "Moved to spoken_slu (intent+slots); not IF. See docs/待讨论问题0924.md §8."
+  reason: Moved to spoken_slu (intent+slots); not IF. See docs/待讨论问题0924.md §8.
   subset_record_id: fluent_speech_commands__test__test__instruction_following__instruction_following__unknown__unknown__bfe63bb2e6
 - id: instruction_following__massive
   capability: instruction_following
@@ -297,7 +321,7 @@ capabilities:
   benchmark: slurp
   status: blocked
   suite: none
-  reason: "Moved to spoken_slu (intent+slots); not IF. See docs/待讨论问题0924.md §8."
+  reason: Moved to spoken_slu (intent+slots); not IF. See docs/待讨论问题0924.md §8.
   subset_record_id: slurp__test__test__instruction_following__instruction_following__unknown__unknown__de3affb6d6
 - id: instruction_following__vocalbench
   capability: instruction_following
@@ -347,128 +371,140 @@ capabilities:
   benchmark: ihbench
   status: blocked
   suite: none
-  reason: "Suspended 2026-09-26: interruption not evaluated for now."
+  reason: 'Suspended 2026-09-26: interruption not evaluated for now.'
+  subset_record_id: ihbench__test__all__interruption__interruption__public__unknown__6c3091d109
 - id: long_form_asr__aishell_4
   capability: long_form_asr
   benchmark: aishell_4
-  status: diagnostic
+  status: ok
   suite: main
   dataset: native-aishell4-long-form-asr
   prompt: qwen3-omni-asr-zh
   evaluator: cer
-  agg: wer-zh
-  note: 30-60s continuous windows cropped from parent meetings.
+  agg: wer-zh-windowed
+  limit_step: 4
+  note: Windowed on-device S/M/L/XL nested families (eval_data/windowed_ondevice;
+    20 families x 4 buckets). Continuous crop. CER uses zh TextNorm (angle tags stripped).
+    Digit spoken forms (零零六) vs Arabic numerals in hyp may inflate CER; report as
+    known bias.
   subset_record_id: aishell_4__test__test__long_form_asr__long_form_asr__meeting__large_meeting__2bf30d7eb0
 - id: long_form_asr__alimeeting
   capability: long_form_asr
   benchmark: alimeeting
-  status: diagnostic
+  status: ok
   suite: main
   dataset: native-alimeeting-long-form-asr
   prompt: qwen3-omni-asr-zh
   evaluator: cer
-  agg: wer-zh
-  note: 30-60s continuous windows.
+  agg: wer-zh-windowed
+  limit_step: 4
+  note: Windowed on-device S/M/L/XL nested families (eval_data/windowed_ondevice;
+    20 families x 4 buckets). Continuous crop. CER uses zh TextNorm (angle tags stripped).
+    Digit spoken forms (零零六) vs Arabic numerals in hyp may inflate CER; report as
+    known bias.
   subset_record_id: alimeeting__test__Eval_Ali_far__long_form_asr__long_form_asr__meeting__small_meeting__598e0bfaba
 - id: long_form_asr__ami
   capability: long_form_asr
   benchmark: ami
-  status: diagnostic
+  status: ok
   suite: main
   dataset: native-ami-long-form-asr
   prompt: qwen3-omni-asr-en
   evaluator: wer
-  agg: wer
-  note: 30-60s packed IHM utterance concat (float WAV).
+  agg: wer-windowed
+  limit_step: 4
+  note: Windowed on-device S/M/L/XL nested families (eval_data/windowed_ondevice;
+    20 families x 4 buckets). AMI SDM utterance overlay.
   subset_record_id: ami__test__ihm_test__long_form_asr__long_form_asr__meeting__small_meeting__41a05cad2f
 - id: long_form_asr__chime_6
   capability: long_form_asr
   benchmark: chime_6
-  status: diagnostic
+  status: ok
   suite: main
   dataset: native-chime6-long-form-asr
   prompt: qwen3-omni-asr-en
   evaluator: wer
-  agg: wer
-  note: 30-60s packed worn utterance concat.
+  agg: wer-windowed
+  limit_step: 4
+  note: Windowed on-device S/M/L/XL nested families (eval_data/windowed_ondevice;
+    20 families x 4 buckets). CHiME-6 ref-array 4-ch mean crop.
   subset_record_id: chime_6__test__ref_array_test__long_form_asr__long_form_asr__home__kitchen_dining__b03012cd59
 - id: long_form_asr__misp
   capability: long_form_asr
   benchmark: misp
-  status: diagnostic
-  suite: main
-  dataset: native-misp-long-form-asr
-  prompt: qwen3-omni-asr-zh
-  evaluator: cer
-  agg: wer-zh
-  note: 30-60s continuous windows from parent PCM.
+  status: blocked
+  suite: none
+  reason: Out of windowed_ondevice track (legacy 30-60 retired); not rebuilt.
   subset_record_id: misp__test__eval_csobx3__long_form_asr__long_form_asr__home__home_entertainment__b349a8807a
 - id: long_form_asr__sbcsae
   capability: long_form_asr
   benchmark: sbcsae
-  status: diagnostic
-  suite: main
-  dataset: native-sbcsae-long-form-asr
-  prompt: qwen3-omni-asr-en
-  evaluator: wer
-  agg: wer
-  note: 30-60s windows; asr/sbcsae stays utterance-level.
+  status: blocked
+  suite: none
+  reason: Out of windowed_ondevice track (legacy 30-60 retired); not rebuilt.
   subset_record_id: sbcsae__test__home_kitchen_dining_long_form__long_form_home_kitchen_dining__long_form_asr__home__kitchen_dining__84bca19ad2
 - id: multi_turn_dialogue__audioagentbench_suite
   capability: multi_turn_dialogue
   benchmark: audioagentbench_suite
-  status: diagnostic
+  status: ok
   suite: main
   dataset: audio-agent-bench-dialogue
   prompt: mesh-contextual-audio
-  evaluator: mesh-agent-rubric
+  evaluator: mesh-dialogue-aab
   agg: mesh
-  note: History audio+golden_text; scoring_dimensions TBD.
+  two_phase: true
+  note: audio-arena-bench rehydrated mode (golden text history, target audio); official
+    judge prompt -> turn_pass + dimension pass rates; tool turns excluded.
   subset_record_id: audioagentbench_suite__test__multi_turn_dialogue_all__multi_turn_dialogue__multi_turn_dialogue__home__unknown__281ab1bb53
 - id: multi_turn_dialogue__mtalk_bench
   capability: multi_turn_dialogue
   benchmark: mtalk_bench
-  status: diagnostic
-  suite: main
+  status: ok
+  suite: tts
   dataset: t4-mtalk-bench
   prompt: mesh-contextual-audio
-  evaluator: mesh-agent-rubric
+  evaluator: mesh-dialogue-mtalk-rubric
   agg: mesh
-  note: S2S multi_turn; needs audio_responses; no single-model ELO.
+  model: qwen3-omni-speech-local
+  two_phase: true
+  note: Official rubric protocol (general + specific 0/1 criteria on concatenated
+    dialogue audio) -> rubric_score; arena/ELO needs model pairs, not computed.
   subset_record_id: mtalk_bench__test__ambient__multi_turn_dialogue__multi_turn_dialogue__unknown__unknown__d540068b30
 - id: multi_turn_dialogue__vocalbench
   capability: multi_turn_dialogue
   benchmark: vocalbench
-  status: diagnostic
+  status: ok
   suite: main
   dataset: t4-vocalbench-multi-turn
   prompt: mesh-contextual-audio
-  evaluator: mesh-agent-rubric
+  evaluator: mesh-dialogue-vocalbench
   agg: mesh
-  note: Text Context + target audio; official judge TBD.
+  two_phase: true
+  note: Official utils/multi_round.py judge (Correct/Wrong) -> multi_round_acc.
   subset_record_id: vocalbench__test__multi_round__multi_turn_dialogue__multi_turn_dialogue__unknown__unknown__6f05b38ea7
 - id: multi_turn_dialogue__vocalbench_zh
   capability: multi_turn_dialogue
   benchmark: vocalbench_zh
-  status: diagnostic
+  status: ok
   suite: main
   dataset: t4-vocalbench-zh-multi-turn
   prompt: mesh-contextual-audio
-  evaluator: mesh-agent-rubric
+  evaluator: mesh-dialogue-vocalbench
   agg: mesh
-  note: Text Context + target audio; official judge TBD.
+  two_phase: true
+  note: Official utils/multi_round.py judge (正确/错误) -> multi_round_acc.
   subset_record_id: vocalbench_zh__test__multi_round__multi_turn_dialogue__multi_turn_dialogue__unknown__unknown__5ef79e65e2
 - id: multi_turn_dialogue__voicebench
   capability: multi_turn_dialogue
   benchmark: voicebench
-  status: diagnostic
+  status: ok
   suite: main
   dataset: t4-voicebench-mtbench
   prompt: mesh-contextual-audio
-  evaluator: mesh-agent-rubric
+  evaluator: mesh-dialogue-mtbench
   agg: mesh
-  note: audio1+audio2 multi_turn; official gpt_score via voicebench-multiturn-judge
-    TBD.
+  two_phase: true
+  note: FastChat MT-Bench single-answer grading (1-10, per turn) -> mtbench_score.
   subset_record_id: voicebench__test__mtbench__multi_turn_dialogue__multi_turn_dialogue__unknown__unknown__738bca5a2e
 - id: paralinguistic_recognition__mmsu
   capability: paralinguistic_recognition
@@ -601,47 +637,62 @@ capabilities:
 - id: speaker_attribution__aishell_4
   capability: speaker_attribution
   benchmark: aishell_4
-  status: diagnostic
+  status: ok
   suite: main
   dataset: native-speaker-attribution-aishell-4
   prompt: mesh-speaker-attribution
   evaluator: mesh-speaker-attribution
   agg: mesh
-  note: 30s windows under eval_clips (from L0).
+  limit_step: 4
+  note: Windowed on-device S/M/L/XL nested families (eval_data/windowed_ondevice;
+    20 families x 4 buckets). Continuous crop. cpCER without timestamps.
   subset_record_id: aishell_4__test__test__speaker_attribution__speaker_attribution__meeting__large_meeting__dabe3ed814
 - id: speaker_attribution__aishell_5
   capability: speaker_attribution
   benchmark: aishell_5
-  status: diagnostic
-  suite: main
-  dataset: native-speaker-attribution-aishell-5
-  prompt: mesh-speaker-attribution
-  evaluator: mesh-speaker-attribution
-  agg: mesh
-  note: 30s windows under eval_clips (from L0).
+  status: blocked
+  suite: none
+  reason: Out of windowed_ondevice track (legacy 30s windows retired); not rebuilt.
   subset_record_id: aishell_5__test__eval1__speaker_attribution__speaker_attribution__vehicle__unknown__44b36933da
 - id: speaker_attribution__alimeeting
   capability: speaker_attribution
   benchmark: alimeeting
-  status: diagnostic
+  status: ok
   suite: main
   dataset: native-speaker-attribution-alimeeting
   prompt: mesh-speaker-attribution
   evaluator: mesh-speaker-attribution
   agg: mesh
-  note: 30s windows under eval_clips (from L0).
+  limit_step: 4
+  note: Windowed on-device S/M/L/XL nested families (eval_data/windowed_ondevice;
+    20 families x 4 buckets). Continuous crop. cpCER without timestamps.
   subset_record_id: alimeeting__test__Eval_Ali_far__speaker_attribution__speaker_attribution__meeting__small_meeting__dcd4a4285a
 - id: speaker_attribution__ami
   capability: speaker_attribution
   benchmark: ami
-  status: diagnostic
+  status: ok
   suite: main
   dataset: native-speaker-attribution-ami
   prompt: mesh-speaker-attribution
   evaluator: mesh-speaker-attribution
   agg: mesh
-  note: 30s windows under eval_clips (from L0).
+  limit_step: 4
+  note: Windowed on-device S/M/L/XL nested families (eval_data/windowed_ondevice;
+    20 families x 4 buckets). AMI SDM utterance overlay. cpCER without timestamps.
   subset_record_id: ami__test__ihm_test__speaker_attribution__speaker_attribution__meeting__small_meeting__34218b05b4
+- id: speaker_attribution__chime_6
+  capability: speaker_attribution
+  benchmark: chime_6
+  status: ok
+  suite: main
+  dataset: native-speaker-attribution-chime-6
+  prompt: mesh-speaker-attribution
+  evaluator: mesh-speaker-attribution
+  agg: mesh
+  limit_step: 4
+  note: Windowed on-device S/M/L/XL nested families (eval_data/windowed_ondevice;
+    20 families x 4 buckets). CHiME-6 ref-array 4-ch mean crop. cpCER without timestamps.
+  subset_record_id: chime_6__test__ref_array_test__speaker_attribution__speaker_attribution__home__kitchen_dining__5ea73cbe76
 - id: speaker_attribution__cn_celeb
   capability: speaker_attribution
   benchmark: cn_celeb
@@ -710,35 +761,15 @@ capabilities:
   benchmark: asvspoof
   status: blocked
   suite: none
-  reason: "Suspended 2026-09-26: spoof_detection not evaluated for now."
+  reason: 'Suspended 2026-09-26: spoof_detection not evaluated for now.'
+  subset_record_id: asvspoof__test__eval__spoof_detection__spoof_detection__unknown__unknown__ff583a17ba
 - id: spoof_detection__mmsu
   capability: spoof_detection
   benchmark: mmsu
   status: blocked
   suite: none
-  reason: "Suspended 2026-09-26: spoof_detection not evaluated for now."
-- id: spoken_slu__fluent_speech_commands
-  capability: spoken_slu
-  benchmark: fluent_speech_commands
-  status: diagnostic
-  suite: main
-  dataset: t4-fsc-instruction-following
-  prompt: mesh-intent-slots
-  evaluator: mesh-intent
-  agg: mesh
-  note: "Spoken SLU (intent_acc + slot_f1 via mesh-slot-f1 aux). Independent of IF and tool_call."
-  subset_record_id: fluent_speech_commands__test__test__instruction_following__instruction_following__unknown__unknown__bfe63bb2e6
-- id: spoken_slu__slurp
-  capability: spoken_slu
-  benchmark: slurp
-  status: diagnostic
-  suite: main
-  dataset: t4-slurp-instruction-following
-  prompt: mesh-intent-slots
-  evaluator: mesh-intent
-  agg: mesh
-  note: "Spoken SLU (intent_acc + slot_f1 via mesh-slot-f1 aux). Independent of IF and tool_call."
-  subset_record_id: slurp__test__test__instruction_following__instruction_following__unknown__unknown__de3affb6d6
+  reason: 'Suspended 2026-09-26: spoof_detection not evaluated for now.'
+  subset_record_id: mmsu__test__synthetic_speech_detection__spoof_detection__spoof_detection__unknown__unknown__03315b751b
 - id: target_speaker__aishell_5
   capability: target_speaker
   benchmark: aishell_5
@@ -748,38 +779,68 @@ capabilities:
   prompt: mesh-target-speaker
   evaluator: mesh-target-speaker
   agg: mesh
-  note: AISHELL-5 enroll/command pairs.
+  note: 'AISHELL-5 Eval1+Eval2 adapted pairs: near-field enrollment 5-10s + far-field
+    DX01C01 command from another session; negatives = the other speaker in the same
+    car. Full 1030 pairs (scripts/build_full_target_speaker_indexes.py); Native 10
+    = 5 pos + 5 neg over 10 speakers.'
   subset_record_id: aishell_5__test__eval1__target_speaker__target_speaker__vehicle__unknown__068306d551
 - id: tool_call__audioagentbench_suite
   capability: tool_call
   benchmark: audioagentbench_suite
   status: blocked
   suite: none
-  reason: "Suspended 2026-09-26: tool_call not evaluated for now."
+  reason: 'Suspended 2026-09-26: tool_call not evaluated for now.'
+  subset_record_id: audioagentbench_suite__test__tool_call__tool_call__tool_call__home__unknown__cf90553f6b
 - id: tool_call__fluent_speech_commands
   capability: tool_call
   benchmark: fluent_speech_commands
   status: blocked
   suite: none
-  reason: "Suspended 2026-09-26: tool_call not evaluated for now."
+  reason: 'Suspended 2026-09-26: tool_call not evaluated for now.'
+  subset_record_id: fluent_speech_commands__test__test__tool_call__tool_call__unknown__unknown__3051e24cbc
 - id: tool_call__massive
   capability: tool_call
   benchmark: massive
   status: blocked
   suite: none
-  reason: "Suspended 2026-09-26: tool_call not evaluated for now."
+  reason: 'Suspended 2026-09-26: tool_call not evaluated for now.'
+  subset_record_id: massive__test__test__tool_call__tool_call__unknown__unknown__4af266625b
 - id: tool_call__slurp
   capability: tool_call
   benchmark: slurp
   status: blocked
   suite: none
-  reason: "Suspended 2026-09-26: tool_call not evaluated for now."
+  reason: 'Suspended 2026-09-26: tool_call not evaluated for now.'
+  subset_record_id: slurp__test__test__tool_call__tool_call__unknown__unknown__d364bd9db8
 - id: tool_call__stepeval_audio_toolcall
   capability: tool_call
   benchmark: stepeval_audio_toolcall
   status: blocked
   suite: none
-  reason: "Suspended 2026-09-26: tool_call not evaluated for now."
+  reason: 'Suspended 2026-09-26: tool_call not evaluated for now.'
+  subset_record_id: stepeval_audio_toolcall__test__get_date_time_negative__tool_call__tool_call__home__unknown__7e677031ff
+- id: spoken_slu__fluent_speech_commands
+  capability: spoken_slu
+  benchmark: fluent_speech_commands
+  status: diagnostic
+  suite: main
+  dataset: t4-fsc-instruction-following
+  prompt: mesh-intent-slots
+  evaluator: mesh-intent
+  agg: mesh
+  note: Spoken SLU (intent_acc + slot_f1 via mesh-slot-f1 aux). Independent of IF
+    and tool_call.
+- id: spoken_slu__slurp
+  capability: spoken_slu
+  benchmark: slurp
+  status: diagnostic
+  suite: main
+  dataset: t4-slurp-instruction-following
+  prompt: mesh-intent-slots
+  evaluator: mesh-intent
+  agg: mesh
+  note: Spoken SLU (intent_acc + slot_f1 via mesh-slot-f1 aux). Independent of IF
+    and tool_call.
 - id: meeting_summary
   capability: meeting_summary
   status: blocked

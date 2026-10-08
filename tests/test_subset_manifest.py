@@ -198,7 +198,7 @@ def test_bundled_annotation_baseline_is_the_capability_source():
     load_annotation_baseline.cache_clear()
     catalog = load_annotation_baseline()
     assert catalog.path.endswith("annotation/benchmark_subset_manifest.jsonl")
-    assert catalog.total_record_count == 167
+    assert catalog.total_record_count == 171
     assert catalog.excluded_record_count == 0
     assert not catalog.has_coverage("meeting_summary")
     assert not catalog.has_coverage("todo_extraction")

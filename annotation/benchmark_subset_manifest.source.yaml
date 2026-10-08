@@ -1,11 +1,20 @@
 role: annotation_baseline
 schema_version: "2.0.0"
 copied_from: /mnt/afs/users/wangyl/benchmark_annotation_audit/native_v2_pipeline/outputs/benchmark_subset_manifest.jsonl
-copied_date: "2026-09-18"
+copied_date: "2026-09-28"
 annotator: native_v2_pipeline
+sha256: 8bb43c5e17774d39aedc64f5d2491a0241a8e5550170f25c810f3c0df4e009be
 notes: >
   Subset × protocol mapping built from official protocols, native dataset
   annotations, and dataset documentation. This file is the VoxMatrix
   capability-routing baseline. Do not use vocal_bench/work/full_eval
   capability fields as protocol truth. Override the path with
   VOXMATRIX_SUBSET_MANIFEST when replacing the bundled copy.
+upstream_changes:
+  - date: "2026-09-28"
+    records: 4
+    change: >
+      config/resources.json: chime_6 gained the speaker_attribution protocol
+      (scenario home/kitchen_dining, metric sa_wer) on all four selectors.
+      Records follow upstream _stable_id and ordering; this copy is
+      byte-identical to the upstream outputs file.

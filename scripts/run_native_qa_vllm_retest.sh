@@ -15,7 +15,7 @@ PY="${VOXMATRIX_PYTHON}"
 echo "[native-qa-vllm] python=$PY cuda=$CUDA_VISIBLE_DEVICES filter=$NATIVE_CAPABILITY_FILTER"
 "$PY" -c 'import torch; assert torch.cuda.is_available(), "no GPU"; print("cuda", torch.cuda.device_count())'
 "$PY" "$HERE/preflight.py"
-SUITE_MAIN="$HERE/output/suite.runtime.yaml"
+SUITE_MAIN="$NATIVE_OUTPUT_DIR/suite.runtime.yaml"
 [[ -f "$SUITE_MAIN" ]] || {
   echo "[native-qa-vllm] missing $SUITE_MAIN" >&2
   exit 1
@@ -46,4 +46,4 @@ echo "[native-qa-vllm] phase=local-judge (vLLM Thinking + short-output prompts)"
 bash "$ROOT/scripts/run_qa_local_judge_job.sh"
 
 echo "[native-qa-vllm] done"
-ls -la "$HERE/output/main"/native-qa--* "$ROOT/outputs/native_qa_smoke/qa-local-llm-judge.jsonl" 2>/dev/null || true
+ls -la "$NATIVE_OUTPUT_DIR/main"/native-qa--* "$NATIVE_OUTPUT_DIR/judge/qa/qa-local-llm-judge.jsonl" 2>/dev/null || true

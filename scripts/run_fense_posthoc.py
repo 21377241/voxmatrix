@@ -4,19 +4,21 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from audio_evals.evaluator.fense import FENSE
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if not os.environ.get("NATIVE_OUTPUT_DIR"):
+    raise SystemExit("set NATIVE_OUTPUT_DIR to the native run dir holding AudioCaps predictions")
+RUN_DIR = Path(os.environ["NATIVE_OUTPUT_DIR"])
 INPUTS = {
-    # The interrupted FENSE run truncated the AudioCaps smoke output; the
-    # same 10 predictions are preserved in the completed Native smoke run.
-    "audiocaps": ROOT / "suites/native/output/main/native-audio-caption--audiocaps.jsonl",
+    "audiocaps": RUN_DIR / "main/native-audio-caption--audiocaps.jsonl",
     "clotho": ROOT / "outputs/full_audio_caption_smoke/full-audio-caption-clotho-smoke.jsonl",
 }
-OUTPUT = ROOT / "outputs/full_audio_caption_smoke/fense-posthoc.json"
+OUTPUT = RUN_DIR / "judge/fense-posthoc.json"
 
 
 def load(path: Path):
@@ -48,6 +50,7 @@ def main() -> int:
             "scores": [float(x) for x in scores],
             "input": str(path),
         }
+    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0

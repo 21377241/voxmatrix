@@ -19,7 +19,7 @@ qwen3-omni-speech-local:
     path: /mnt/afs/models/Qwen3-Omni-30B-A3B-Instruct
     speech: true
     speaker: Ethan
-    speech_output_dir: /mnt/afs/users/wangyl/VoxMatrix-clean/suites/native/output/tts/speech_wavs
+    speech_output_dir: ${NATIVE_OUTPUT_DIR:-/mnt/afs/users/wangyl/VoxMatrix-clean/outputs/native_runs/unscoped}/tts/speech_wavs
     max_model_len: 32768
     gpu_memory_utilization: 0.88
     temperature: 0.6
@@ -34,7 +34,7 @@ qwen3-omni-speech-vllm-omni-local:
     path: /mnt/afs/models/Qwen3-Omni-30B-A3B-Instruct
     speech: true
     speaker: Ethan
-    speech_output_dir: /mnt/afs/users/wangyl/VoxMatrix-clean/suites/native/output/tts/speech_wavs
+    speech_output_dir: ${NATIVE_OUTPUT_DIR:-/mnt/afs/users/wangyl/VoxMatrix-clean/outputs/native_runs/unscoped}/tts/speech_wavs
     max_model_len: 32768
     gpu_memory_utilization: 0.88
     temperature: 0.6

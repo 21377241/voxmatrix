@@ -23,6 +23,7 @@ NATIVE = ROOT / "mesh_eval" / "data" / "native"
 CLIPS = NATIVE / "asr_eval_clips"
 FFMPEG = "/mnt/afs/conda/envs/audioeval/bin/ffmpeg"
 LIMIT = 10
+MIN_UTT_SECONDS = 1.5
 
 AISHELL1_JSONL = Path(
     "/mnt/afs/oss_data/datasets/01_basic_transcription/AIShell-1/aishell1_test_asr.jsonl"
@@ -118,13 +119,16 @@ def build_aishell_1(limit: int = LIMIT) -> list[dict]:
     return rows
 
 
+def stride_pick(candidates: list, limit: int) -> list:
+    """Evenly spaced picks so samples span sessions instead of the first file."""
+    step = max(1, len(candidates) // limit)
+    return candidates[::step][:limit]
+
+
 def build_aishell_5(limit: int = LIMIT) -> list[dict]:
-    rows = []
-    clip_dir = CLIPS / "aishell_5"
+    candidates = []
     with AISHELL5_JSONL.open(encoding="utf-8") as handle:
         for line in handle:
-            if len(rows) >= limit:
-                break
             doc = json.loads(line)
             meta = doc.get("metadata") or {}
             start = meta.get("start_time")
@@ -136,26 +140,32 @@ def build_aishell_5(limit: int = LIMIT) -> list[dict]:
                     text = str(msg.get("content") or "").strip()
             if start is None or end is None or not audios or not text:
                 continue
-            src = AISHELL5_ROOT / audios[0]
-            if not src.is_file():
+            if float(end) - float(start) < MIN_UTT_SECONDS:
                 continue
-            sid = str(doc.get("id") or f"aishell_5_{len(rows):04d}")
-            dst = clip_dir / f"{sid}.wav"
-            if not dst.is_file():
-                ffmpeg_crop(src, dst, float(start), float(end))
-            rows.append(
-                {
-                    "sample_id": sid,
-                    "dataset": "aishell_5",
-                    "capability": "asr",
-                    "WavPath": str(dst),
-                    "text": text,
-                    "src_audio": str(src),
-                    "start_time": float(start),
-                    "end_time": float(end),
-                    "source_index": str(AISHELL5_JSONL),
-                }
-            )
+            candidates.append((doc, float(start), float(end), audios, text))
+    rows = []
+    clip_dir = CLIPS / "aishell_5"
+    for doc, start, end, audios, text in stride_pick(candidates, limit):
+        src = AISHELL5_ROOT / audios[0]
+        if not src.is_file():
+            continue
+        sid = str(doc.get("id") or f"aishell_5_{len(rows):04d}")
+        dst = clip_dir / f"{sid}.wav"
+        if not dst.is_file():
+            ffmpeg_crop(src, dst, start, end)
+        rows.append(
+            {
+                "sample_id": sid,
+                "dataset": "aishell_5",
+                "capability": "asr",
+                "WavPath": str(dst),
+                "text": text,
+                "src_audio": str(src),
+                "start_time": start,
+                "end_time": end,
+                "source_index": str(AISHELL5_JSONL),
+            }
+        )
     return rows
 
 
@@ -197,19 +207,14 @@ def build_magicdata(limit: int = LIMIT) -> list[dict]:
             name = line.strip().split("\t")[0].strip()
             if name.endswith(".wav"):
                 names.append(name)
-    rows = []
-    clip_dir = CLIPS / "magicdata_ramc"
+    candidates = []
     for name in names:
-        if len(rows) >= limit:
-            break
         wav = MAGIC_WAV / name
         txt = MAGIC_TXT / name.replace(".wav", ".txt")
         if not wav.is_file() or not txt.is_file():
             continue
         with txt.open(encoding="utf-8") as handle:
             for j, line in enumerate(handle):
-                if len(rows) >= limit:
-                    break
                 match = re.match(
                     r"\[([0-9.]+),([0-9.]+)\]\t[^\t]+\t[^\t]+\t(.+)$", line.strip()
                 )
@@ -217,63 +222,69 @@ def build_magicdata(limit: int = LIMIT) -> list[dict]:
                     continue
                 start, end, text = float(match.group(1)), float(match.group(2)), match.group(3).strip()
                 text = re.sub(r"\[.*?\]", "", text).replace("[+]", "").strip()
-                if not text or end - start < 0.3:
+                if not text or end - start < MIN_UTT_SECONDS:
                     continue
-                sid = f"magicdata_ramc_{Path(name).stem}_{j:04d}"
-                dst = clip_dir / f"{sid}.wav"
-                if not dst.is_file():
-                    ffmpeg_crop(wav, dst, start, end)
-                rows.append(
-                    {
-                        "sample_id": sid,
-                        "dataset": "magicdata_ramc",
-                        "capability": "asr",
-                        "WavPath": str(dst),
-                        "text": text,
-                        "src_audio": str(wav),
-                        "start_time": start,
-                        "end_time": end,
-                        "source_index": str(txt),
-                    }
-                )
+                candidates.append((name, j, wav, txt, start, end, text))
+    rows = []
+    clip_dir = CLIPS / "magicdata_ramc"
+    for name, j, wav, txt, start, end, text in stride_pick(candidates, limit):
+        sid = f"magicdata_ramc_{Path(name).stem}_{j:04d}"
+        dst = clip_dir / f"{sid}.wav"
+        if not dst.is_file():
+            ffmpeg_crop(wav, dst, start, end)
+        rows.append(
+            {
+                "sample_id": sid,
+                "dataset": "magicdata_ramc",
+                "capability": "asr",
+                "WavPath": str(dst),
+                "text": text,
+                "src_audio": str(wav),
+                "start_time": start,
+                "end_time": end,
+                "source_index": str(txt),
+            }
+        )
     return rows
 
 
 def build_sbcsae(limit: int = LIMIT) -> list[dict]:
-    rows = []
-    clip_dir = CLIPS / "sbcsae"
+    candidates = []
     with SBCSAE_JSONL.open(encoding="utf-8") as handle:
         for line in handle:
-            if len(rows) >= limit:
-                break
             doc = json.loads(line)
             if doc.get("scenario_secondary") != "kitchen_dining":
                 continue
             text = str(doc.get("text") or "").strip()
-            src = Path(doc.get("audio") or "")
             start = doc.get("start_seconds")
             end = doc.get("end_seconds")
-            if not text or not src.is_file() or start is None or end is None:
+            if not text or not doc.get("audio") or start is None or end is None:
                 continue
-            if float(end) - float(start) < 0.25:
+            if float(end) - float(start) < MIN_UTT_SECONDS:
                 continue
-            sid = str(doc.get("id") or f"sbcsae_{len(rows):04d}")
-            dst = clip_dir / f"{sid}.wav"
-            if not dst.is_file():
-                ffmpeg_crop(src, dst, float(start), float(end))
-            rows.append(
-                {
-                    "sample_id": sid,
-                    "dataset": "sbcsae",
-                    "capability": "asr",
-                    "WavPath": str(dst),
-                    "text": text,
-                    "src_audio": str(src),
-                    "start_time": float(start),
-                    "end_time": float(end),
-                    "source_index": str(SBCSAE_JSONL),
-                }
-            )
+            candidates.append((doc, Path(doc["audio"]), float(start), float(end), text))
+    rows = []
+    clip_dir = CLIPS / "sbcsae"
+    for doc, src, start, end, text in stride_pick(candidates, limit):
+        if not src.is_file():
+            continue
+        sid = str(doc.get("id") or f"sbcsae_{len(rows):04d}")
+        dst = clip_dir / f"{sid}.wav"
+        if not dst.is_file():
+            ffmpeg_crop(src, dst, start, end)
+        rows.append(
+            {
+                "sample_id": sid,
+                "dataset": "sbcsae",
+                "capability": "asr",
+                "WavPath": str(dst),
+                "text": text,
+                "src_audio": str(src),
+                "start_time": start,
+                "end_time": end,
+                "source_index": str(SBCSAE_JSONL),
+            }
+        )
     return rows
 
 

@@ -2,10 +2,11 @@
 
 > **汇报结构 = 按 capability 分节**；**capability 之间不合并**（不做跨能力总分 / 模型总分）。  
 > 每一节内按 Catalog 槽（Benchmark）分列；槽内多指标并列。  
-> 节内若多槽主指标同名/同量纲，是否再汇总成「该能力一个数」见文末开放问题；**定案前节内也不写能力合计行**。  
+> **暂不写能力总分**（2026-09-28 定）：节内只列槽级指标，不写能力合计行；以后如要汇总，候选口径见文末。  
 > 通常每槽 **n=10**；仅链路/协议验证，不作正式榜。  
 > ASR：`outputs/native_asr_smoke_rebuilt_2gpu/`；其余主轨：`suites/native/output/{main,tts}/`；Judge：`outputs/native_*_smoke/`。  
-> 更新：2026-09-24。
+> 更新：2026-09-24。  
+> **样本已换（2026-09-30 Native/Full 对齐）**：以下 8 个槽的小样本内容已变，本表中它们的数字来自旧样本，不能与新样本结果直接比较：acoustic_scene 的 dcase2013 / tut_sound_events_2017 / tut_urban_2018，audio_caption 的 clotho，sound_event 的 esc50 / sonyc_ust_v23，qa 的 vocalbench_zh / voicebench。原因见指标口径报告开头的"Native / Full 对齐"。
 
 ---
 
@@ -234,13 +235,17 @@
 
 ## Multi-turn Dialogue
 
-| 槽 | text_f1 ↑ | exact_match |
-|---|---:|---:|
-| `multi_turn_dialogue__vocalbench` | 0.29 | 0 |
-| `multi_turn_dialogue__vocalbench_zh` | 0.18 | 0 |
-| `multi_turn_dialogue__audioagentbench_suite` | 0.16 | 0 |
-| `multi_turn_dialogue__mtalk_bench` | 0.00 | 0 |
-| `multi_turn_dialogue__voicebench` | 0.00 | 0 |
+官方协议 + 本地 Thinking judge（2048 tokens），Job 24767，产物 `outputs/native_runs/20260928_125701_multi_turn_smoke/`。均值只算判定成功的条目；parse_failed 单列。
+
+| 槽 | 主指标 ↑ | 值 | 有效 / 10 | parse_failed | 辅助 |
+|---|---|---:|---:|---:|---|
+| `multi_turn_dialogue__vocalbench` | multi_round_acc | 0.89 | 9 | 1 | — |
+| `multi_turn_dialogue__vocalbench_zh` | multi_round_acc | 0.80 | 10 | 0 | — |
+| `multi_turn_dialogue__voicebench` | mtbench_score（1–10） | 8.75 | 10 | 0 | turn1 9.1 / turn2 8.4 |
+| `multi_turn_dialogue__audioagentbench_suite` | turn_pass | 1.00 | 7 | 3 | 前 10 条全是 appointment-bench；各维度全过 |
+| `multi_turn_dialogue__mtalk_bench` | rubric_score | 0.56 | 1 | 9 | 前 10 条全是 ambient；Thinking 2048 tokens 内写不完逐条判断 |
+
+parse_failed 全部是 Thinking 推理超出 2048 tokens、没有输出最终标签（部分在 temperature 0 下陷入重复）；与 `待讨论问题.md` §3 同一问题。MTalk 在这次 smoke 里实际不可评；2026-10-08 改成硬约束加强制收尾后，用同一批语音只跑评委，10/10 出分，`rubric_score` 均分 0.57（结果在 `outputs/mtalk_judge_compare/20261008_judge_only/`），但 ambient 类背景事件常被评委漏听，分数仅供参考（见口径报告 §18）。
 
 ---
 
@@ -264,7 +269,7 @@
 
 **跨 capability 不分、不加权、不报模型总分**——已定。
 
-仍待定的是：**单个 capability 节内**，多槽如何变成「该能力一个对外数字」：
+**单个 capability 节内也暂不写总分**（2026-09-28 定）。以后如要汇总，需先解决下表几类情况：
 
 | 场景 | 例子 | 说明 |
 |---|---|---|
@@ -280,6 +285,6 @@
 ## 阅读约定
 
 1. 对外按 **capability 章节**讲；章节之间不横向合成。  
-2. 章内先报各槽；未定口径前不写「本能力总分」。  
+2. 章内只报各槽；暂不写「本能力总分」。  
 3. Judge 均分只对有效条；parse_failed / skipped 单独说。  
 4. 样例见 [`待讨论问题.md`](待讨论问题.md)；口径见 [`已完成能力_指标口径报告.md`](已完成能力_指标口径报告.md)。

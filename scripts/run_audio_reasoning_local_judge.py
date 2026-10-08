@@ -18,9 +18,13 @@ from audio_evals.evaluator.semantic_llm_judge import SemanticLLMJudgeEvaluator
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "outputs/native_audio_reasoning_smoke"
-ASR_CACHE = OUTPUT / "judge_asr_cache"
-MAIN = ROOT / "suites/native/output/main"
+if not os.environ.get("NATIVE_OUTPUT_DIR"):
+    raise SystemExit("set NATIVE_OUTPUT_DIR to the native run dir (outputs/native_runs/<run>)")
+RUN_DIR = Path(os.environ["NATIVE_OUTPUT_DIR"])
+MAIN = RUN_DIR / "main"
+OUTPUT = RUN_DIR / "judge" / "audio_reasoning"
+# Keyed by dataset input audio, so it is shared across runs.
+ASR_CACHE = ROOT / "outputs/native_audio_reasoning_smoke/judge_asr_cache"
 
 TRACKS = [
     {

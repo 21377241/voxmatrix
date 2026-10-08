@@ -13,6 +13,10 @@ case ":${PATH}:" in
   *) export PATH="${_AUDIOEVAL_BIN}:${PATH}" ;;
 esac
 unset _AUDIOEVAL_BIN
+# One directory per run so concurrent/duplicate jobs never append to the same
+# result files. Pass NATIVE_OUTPUT_DIR explicitly to resume or post-process a run.
+export NATIVE_RUNS_ROOT="${NATIVE_RUNS_ROOT:-${VOXMATRIX_ROOT}/outputs/native_runs}"
+export NATIVE_OUTPUT_DIR="${NATIVE_OUTPUT_DIR:-${NATIVE_RUNS_ROOT}/$(date +%Y%m%d_%H%M%S)_${HOSTNAME:-node}_$$}"
 export NATIVE_LIMIT="${NATIVE_LIMIT:-${W1_LIMIT:-10}}"
 export W1_LIMIT="${NATIVE_LIMIT}"
 export TOKENIZERS_PARALLELISM=false

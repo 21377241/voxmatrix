@@ -1,0 +1,180 @@
+acoustic_scene__dcase2013_scenes:
+  full: mesh_eval/data/full/acoustic_scene/acoustic_scene_dcase2013_scenes.jsonl
+  full_rows: 100
+  native: mesh_eval/data/native/acoustic_scene_dcase2013_scenes.jsonl
+acoustic_scene__mmsu:
+  full: mesh_eval/data/full/acoustic_scene/acoustic_scene_mmsu.jsonl
+  full_rows: 110
+  native: mesh_eval/data/native/acoustic_scene_mmsu.jsonl
+acoustic_scene__tut_sound_events_2017:
+  full: mesh_eval/data/full/acoustic_scene/acoustic_scene_tut_sound_events_2017.jsonl
+  full_rows: 32
+  native: mesh_eval/data/native/acoustic_scene_tut_sound_events_2017.jsonl
+acoustic_scene__tut_urban_acoustic_scenes_2018_mobile:
+  full: mesh_eval/data/full/acoustic_scene/acoustic_scene_tut_urban_acoustic_scenes_2018_mobile.jsonl
+  full_rows: 2878
+  native: mesh_eval/data/native/acoustic_scene_tut_urban_acoustic_scenes_2018_mobile.jsonl
+asr__aishell_1:
+  full: mesh_eval/data/full/asr/asr_aishell_1.jsonl
+  full_rows: 7176
+  native: mesh_eval/data/native/asr_aishell_1.jsonl
+asr__aishell_5:
+  full: mesh_eval/data/full/asr/asr_aishell_5.jsonl
+  full_rows: 20337
+  native: mesh_eval/data/native/asr_aishell_5.jsonl
+asr__common_voice:
+  full: mesh_eval/data/full/asr/asr_common_voice.jsonl
+  full_rows: 16378
+  native: mesh_eval/data/native/asr_common_voice.jsonl
+asr__librispeech:
+  full: mesh_eval/data/full/asr/asr_librispeech.jsonl
+  full_rows: 2620
+  native: mesh_eval/data/native/asr_librispeech.jsonl
+asr__magicdata_ramc:
+  full: mesh_eval/data/full/asr/asr_magicdata_ramc.jsonl
+  full_rows: 25370
+  native: mesh_eval/data/native/asr_magicdata_ramc.jsonl
+asr__sbcsae:
+  full: mesh_eval/data/full/asr/asr_sbcsae.jsonl
+  full_rows: 14157
+  native: mesh_eval/data/native/asr_sbcsae.jsonl
+asr__wenetspeech:
+  full: mesh_eval/data/full/asr/asr_wenetspeech_test_meeting.jsonl
+  full_rows: 8370
+  native: mesh_eval/data/native/asr_wenetspeech.jsonl
+audio_caption__audiocaps:
+  full: mesh_eval/data/full/audio_caption/audio_caption_audiocaps.jsonl
+  full_rows: 4411
+  native: mesh_eval/data/native/audio_caption_audiocaps.jsonl
+audio_caption__clotho:
+  full: mesh_eval/data/full/audio_caption/audio_caption_clotho.jsonl
+  full_rows: 1045
+  native: mesh_eval/data/native/audio_caption_clotho.jsonl
+code_switch__mmsu:
+  full: mesh_eval/data/full/code_switch/code_switch_mmsu.jsonl
+  full_rows: 111
+  native: mesh_eval/data/native/code_switch_mmsu.jsonl
+code_switch__vocalbench_zh:
+  full: mesh_eval/data/full/code_switch/code_switch_vocalbench_zh.jsonl
+  full_rows: 362
+  native: mesh_eval/data/native/code_switch_vocalbench_zh.jsonl
+diarization__aishell_4:
+  full: mesh_eval/data/full/diarization/diarization_aishell_4_windowed.jsonl
+  full_rows: 480
+  native: mesh_eval/data/native/diarization_aishell_4_windowed.jsonl
+diarization__alimeeting:
+  full: mesh_eval/data/full/diarization/diarization_alimeeting_windowed.jsonl
+  full_rows: 655
+  native: mesh_eval/data/native/diarization_alimeeting_windowed.jsonl
+diarization__ami:
+  full: mesh_eval/data/full/diarization/diarization_ami_windowed.jsonl
+  full_rows: 792
+  native: mesh_eval/data/native/diarization_ami_windowed.jsonl
+diarization__chime_6:
+  full: mesh_eval/data/full/diarization/diarization_chime_6_windowed.jsonl
+  full_rows: 93
+  native: mesh_eval/data/native/diarization_chime_6_windowed.jsonl
+long_form_asr__aishell_4:
+  full: mesh_eval/data/full/long_form_asr/aishell_4_long_form_windowed.jsonl
+  full_rows: 480
+  native: mesh_eval/data/native/aishell_4_long_form_windowed.jsonl
+long_form_asr__alimeeting:
+  full: mesh_eval/data/full/long_form_asr/alimeeting_long_form_windowed.jsonl
+  full_rows: 655
+  native: mesh_eval/data/native/alimeeting_long_form_windowed.jsonl
+long_form_asr__ami:
+  full: mesh_eval/data/full/long_form_asr/ami_long_form_windowed.jsonl
+  full_rows: 792
+  native: mesh_eval/data/native/ami_long_form_windowed.jsonl
+long_form_asr__chime_6:
+  full: mesh_eval/data/full/long_form_asr/chime_6_long_form_windowed.jsonl
+  full_rows: 93
+  native: mesh_eval/data/native/chime_6_long_form_windowed.jsonl
+paralinguistic_recognition__mmsu:
+  full: mesh_eval/data/full/paralinguistic_recognition/paralinguistic_recognition_mmsu.jsonl
+  full_rows: 1523
+  native: mesh_eval/data/native/paralinguistic_recognition_mmsu.jsonl
+qa__ear_wdyl:
+  full: mesh_eval/data/full/qa/qa_ear_wdyl.jsonl
+  full_rows: 1000
+  native: mesh_eval/data/native/qa_ear_wdyl.jsonl
+qa__spoken_squad:
+  full: mesh_eval/data/full/qa/qa_spoken_squad.jsonl
+  full_rows: 5351
+  native: mesh_eval/data/native/qa_spoken_squad.jsonl
+qa__uro_bench:
+  full: mesh_eval/data/full/qa/qa_uro_bench.jsonl
+  full_rows: 3126
+  native: mesh_eval/data/native/qa_uro_bench.jsonl
+qa__vocalbench:
+  full: mesh_eval/data/full/qa/qa_vocalbench.jsonl
+  full_rows: 2000
+  native: mesh_eval/data/native/qa_vocalbench.jsonl
+qa__vocalbench_zh:
+  full: mesh_eval/data/full/qa/qa_vocalbench_zh.jsonl
+  full_rows: 1000
+  native: mesh_eval/data/native/qa_vocalbench_zh.jsonl
+qa__voicebench:
+  full: mesh_eval/data/full/qa/qa_voicebench.jsonl
+  full_rows: 455
+  native: mesh_eval/data/native/qa_voicebench.jsonl
+sound_event__esc50:
+  full: mesh_eval/data/full/sound_event/sound_event_esc50.jsonl
+  full_rows: 400
+  native: mesh_eval/data/native/sound_event_esc50.jsonl
+sound_event__mavd_traffic:
+  full: mesh_eval/data/full/sound_event/sound_event_mavd_traffic.jsonl
+  full_rows: 1134
+  native: mesh_eval/data/native/sound_event_mavd_traffic.jsonl
+sound_event__mmsu:
+  full: mesh_eval/data/full/sound_event/sound_event_mmsu.jsonl
+  full_rows: 117
+  native: mesh_eval/data/native/sound_event_mmsu.jsonl
+sound_event__sonyc_ust_v23:
+  full: mesh_eval/data/full/sound_event/sound_event_sonyc_ust_v23.jsonl
+  full_rows: 614
+  native: mesh_eval/data/native/sound_event_sonyc_ust_v23.jsonl
+sound_event__tut_sound_events_2017:
+  full: mesh_eval/data/full/sound_event/sound_event_tut_sound_events_2017.jsonl
+  full_rows: 247
+  native: mesh_eval/data/native/sound_event_tut_sound_events_2017.jsonl
+speaker_attribution__aishell_4:
+  full: mesh_eval/data/full/speaker_attribution/speaker_attribution_aishell_4_windowed.jsonl
+  full_rows: 480
+  native: mesh_eval/data/native/speaker_attribution_aishell_4_windowed.jsonl
+speaker_attribution__alimeeting:
+  full: mesh_eval/data/full/speaker_attribution/speaker_attribution_alimeeting_windowed.jsonl
+  full_rows: 655
+  native: mesh_eval/data/native/speaker_attribution_alimeeting_windowed.jsonl
+speaker_attribution__ami:
+  full: mesh_eval/data/full/speaker_attribution/speaker_attribution_ami_windowed.jsonl
+  full_rows: 792
+  native: mesh_eval/data/native/speaker_attribution_ami_windowed.jsonl
+speaker_attribution__chime_6:
+  full: mesh_eval/data/full/speaker_attribution/speaker_attribution_chime_6_windowed.jsonl
+  full_rows: 93
+  native: mesh_eval/data/native/speaker_attribution_chime_6_windowed.jsonl
+speaker_count__mmsu:
+  full: mesh_eval/data/full/speaker_count/speaker_count_mmsu.jsonl
+  full_rows: 120
+  native: mesh_eval/data/native/speaker_count_mmsu.jsonl
+speaker_verification__voxceleb1:
+  full: mesh_eval/data/full/speaker_verification/speaker_verification_voxceleb1.jsonl
+  full_rows: 37720
+  native: mesh_eval/data/native/speaker_verification_voxceleb1.jsonl
+speech_generation__libritts:
+  full: mesh_eval/data/full/speech_generation/speech_generation_libritts.jsonl
+  full_rows: 4837
+  native: mesh_eval/data/native/speech_generation_libritts.jsonl
+speech_translation__covost2:
+  full: mesh_eval/data/full/speech_translation/speech_translation_covost2_zh_en.jsonl
+  full_rows: 2570
+  native: mesh_eval/data/native/speech_translation_covost2.jsonl
+speech_translation__mmsu:
+  full: mesh_eval/data/full/speech_translation/speech_translation_mmsu.jsonl
+  full_rows: 119
+  native: mesh_eval/data/native/speech_translation_mmsu.jsonl
+target_speaker__aishell_5:
+  full: mesh_eval/data/full/target_speaker/target_speaker_aishell_5.jsonl
+  full_rows: 1030
+  native: mesh_eval/data/native/target_speaker_aishell_5.jsonl

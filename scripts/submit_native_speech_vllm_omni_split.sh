@@ -9,6 +9,8 @@ chmod +x \
   "$ROOT/scripts/submit_native_speech_vllm_omni_infer.sh" \
   "$ROOT/scripts/submit_native_speech_vllm_omni_judge.sh"
 
+export NATIVE_OUTPUT_DIR="${NATIVE_OUTPUT_DIR:-$ROOT/outputs/native_runs/$(date +%Y%m%d_%H%M%S)_speech_split_$$}"
+echo "[split] run dir: $NATIVE_OUTPUT_DIR"
 echo "[split] submitting inference job..."
 INF_OUT="$("$ROOT/scripts/submit_native_speech_vllm_omni_infer.sh" "$@" 2>&1 | tee /dev/stderr)"
 # Parse numeric id from: "[OK] 已入队  id=24071  display_name=..."
@@ -29,7 +31,7 @@ echo "[split] tracking infer job: $INF_ID"
   exit 1
 }
 
-MARKER="$ROOT/suites/native/output/tts/session.json"
+MARKER="$NATIVE_OUTPUT_DIR/tts/session.json"
 if [[ ! -f "$MARKER" ]]; then
   echo "[split] missing $MARKER after infer" >&2
   exit 1

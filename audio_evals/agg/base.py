@@ -46,16 +46,32 @@ class WER(AggPolicy):
 
 
 class PracticeWER(AggPolicy):
-    def __init__(self, need_score_col: List[str] = None, lang: str = "13a"):
+    def __init__(
+        self,
+        need_score_col: List[str] = None,
+        lang: str = "13a",
+        group_by: List[str] = None,
+    ):
         super().__init__(need_score_col)
         self.lang = lang
+        self.group_by = list(group_by or [])
+
+    def _wer(self, score_detail: List[Dict[str, any]]) -> float:
+        predl = [str(item["pred"]).lower() for item in score_detail]
+        refl = [str(item["ref"]).lower() for item in score_detail]
+        return compute_wer(refl, predl, self.lang) * 100
 
     def _agg(self, score_detail: List[Dict[str, any]]) -> Dict[str, float]:
-        predl, refl = [str(item["pred"]) for item in score_detail], [
-            str(item["ref"]) for item in score_detail
-        ]
-        predl, refl = [item.lower() for item in predl], [item.lower() for item in refl]
-        return {"wer(%)": compute_wer(refl, predl, self.lang) * 100}
+        res = {"wer(%)": self._wer(score_detail)}
+        for field in self.group_by:
+            groups: Dict[str, List[Dict[str, any]]] = {}
+            for item in score_detail:
+                if item.get(field) not in (None, ""):
+                    groups.setdefault(str(item[field]), []).append(item)
+            for value, rows in sorted(groups.items()):
+                res[f"{field}/{value}/wer(%)"] = self._wer(rows)
+                res[f"{field}/{value}/sample_count"] = len(rows)
+        return res
 
 
 def _is_failed_score_row(item: Dict[str, any]) -> bool:

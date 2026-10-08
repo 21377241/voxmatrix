@@ -29,6 +29,7 @@ from audio_evals.evaluator.dnsmos import DNSMOS
 from audio_evals.evaluator.bbh import BBH
 from audio_evals.evaluator.harm import Harm
 from audio_evals.evaluator.seed_tts_eval_asr_wer import SeedTTSEvalASRWER
+from audio_evals.lib.wer import compute_wer
 from audio_evals.evaluator.simo import Simo
 from audio_evals.evaluator.utmos import UTMOS
 from audio_evals.models.qwen3_omni import Qwen3Omni
@@ -1259,6 +1260,45 @@ def test_local_huggingface_loader_saves_numbered_audio_columns(
     assert rows[0]["WavPath1"].endswith("0_audio1.wav")
     assert rows[0]["WavPath2"].endswith("0_audio2.wav")
     assert len(writes) == 2
+
+
+def test_seed_tts_per_sample_error_rate_matches_corpus_aggregation(tmp_path):
+    class FakePrompt:
+        def load(self, **kwargs):
+            return kwargs
+
+    class FakeModel:
+        def __init__(self, output):
+            self.output = output
+
+        def inference(self, prompt, **kwargs):
+            return self.output
+
+    audio_path = tmp_path / "candidate.wav"
+    audio_path.write_bytes(b"RIFF")
+    seed = object.__new__(SeedTTSEvalASRWER)
+    seed.lang = "en"
+    seed.prompt = FakePrompt()
+    seed.model = FakeModel(" peppered flour fattened sauce, his belly counseled him.")
+    row = seed(
+        str(audio_path),
+        "ref",
+        text="peppered flour-fattened sauce. His belly counselled him.",
+    )
+    assert row["wer%"] == pytest.approx(0.0)
+    assert row["wer_language"] == "en"
+    assert MeshAgg()._agg([row])["overall/wer%"] == pytest.approx(row["wer%"])
+
+    seed.lang = "th"
+    seed.model = FakeModel("สวัสดีครับ")
+    row = seed(str(audio_path), "ref", text="สวัสดีค่ะ")
+    assert row["wer_language"] == "th"
+    # Thai combining vowels must survive normalization and count as characters.
+    assert row["cer%"] == pytest.approx(
+        compute_wer(["สวัสดีค่ะ"], ["สวัสดีครับ"], language="th") * 100
+    )
+    assert 0 < row["cer%"] < 100
+    assert MeshAgg()._agg([row])["overall/cer%"] == pytest.approx(row["cer%"])
 
 
 def test_mesh_agg_uses_corpus_error_rate_bleu_and_chrf():

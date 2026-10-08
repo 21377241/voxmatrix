@@ -13,7 +13,7 @@ PY="${VOXMATRIX_PYTHON}"
 
 echo "[native-se-ml] python=$PY cuda=$CUDA_VISIBLE_DEVICES cap=$NATIVE_CAPABILITY_FILTER slots=$NATIVE_SLOT_FILTER"
 "$PY" "$HERE/preflight.py"
-SUITE_MAIN="$HERE/output/suite.runtime.yaml"
+SUITE_MAIN="$NATIVE_OUTPUT_DIR/suite.runtime.yaml"
 [[ -f "$SUITE_MAIN" ]] || {
   echo "[native-se-ml] missing suite.runtime.yaml" >&2
   exit 1
@@ -22,4 +22,4 @@ SUITE_MAIN="$HERE/output/suite.runtime.yaml"
 echo "[native-se-ml] running main suite"
 "$PY" -m audio_evals.session --config "$SUITE_MAIN"
 echo "[native-se-ml] done"
-ls -la "$HERE/output/main"/native-sound-event--{mavd,sonyc}* 2>/dev/null || true
+ls -la "$NATIVE_OUTPUT_DIR/main"/native-sound-event--{mavd,sonyc}* 2>/dev/null || true

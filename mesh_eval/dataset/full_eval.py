@@ -664,6 +664,7 @@ class FullEvalDataset(Dataset):
                 "proxy_protocol",
                 "reference_reconstruction",
                 "offline_proxy",
+                "dialogue_category",
             )
             if source.get(field) not in (None, "", [])
         }

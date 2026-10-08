@@ -204,7 +204,9 @@ def test_suite_optionally_writes_cross_benchmark_aggregation(
             )
             return ({"sample_count": 1}, [{}], ["ok"])
 
-    monkeypatch.setattr(session, "prepare_benchmarks", lambda *args: benchmarks)
+    monkeypatch.setattr(
+        session, "prepare_benchmarks", lambda *args, **kwargs: benchmarks
+    )
     monkeypatch.setattr(
         session, "create_predictor", lambda *args: (Predictor(), 1, False)
     )

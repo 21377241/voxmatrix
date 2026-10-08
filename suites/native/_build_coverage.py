@@ -32,8 +32,26 @@ EXCLUDE = {
     ("tool_call", "massive"): "Suspended 2026-09-26: tool_call not evaluated for now.",
     ("spoof_detection", "asvspoof"): "Suspended 2026-09-26: spoof_detection not evaluated for now.",
     ("speaker_attribution", "cn_celeb"): "SID mis-tag; smoke do not score",
+    ("speaker_attribution", "aishell_5"): (
+        "Out of windowed_ondevice track (legacy 30s windows retired); not rebuilt."
+    ),
     ("diarization", "misp"): "smoke excluded this round",
 }
+
+# Meeting track: formal set from scripts/sample_windowed_ondevice_eval.py
+# (20 complete S/M/L/XL families per dataset, family-major rows).
+WINDOWED_MEETING = ("aishell_4", "alimeeting", "ami", "chime_6")
+WINDOWED_NOTE = "Windowed on-device S/M/L/XL nested families (eval_data/windowed_ondevice; 20 families x 4 buckets)."
+WINDOWED_AUDIO_NOTE = {
+    "aishell_4": "Continuous crop.",
+    "alimeeting": "Continuous crop.",
+    "ami": "AMI SDM utterance overlay.",
+    "chime_6": "CHiME-6 ref-array 4-ch mean crop.",
+}
+ZH_DIGIT_NOTE = (
+    "CER uses zh TextNorm (angle tags stripped). Digit spoken forms (零零六) vs "
+    "Arabic numerals in hyp may inflate CER; report as known bias."
+)
 
 # English ASR prompts/metrics. common_voice follows smoke #6: English CV clips,
 # not the zh-HK full_eval draw that produced WER 530%.
@@ -71,11 +89,12 @@ def pick_record(records: list[dict]) -> dict:
 
 def asr_fields(benchmark: str, *, long_form: bool) -> dict:
     en = benchmark in EN_ASR
+    agg = "wer" if en else "wer-zh"
     return {
         "prompt": "qwen3-omni-asr-en" if en else "qwen3-omni-asr-zh",
         "evaluator": "wer" if en else "cer",
-        "agg": "wer" if en else "wer-zh",
-        "status": "diagnostic" if long_form else "ok",
+        "agg": f"{agg}-windowed" if long_form else agg,
+        "status": "ok",
     }
 
 
@@ -151,12 +170,55 @@ def native_key(capability: str, benchmark: str) -> str:
 
 
 def require_cap_manifest(capability: str, benchmark: str) -> Path:
-    path = NATIVE / f"{capability}_{benchmark}.jsonl"
+    if capability in {"diarization", "speaker_attribution"} and benchmark in WINDOWED_MEETING:
+        path = NATIVE / f"{capability}_{benchmark}_windowed.jsonl"
+    else:
+        path = NATIVE / f"{capability}_{benchmark}.jsonl"
     if not path.is_file():
         raise FileNotFoundError(
-            f"missing {path}; run suites/native/build_native_capability_samples.py"
+            f"missing {path}; run scripts/sample_windowed_ondevice_eval.py "
+            f"or suites/native/build_native_capability_samples.py"
         )
     return path
+
+
+def windowed_slots() -> dict:
+    slots = {}
+    for bench in WINDOWED_MEETING:
+        note = f"{WINDOWED_NOTE} {WINDOWED_AUDIO_NOTE[bench]}"
+        asr_note = note if bench in EN_ASR else f"{note} {ZH_DIGIT_NOTE}"
+        slots[("long_form_asr", bench)] = slot(
+            "long_form_asr",
+            bench,
+            f"native-{bench.replace('_', '')}-long-form-asr",
+            **asr_fields(bench, long_form=True),
+            limit_step=4,
+            note=asr_note,
+        )
+        slots[("diarization", bench)] = slot(
+            "diarization",
+            bench,
+            native_key("diarization", bench),
+            prompt="mesh-diarization",
+            evaluator="mesh-diarization",
+            agg="mesh",
+            status="ok",
+            post_process=["mesh-diarization-normalize"],
+            limit_step=4,
+            note=f"{note} prompt-v2 + normalize; window-DER.",
+        )
+        slots[("speaker_attribution", bench)] = slot(
+            "speaker_attribution",
+            bench,
+            native_key("speaker_attribution", bench),
+            prompt="mesh-speaker-attribution",
+            evaluator="mesh-speaker-attribution",
+            agg="mesh",
+            status="ok",
+            limit_step=4,
+            note=f"{note} cpCER without timestamps.",
+        )
+    return slots
 
 
 def main() -> None:
@@ -185,49 +247,15 @@ def main() -> None:
                 f"missing {manifest}; run suites/native/build_asr_native_samples.py"
             )
         new_reg.update(native_clip(key, f"mesh_eval/data/native/asr_{bench}.jsonl", "asr"))
-    # long_form_asr: 30-60s windows (crop/concat), distinct from utterance-level asr.
-    new_reg.update(
-        native_clip(
-            "native-aishell4-long-form-asr",
-            "mesh_eval/data/native/aishell_4_long_form_30_60.jsonl",
-            "long_form_asr",
+    for bench in WINDOWED_MEETING:
+        new_reg.update(
+            native_clip(
+                f"native-{bench.replace('_', '')}-long-form-asr",
+                f"mesh_eval/data/native/{bench}_long_form_windowed.jsonl",
+                "long_form_asr",
+            )
         )
-    )
-    new_reg.update(
-        native_clip(
-            "native-alimeeting-long-form-asr",
-            "mesh_eval/data/native/alimeeting_long_form_30_60.jsonl",
-            "long_form_asr",
-        )
-    )
-    new_reg.update(
-        native_clip(
-            "native-ami-long-form-asr",
-            "mesh_eval/data/native/ami_long_form_30_60.jsonl",
-            "long_form_asr",
-        )
-    )
-    new_reg.update(
-        native_clip(
-            "native-chime6-long-form-asr",
-            "mesh_eval/data/native/chime_6_long_form_30_60.jsonl",
-            "long_form_asr",
-        )
-    )
-    new_reg.update(
-        native_clip(
-            "native-misp-long-form-asr",
-            "mesh_eval/data/native/misp_long_form_30_60.jsonl",
-            "long_form_asr",
-        )
-    )
-    new_reg.update(
-        native_clip(
-            "native-sbcsae-long-form-asr",
-            "mesh_eval/data/native/sbcsae_long_form_30_60.jsonl",
-            "long_form_asr",
-        )
-    )
+    # misp / sbcsae: legacy 30-60 retired; not on windowed_ondevice track (catalog blocked).
     # Capability samples: built by build_native_capability_samples.py / build_asr_native_samples.py
     # Do not copy smoke_/8p31 or FullEval as the eval entry.
     CAP_NATIVE = [
@@ -268,17 +296,17 @@ def main() -> None:
         ("diarization", "ami", "diarization"),
         ("diarization", "chime_6", "diarization"),
         ("speaker_attribution", "aishell_4", "speaker_attribution"),
-        ("speaker_attribution", "aishell_5", "speaker_attribution"),
         ("speaker_attribution", "alimeeting", "speaker_attribution"),
         ("speaker_attribution", "ami", "speaker_attribution"),
+        ("speaker_attribution", "chime_6", "speaker_attribution"),
         ("target_speaker", "aishell_5", "target_speaker"),
     ]
     for cap, bench, protocol in CAP_NATIVE:
-        require_cap_manifest(cap, bench)
+        path = require_cap_manifest(cap, bench)
         new_reg.update(
             native_clip(
                 native_key(cap, bench),
-                f"mesh_eval/data/native/{cap}_{bench}.jsonl",
+                f"mesh_eval/data/native/{path.name}",
                 protocol,
             )
         )
@@ -362,6 +390,7 @@ def main() -> None:
         "native-ear-wdyl-qa",
         "native-voicebench-qa",
         "native-voicebench-audio-reasoning",
+        "native-speaker-attribution-aishell-5",
     ):
         existing.pop(stale, None)
     REG.write_text(yaml.safe_dump(existing, sort_keys=False, allow_unicode=True), encoding="utf-8")
@@ -419,47 +448,15 @@ def main() -> None:
             **asr_fields("wenetspeech", long_form=False),
             note="TEST_NET decoded segment wavs under asr_eval_clips (aes L0 not unpacked).",
         ),
-        ("long_form_asr", "aishell_4"): slot(
-            "long_form_asr",
-            "aishell_4",
-            "native-aishell4-long-form-asr",
-            **asr_fields("aishell_4", long_form=True),
-            note="30-60s continuous windows cropped from parent meetings.",
-        ),
-        ("long_form_asr", "alimeeting"): slot(
-            "long_form_asr",
-            "alimeeting",
-            "native-alimeeting-long-form-asr",
-            **asr_fields("alimeeting", long_form=True),
-            note="30-60s continuous windows.",
-        ),
-        ("long_form_asr", "ami"): slot(
-            "long_form_asr",
-            "ami",
-            "native-ami-long-form-asr",
-            **asr_fields("ami", long_form=True),
-            note="30-60s packed IHM utterance concat (float WAV).",
-        ),
-        ("long_form_asr", "chime_6"): slot(
-            "long_form_asr",
-            "chime_6",
-            "native-chime6-long-form-asr",
-            **asr_fields("chime_6", long_form=True),
-            note="30-60s packed worn utterance concat.",
-        ),
-        ("long_form_asr", "misp"): slot(
+        ("long_form_asr", "misp"): blocked_slot(
             "long_form_asr",
             "misp",
-            "native-misp-long-form-asr",
-            **asr_fields("misp", long_form=True),
-            note="30-60s continuous windows from parent PCM.",
+            "Out of windowed_ondevice track (legacy 30-60 retired); not rebuilt.",
         ),
-        ("long_form_asr", "sbcsae"): slot(
+        ("long_form_asr", "sbcsae"): blocked_slot(
             "long_form_asr",
             "sbcsae",
-            "native-sbcsae-long-form-asr",
-            **asr_fields("sbcsae", long_form=True),
-            note="30-60s windows; asr/sbcsae stays utterance-level.",
+            "Out of windowed_ondevice track (legacy 30-60 retired); not rebuilt.",
         ),
         ("speech_translation", "covost2"): slot("speech_translation", "covost2", "native-speech-translation-covost2", prompt="qwen3-omni-s2tt-zh2en", evaluator="bleu", agg="bleu", status="ok", note="CoVoST2 zh→en. Dataset covered; en→zh stays registered."),
         ("speech_translation", "mmsu"): slot("speech_translation", "mmsu", "native-speech-translation-mmsu", prompt="mesh-external-qa", evaluator="qa-exist-match", agg="acc", status="diagnostic"),
@@ -530,15 +527,7 @@ def main() -> None:
         ("paralinguistic_recognition", "mmsu"): slot("paralinguistic_recognition", "mmsu", "native-paralinguistic-recognition-mmsu", prompt="mesh-classification", evaluator="mesh-classification", agg="mesh", status="ok", note="Per-item 4 attribute options; return label; stratified Native."),
         ("speaker_count", "mmsu"): slot("speaker_count", "mmsu", "native-speaker-count-mmsu", prompt="mesh-speaker-count", evaluator="mesh-speaker-count", agg="mesh", status="ok", note="Open integer count; MCQ options stripped."),
         ("speaker_verification", "voxceleb1"): slot("speaker_verification", "voxceleb1", "native-speaker-verification-voxceleb1", prompt="mesh-speaker-verification", evaluator="mesh-speaker-verification", agg="mesh", status="ok"),
-        ("diarization", "aishell_4"): slot("diarization", "aishell_4", "native-diarization-aishell-4", prompt="mesh-diarization", evaluator="mesh-diarization", agg="mesh", status="diagnostic", note="30s windows; prompt-v2 + normalize; DER.",),
-        ("diarization", "alimeeting"): slot("diarization", "alimeeting", "native-diarization-alimeeting", prompt="mesh-diarization", evaluator="mesh-diarization", agg="mesh", status="diagnostic", note="30s windows; prompt-v2 + normalize; DER.",),
-        ("diarization", "ami"): slot("diarization", "ami", "native-diarization-ami", prompt="mesh-diarization", evaluator="mesh-diarization", agg="mesh", status="diagnostic", note="30s windows; prompt-v2 + normalize; DER.",),
-        ("diarization", "chime_6"): slot("diarization", "chime_6", "native-diarization-chime-6", prompt="mesh-diarization", evaluator="mesh-diarization", agg="mesh", status="diagnostic", note="30s windows; prompt-v2 + normalize; DER.",),
-        ("speaker_attribution", "alimeeting"): slot("speaker_attribution", "alimeeting", "native-speaker-attribution-alimeeting", prompt="mesh-speaker-attribution", evaluator="mesh-speaker-attribution", agg="mesh", status="diagnostic", note="30s windows under eval_clips (from L0).",),
-        ("speaker_attribution", "aishell_4"): slot("speaker_attribution", "aishell_4", "native-speaker-attribution-aishell-4", prompt="mesh-speaker-attribution", evaluator="mesh-speaker-attribution", agg="mesh", status="diagnostic", note="30s windows under eval_clips (from L0).",),
-        ("speaker_attribution", "aishell_5"): slot("speaker_attribution", "aishell_5", "native-speaker-attribution-aishell-5", prompt="mesh-speaker-attribution", evaluator="mesh-speaker-attribution", agg="mesh", status="diagnostic", note="30s windows under eval_clips (from L0).",),
-        ("speaker_attribution", "ami"): slot("speaker_attribution", "ami", "native-speaker-attribution-ami", prompt="mesh-speaker-attribution", evaluator="mesh-speaker-attribution", agg="mesh", status="diagnostic", note="30s windows under eval_clips (from L0).",),
-        ("target_speaker", "aishell_5"): slot("target_speaker", "aishell_5", "native-target-speaker-aishell-5", prompt="mesh-target-speaker", evaluator="mesh-target-speaker", agg="mesh", status="diagnostic", note="AISHELL-5 enroll/command pairs."),
+        ("target_speaker", "aishell_5"): slot("target_speaker", "aishell_5", "native-target-speaker-aishell-5", prompt="mesh-target-speaker", evaluator="mesh-target-speaker", agg="mesh", status="diagnostic", note="AISHELL-5 Eval1+Eval2 adapted pairs: near-field enrollment 5-10s + far-field DX01C01 command from another session; negatives = the other speaker in the same car. Full 1030 pairs (scripts/build_full_target_speaker_indexes.py); Native 10 = 5 pos + 5 neg over 10 speakers."),
         ("spoof_detection", "mmsu"): blocked_slot(
             "spoof_detection",
             "mmsu",
@@ -602,57 +591,65 @@ def main() -> None:
             "stepeval_audio_toolcall",
             "Suspended 2026-09-26: tool_call not evaluated for now.",
         ),
-        # Prompt must be mesh-contextual-audio so messages/multi_turn history is kept.
-        # Evaluator aligned to T4 map (mesh-agent-rubric); Native 主指标选型见口径报告 §multi_turn（待定）.
+        # Multi-turn dialogue: mesh-contextual-audio keeps messages/multi_turn history;
+        # judges follow each benchmark's official protocol (mesh_eval/evaluator/dialogue.py)
+        # with the local Thinking judge, run after SUT release (two_phase).
         ("multi_turn_dialogue", "vocalbench_zh"): slot(
             "multi_turn_dialogue",
             "vocalbench_zh",
             "t4-vocalbench-zh-multi-turn",
             prompt="mesh-contextual-audio",
-            evaluator="mesh-agent-rubric",
+            evaluator="mesh-dialogue-vocalbench",
             agg="mesh",
-            status="diagnostic",
-            note="Text Context + target audio; official judge TBD.",
+            status="ok",
+            two_phase=True,
+            note="Official utils/multi_round.py judge (正确/错误) -> multi_round_acc.",
         ),
         ("multi_turn_dialogue", "vocalbench"): slot(
             "multi_turn_dialogue",
             "vocalbench",
             "t4-vocalbench-multi-turn",
             prompt="mesh-contextual-audio",
-            evaluator="mesh-agent-rubric",
+            evaluator="mesh-dialogue-vocalbench",
             agg="mesh",
-            status="diagnostic",
-            note="Text Context + target audio; official judge TBD.",
+            status="ok",
+            two_phase=True,
+            note="Official utils/multi_round.py judge (Correct/Wrong) -> multi_round_acc.",
         ),
         ("multi_turn_dialogue", "audioagentbench_suite"): slot(
             "multi_turn_dialogue",
             "audioagentbench_suite",
             "audio-agent-bench-dialogue",
             prompt="mesh-contextual-audio",
-            evaluator="mesh-agent-rubric",
+            evaluator="mesh-dialogue-aab",
             agg="mesh",
-            status="diagnostic",
-            note="History audio+golden_text; scoring_dimensions TBD.",
+            status="ok",
+            two_phase=True,
+            note="audio-arena-bench rehydrated mode (golden text history, target audio); official judge prompt -> turn_pass + dimension pass rates; tool turns excluded.",
         ),
         ("multi_turn_dialogue", "mtalk_bench"): slot(
             "multi_turn_dialogue",
             "mtalk_bench",
             "t4-mtalk-bench",
             prompt="mesh-contextual-audio",
-            evaluator="mesh-agent-rubric",
+            evaluator="mesh-dialogue-mtalk-rubric",
             agg="mesh",
-            status="diagnostic",
-            note="S2S multi_turn; needs audio_responses; no single-model ELO.",
+            status="ok",
+            suite="tts",
+            model="qwen3-omni-speech-local",
+            two_phase=True,
+            note="Official rubric protocol (general + specific 0/1 criteria on concatenated dialogue audio) -> rubric_score; arena/ELO needs model pairs, not computed.",
         ),
         ("multi_turn_dialogue", "voicebench"): slot(
             "multi_turn_dialogue",
             "voicebench",
             "t4-voicebench-mtbench",
             prompt="mesh-contextual-audio",
-            evaluator="mesh-agent-rubric",
+            evaluator="mesh-dialogue-mtbench",
             agg="mesh",
-            status="diagnostic",
-            note="audio1+audio2 multi_turn; official gpt_score via voicebench-multiturn-judge TBD.",
+            status="ok",
+            two_phase=True,
+            note="FastChat MT-Bench single-answer grading (1-10, per turn) -> mtbench_score.",
         ),
         ("clarification", "ear_wdyl"): blocked_slot(
             "clarification",
@@ -683,6 +680,7 @@ def main() -> None:
             model="qwen3-omni-speech-local",
         ),
     }
+    loaders.update(windowed_slots())
 
     capabilities: list[dict] = []
     missing_map: list[tuple[str, str]] = []
@@ -731,7 +729,7 @@ def main() -> None:
                 "evaluator": "mesh-intent",
                 "agg": "mesh",
                 "note": (
-                    "Spoken SLU (intent_acc + slot_f1 aux). "
+                    "Spoken SLU (intent_acc + slot_f1 via mesh-slot-f1 aux). "
                     "Independent of IF and tool_call."
                 ),
             },
@@ -746,7 +744,7 @@ def main() -> None:
                 "evaluator": "mesh-intent",
                 "agg": "mesh",
                 "note": (
-                    "Spoken SLU (intent_acc + slot_f1 aux). "
+                    "Spoken SLU (intent_acc + slot_f1 via mesh-slot-f1 aux). "
                     "Independent of IF and tool_call."
                 ),
             },

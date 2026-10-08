@@ -13,7 +13,7 @@ PY="${VOXMATRIX_PYTHON}"
 
 echo "[native-pr] python=$PY cuda=$CUDA_VISIBLE_DEVICES filter=$NATIVE_CAPABILITY_FILTER"
 "$PY" "$HERE/preflight.py"
-SUITE_MAIN="$HERE/output/suite.runtime.yaml"
+SUITE_MAIN="$NATIVE_OUTPUT_DIR/suite.runtime.yaml"
 [[ -f "$SUITE_MAIN" ]] || {
   echo "[native-pr] missing suite.runtime.yaml" >&2
   exit 1
@@ -22,4 +22,4 @@ SUITE_MAIN="$HERE/output/suite.runtime.yaml"
 echo "[native-pr] running main suite"
 "$PY" -m audio_evals.session --config "$SUITE_MAIN"
 echo "[native-pr] done"
-ls -la "$HERE/output/main"/native-paralinguistic* 2>/dev/null || true
+ls -la "$NATIVE_OUTPUT_DIR/main"/native-paralinguistic* 2>/dev/null || true

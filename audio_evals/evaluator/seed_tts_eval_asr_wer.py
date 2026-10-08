@@ -1,47 +1,17 @@
 from typing import Dict
 import os
 from audio_evals.evaluator.base import Evaluator
+from audio_evals.lib.wer import (
+    FillerOnlyReferenceSkipped,
+    compute_wer,
+    normalized_ref_token_count,
+)
 import zhconv
-from jiwer import compute_measures
-from zhon.hanzi import punctuation
-import string
 import logging
 
 logger = logging.getLogger(__name__)
 
-punctuation_all = punctuation + string.punctuation
-
-
-def process_one(hypo, truth, lang):
-    raw_truth = truth
-    raw_hypo = hypo
-
-    for x in punctuation_all:
-        if x == "'":
-            continue
-        truth = truth.replace(x, "")
-        hypo = hypo.replace(x, "")
-
-    truth = truth.replace("  ", " ")
-    hypo = hypo.replace("  ", " ")
-
-    # yue: cantonese, th: thai
-    if lang in ["zh", "ja", "yue", "th", "ko"]:
-        truth = " ".join([x for x in truth if x.strip()])
-        hypo = " ".join([x for x in hypo if x.strip()])
-    # Word-based languages (WER)
-    else:
-        truth = truth.lower()
-        hypo = hypo.lower()
-
-    try:
-        measures = compute_measures(truth, hypo)
-        wer = measures["wer"]
-    except Exception as e:
-        logger.error(f"Error computing measures: {e}. truth: '{truth}', hypo: '{hypo}'")
-        raise e
-
-    return wer
+CHARACTER_ERROR_LANGUAGES = ("zh", "ja", "yue", "th", "ko")
 
 
 class SeedTTSEvalASRWER(Evaluator):
@@ -77,12 +47,19 @@ class SeedTTSEvalASRWER(Evaluator):
         if self.lang == "zh" or kwargs.get("language") == "chinese":
             transcription = zhconv.convert(transcription, "zh-cn")
 
-        measure_name = "cer" if self.lang in ["zh", "ja", "yue", "th", "ko"] else "wer"
-        error_rate = process_one(transcription, label_text, self.lang)
+        # Same normalizer/tokenizer as the corpus aggregation in mesh agg, so
+        # per-sample and overall error rates are directly comparable.
+        if normalized_ref_token_count(label_text, self.lang) == 0:
+            raise FillerOnlyReferenceSkipped(
+                label_text, self.lang, reason="empty_after_normalization"
+            )
+        measure_name = "cer" if self.lang in CHARACTER_ERROR_LANGUAGES else "wer"
+        error_rate = compute_wer([label_text], [transcription], language=self.lang)
         res = {
             f"{measure_name}%": error_rate * 100,
             "content_acc": max(0.0, 1.0 - error_rate),
             "intelligibility": max(0.0, 1.0 - error_rate),
+            "wer_language": self.lang,
         }
         res.update(
             {

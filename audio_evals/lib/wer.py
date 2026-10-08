@@ -1,5 +1,6 @@
 import re
 import string
+import unicodedata
 
 import editdistance as ed
 import zhconv
@@ -32,6 +33,9 @@ FILLER_EN_WORDS = frozenset(
 PLACEHOLDER_REF_WORDS = frozenset(
     {"xxx", "x", "xx", "unk", "spn", "garbage", "<unk>"}
 )
+# Scripts without word spaces are scored per character. The English normalizer
+# strips combining marks (Thai vowels, Japanese dakuten), so these skip it.
+CHAR_LEVEL_LANGUAGES = frozenset({"ja", "ko", "th"})
 
 
 class FillerOnlyReferenceSkipped(Exception):
@@ -49,6 +53,8 @@ def _tokenizer_for_language(language: str) -> EvaluationTokenizer:
         tokenizer_type = "zh"
     elif language == "jp":
         tokenizer_type = "ja-mecab"
+    elif language in CHAR_LEVEL_LANGUAGES:
+        tokenizer_type = "char"
     else:
         tokenizer_type = language if language in TOKENIZERS else "13a"
     return EvaluationTokenizer(
@@ -59,7 +65,17 @@ def _tokenizer_for_language(language: str) -> EvaluationTokenizer:
     )
 
 
+def _normalize_char_level(text: str) -> str:
+    text = unicodedata.normalize("NFKC", text).lower()
+    text = "".join(
+        " " if unicodedata.category(ch)[0] in "PS" else ch for ch in text
+    )
+    return " ".join(text.split())
+
+
 def _normalize_for_wer(text: str, language: str) -> str:
+    if language in CHAR_LEVEL_LANGUAGES:
+        return _normalize_char_level(text)
     text = english_normalizer(text)
     if language in ["yue"]:
         text = zhconv.convert(text, "zh-cn")

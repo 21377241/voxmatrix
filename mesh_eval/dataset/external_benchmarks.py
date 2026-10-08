@@ -92,6 +92,89 @@ def _message(role: str, *, text: str = "", audio: str = "") -> Dict[str, Any]:
     return {"role": role, "contents": contents}
 
 
+AUDIO_AGENT_RESOURCE_DIR = Path(__file__).resolve().parent / "resources" / "audio_agent_bench"
+AUDIO_AGENT_CORE_DIMENSIONS = ["kb_grounding", "instruction_following", "tool_use_correct"]
+# audio-arena-bench benchmarks/<name>/turns.py CATEGORY_DIMENSIONS (non-empty entries).
+_AAB_STATE = ["state_tracking"]
+_AAB_AMBIGUITY = ["ambiguity_handling"]
+AUDIO_AGENT_CATEGORY_DIMENSIONS: Dict[str, Dict[str, List[str]]] = {
+    "conversation-bench": {
+        "long_range_memory": _AAB_STATE,
+        "cross_turn_reasoning": _AAB_STATE,
+        "cancellation_flow": _AAB_STATE,
+        "implicit_correction": _AAB_STATE,
+        "error_recovery": _AAB_STATE,
+        "ambiguous_entity": _AAB_AMBIGUITY,
+    },
+    "appointment-bench": {
+        "long_range_memory": _AAB_STATE,
+        "implicit_correction": _AAB_STATE,
+        "error_recovery": _AAB_STATE,
+        "ambiguous_entity": _AAB_AMBIGUITY,
+    },
+    "assistant-bench": {
+        "long_range_memory": _AAB_STATE,
+        "implicit_correction": _AAB_STATE,
+        "error_recovery": _AAB_STATE,
+        "ambiguous_entity": _AAB_AMBIGUITY,
+    },
+    "event-bench": {
+        "long_range_memory": _AAB_STATE,
+        "implicit_correction": _AAB_STATE,
+        "error_recovery": _AAB_STATE,
+        "ambiguous_entity": _AAB_AMBIGUITY,
+    },
+    "grocery-bench": {
+        "long_range_memory": _AAB_STATE,
+        "error_recovery": _AAB_STATE,
+        "ambiguous_entity": _AAB_AMBIGUITY,
+    },
+    "product-bench": {
+        "long_range_memory": _AAB_STATE,
+        "implicit_correction": _AAB_STATE,
+        "error_recovery": _AAB_STATE,
+        "ambiguous_entity": _AAB_AMBIGUITY,
+    },
+}
+
+
+def _aab_categories(value: Any) -> List[str]:
+    if isinstance(value, (list, tuple)):
+        return [str(item) for item in value if str(item).strip()]
+    return [part.strip() for part in str(value or "").split(",") if part.strip()]
+
+
+def audio_agent_score_dimensions(benchmark_name: str, categories: Any) -> List[str]:
+    mapping = AUDIO_AGENT_CATEGORY_DIMENSIONS.get(benchmark_name, {})
+    extra = set()
+    for category in _aab_categories(categories):
+        extra.update(mapping.get(category, []))
+    return list(AUDIO_AGENT_CORE_DIMENSIONS) + sorted(extra)
+
+
+def _aab_rehydrated_turn(item: Mapping[str, Any]) -> List[Dict[str, Any]]:
+    """Golden prior turn as text, formatted like audio-arena ``build_rehydration_history``."""
+    lines = []
+    calls = item.get("required_function_call")
+    responses = item.get("function_call_response")
+    calls = json.loads(calls) if isinstance(calls, str) and calls else calls
+    responses = json.loads(responses) if isinstance(responses, str) and responses else responses
+    if calls:
+        calls = calls if isinstance(calls, list) else [calls]
+        responses = (
+            responses if isinstance(responses, list) else [responses] if responses is not None else []
+        )
+        for index, call in enumerate(calls):
+            lines.append(f"  [Tool call: {call['name']}({json.dumps(call.get('args', {}))})]")
+            if index < len(responses):
+                lines.append(f"  [Tool result: {json.dumps(responses[index])}]")
+    lines.append(str(item.get("golden_text") or ""))
+    return [
+        _message("user", text=str(item.get("input_text") or "")),
+        _message("assistant", text="\n".join(lines)),
+    ]
+
+
 class AudioAgentBenchDataset(FullEvalDataset):
     """Adapt AudioAgentBench turn metadata to the Mesh runtime contract."""
 
@@ -305,14 +388,17 @@ class AudioAgentBenchDataset(FullEvalDataset):
         for metadata_path in sorted(self.root.glob("*-bench/metadata.jsonl")):
             benchmark_name = metadata_path.parent.name
             histories: Dict[str, List[Dict[str, Any]]] = {}
+            text_histories: Dict[str, List[Dict[str, Any]]] = {}
             with metadata_path.open(encoding="utf-8") as handle:
                 for raw_line in handle:
                     if not raw_line.strip():
                         continue
                     line_no += 1
                     item = json.loads(raw_line)
+                    item["_metadata_path"] = str(metadata_path)
                     speaker = str(item.get("speaker") or "unknown")
                     history = histories.setdefault(speaker, [])
+                    text_history = text_histories.setdefault(speaker, [])
                     current_audio = metadata_path.parent / str(item["file_name"])
                     tool_call = self._parse_tool_call(item.get("required_function_call"))
                     clarification_case = clarification_cases.get(
@@ -340,6 +426,7 @@ class AudioAgentBenchDataset(FullEvalDataset):
                             tool_call,
                             is_clarification,
                             clarification_case,
+                            text_history=text_history,
                         )
                     history.extend(
                         [
@@ -349,6 +436,7 @@ class AudioAgentBenchDataset(FullEvalDataset):
                             ),
                         ]
                     )
+                    text_history.extend(_aab_rehydrated_turn(item))
 
     @staticmethod
     def _parse_tool_call(value: Any) -> Any:
@@ -379,7 +467,9 @@ class AudioAgentBenchDataset(FullEvalDataset):
         tool_call: Any,
         is_clarification: bool,
         clarification_case: Optional[Dict[str, Any]] = None,
+        text_history: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
+        rehydrated = False
         if tool_call is not None and self.view != "clarification":
             capability = "tool_call"
             if isinstance(tool_call, list):
@@ -432,29 +522,51 @@ class AudioAgentBenchDataset(FullEvalDataset):
                 prompt_name = "mesh-clarification-decision"
                 answer_type = "structured_json"
             else:
+                # Official rehydrated protocol: benchmark system prompt (KB +
+                # tools), golden prior turns as text, target turn as audio.
+                rehydrated = True
+                categories = _aab_categories(item.get("categories"))
+                visible_kb = AUDIO_AGENT_RESOURCE_DIR / f"{benchmark_name}.prompt_visible_kb.txt"
                 reference = {
                     "answer": answer,
                     "turns": [{"role": "assistant", "content": answer}],
+                    "raw_benchmark": benchmark_name,
+                    "metadata_path": str(item.get("_metadata_path") or ""),
+                    "speaker": str(item.get("speaker") or "unknown"),
+                    "turn_id": int(item.get("turn_id") or 0),
+                    "input_text": str(item.get("input_text") or ""),
+                    "categories": categories,
+                    "subcategory": item.get("subcategory"),
+                    "score_dimensions": audio_agent_score_dimensions(benchmark_name, categories),
+                    "kb_path": str(self.root / benchmark_name / "benchmark" / "knowledge_base.txt"),
+                    "prompt_visible_kb_path": str(visible_kb) if visible_kb.is_file() else "",
                 }
-                metrics = ["llm_judge"]
-                evaluators = ["mesh-agent-rubric"]
+                metrics = ["turn_pass"]
+                evaluators = ["mesh-dialogue-aab"]
                 prompt_name = "mesh-contextual-audio"
                 answer_type = "text"
 
-        messages = [
-            _message(
-                "system",
-                text=(
-                    "You are a spoken task assistant. Use the supplied dialogue context "
-                    "and follow the final output instruction exactly."
-                ),
-            )
-        ]
-        history_messages = history
+        if rehydrated:
+            system_path = AUDIO_AGENT_RESOURCE_DIR / f"{benchmark_name}.system.txt"
+            messages = [_message("system", text=system_path.read_text(encoding="utf-8"))]
+            history_messages = list(text_history or [])
+        else:
+            messages = [
+                _message(
+                    "system",
+                    text=(
+                        "You are a spoken task assistant. Use the supplied dialogue context "
+                        "and follow the final output instruction exactly."
+                    ),
+                )
+            ]
+            history_messages = history
         if self.max_history_turns is not None:
-            history_messages = history[-2 * self.max_history_turns :]
+            history_messages = history_messages[-2 * self.max_history_turns :]
         messages.extend(history_messages)
-        messages.append(_message("user", audio=current_audio, text=instruction))
+        messages.append(
+            _message("user", audio=current_audio, text="" if rehydrated else instruction)
+        )
         audio_uris = [
             content["value"]
             for message in messages
@@ -516,11 +628,16 @@ class AudioAgentBenchDataset(FullEvalDataset):
                 "clarification_case": clarification_case,
             },
             "offline_proxy": (
-                "contextual_turn_without_live_tool_runtime"
+                "rehydrated_golden_context_without_live_tool_runtime"
+                if rehydrated
+                else "contextual_turn_without_live_tool_runtime"
                 if capability != "clarification"
                 else "reviewed_clarification_decision_without_live_tool_runtime"
             ),
         }
+        if rehydrated:
+            row["input"].pop("question")
+            row["dialogue_category"] = (reference["categories"] or ["uncategorized"])[0]
         self._bind_protocol(row, "spoken_agentic_interaction", capability)
         return row
 
@@ -984,17 +1101,25 @@ class VocalBenchDataset(_T4NativeDataset):
                     "capability": "multi_turn_dialogue",
                     "scenario": "phone",
                     "condition": {"acoustic": "clean", "spatial": "near_field", "speaker": "single_speaker", "device": "phone_mic", "interaction": "multi_turn"},
-                    "metrics": ["llm_judge"],
-                    "evaluators": ["mesh-agent-rubric"],
+                    "metrics": ["multi_round_acc"],
+                    "evaluators": ["mesh-dialogue-vocalbench"],
                     "prompt_name": "mesh-contextual-audio",
                     "answer_type": "text",
                     "use_bucket": "diagnostic_evidence",
                     "split": "test",
                     "language": self.language,
                     "input": {"audio": _audio_descriptor_input([str(audio_path)]), "audio_path": str(audio_path), "messages": messages},
-                    "reference": {"answer": answer, "turns": [{"role": "assistant", "content": answer}], "rubric": item.get("Question")},
+                    "reference": {
+                        "answer": answer,
+                        "turns": [{"role": "assistant", "content": answer}],
+                        "question": str(item.get("Question") or ""),
+                        "context": [{"from": str(turn.get("from") or ""), "value": str(turn.get("value") or "")} for turn in context],
+                        "category": item.get("Category"),
+                        "language": self.language,
+                    },
                     "sample_id": f"{self.dataset_id}_multi_{item.get('Qid', index)}",
-                    "label_meta": {"sources": {"audio_path": "native", "answer": "native"}, "context_turns": len(context)},
+                    "dialogue_category": str(item.get("Category") or "uncategorized"),
+                    "label_meta": {"sources": {"audio_path": "native", "answer": "native"}, "context_turns": len(context), "category": item.get("Category")},
                 }
             rows.append(row)
         if instruction and limit:
@@ -1183,16 +1308,27 @@ class MTalkBenchDataset(_T4NativeDataset):
                 "capability": "multi_turn_dialogue",
                 "scenario": "home",
                 "condition": {"acoustic": "clean", "spatial": "near_field", "speaker": "single_speaker", "device": "phone_mic", "interaction": "multi_turn"},
-                "metrics": ["llm_judge"],
-                "evaluators": ["mesh-agent-rubric"],
+                "metrics": ["rubric_score", "rubric_general", "rubric_specific"],
+                "evaluators": ["mesh-dialogue-mtalk-rubric"],
                 "prompt_name": "mesh-contextual-audio",
                 "answer_type": "audio",
                 "use_bucket": "diagnostic_evidence",
                 "split": "test",
                 "language": "en",
                 "input": {"audio": _audio_descriptor_input(audio_paths), "messages": messages, "multi_turn": [[deepcopy(system_message), _message("user", audio=path)] if index == 0 else [_message("user", audio=path)] for index, path in enumerate(audio_paths)], "audio_path": audio_paths[-1], "requires_audio_output": True},
-                "reference": {"turns": [{"role": "user", "content": text} for text in transcriptions], "rubric": first.get("rubric_prompt_specific") or first.get("rubric_prompt_general"), "arena_prompt": first.get("arena_prompt"), "requires_audio_output": True, "required_audio_outputs": len(audio_paths)},
+                "reference": {
+                    "turns": [{"role": "user", "content": text} for text in transcriptions],
+                    "user_audio": audio_paths,
+                    "rubric": first.get("rubric_prompt_specific") or first.get("rubric_prompt_general"),
+                    "rubric_general": first.get("rubric_prompt_general"),
+                    "rubric_specific": first.get("rubric_prompt_specific"),
+                    "arena_prompt": first.get("arena_prompt"),
+                    "hint_audio_dir": str(self.root / "asset"),
+                    "requires_audio_output": True,
+                    "required_audio_outputs": len(audio_paths),
+                },
                 "sample_id": f"mtalk_{task_type}_{number}",
+                "dialogue_category": str(task_type),
                 "label_meta": {"sources": {"audio_path": "native", "rubric": "native"}, "task_type": str(task_type), "conversation_number": str(number), "turn_count": len(audio_paths)},
             })
             if limit and len(rows) >= limit:
@@ -1321,16 +1457,17 @@ class VoiceBenchT4Dataset(_T4NativeDataset):
                     "capability": "multi_turn_dialogue",
                     "scenario": "phone",
                     "condition": {"acoustic": "clean", "spatial": "near_field", "speaker": "single_speaker", "device": "phone_mic", "interaction": "multi_turn"},
-                    "metrics": ["llm_judge"],
-                    "evaluators": ["mesh-agent-rubric"],
+                    "metrics": ["mtbench_score"],
+                    "evaluators": ["mesh-dialogue-mtbench"],
                     "prompt_name": "mesh-contextual-audio",
                     "answer_type": "text",
                     "use_bucket": "diagnostic_evidence",
                     "split": "test",
                     "language": "en",
                     "input": {"audio": _audio_descriptor_input([a1, a2]), "audio_path": a2, "multi_turn": [[system, _message("user", audio=a1)], [_message("user", audio=a2)]]},
-                    "reference": {"turns": turns, "reference_answers": reference_answers, "rubric": {"protocol": "VoiceBench MTBench", "category": item.get("category"), "reference_answers": reference_answers}, "requires_audio_output": False},
+                    "reference": {"turns": turns, "reference_answers": reference_answers, "category": item.get("category"), "rubric": {"protocol": "VoiceBench MTBench", "category": item.get("category"), "reference_answers": reference_answers}, "requires_audio_output": False},
                     "sample_id": f"voicebench_mtbench_{qid}",
+                    "dialogue_category": str(item.get("category") or "uncategorized"),
                     "label_meta": {"sources": {"audio_path": "native", "rubric": "native"}, "turns": turns, "category": item.get("category")},
                 })
             if limit and len(rows) >= limit:

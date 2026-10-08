@@ -30,9 +30,13 @@ export JUDGE_ASR_DEVICE="cuda"
 export JUDGE_WHISPER_PATH="/mnt/afs/models/whisper-large-v3"
 export JUDGE_PARAFORMER_PATH="/mnt/afs/models/paraformer-zh"
 
-OUT_DIR="${ROOT}/outputs/native_qa_smoke"
+if [[ ! -d "${NATIVE_OUTPUT_DIR}/main" ]]; then
+  echo "[qa-judge-job] FATAL: no native results under ${NATIVE_OUTPUT_DIR}/main; pass NATIVE_OUTPUT_DIR of the SUT run" >&2
+  exit 2
+fi
+OUT_DIR="${NATIVE_OUTPUT_DIR}/judge/qa"
 PACK="${ROOT}/outputs/qa_judge_pack.jsonl"
-ASR_CACHE="${OUT_DIR}/judge_asr_cache"
+ASR_CACHE="${ROOT}/outputs/native_qa_smoke/judge_asr_cache"
 SHARD_DIR="${OUT_DIR}/shards"
 FINAL_OUT="${OUT_DIR}/qa-local-llm-judge.jsonl"
 mkdir -p "${ASR_CACHE}" "${SHARD_DIR}"

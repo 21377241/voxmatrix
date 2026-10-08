@@ -51,6 +51,22 @@ OUTPUT_YESNO = (
     + 'Final line: only Yes or No (capitalized).\n'
     "Do not omit the Yes/No line. Do not add explanations after it."
 )
+OUTPUT_TRUEFALSE = (
+    _OUTPUT_THINKING_RULES
+    + "Final line: only True or False (capitalized).\n"
+    "Do not omit the True/False line. Do not add explanations after it."
+)
+OUTPUT_RATING_10 = (
+    _OUTPUT_THINKING_RULES
+    + 'Final line: only the rating in the form [[N]] with N an integer from 1 to 10 '
+    "(example: [[7]]).\nDo not omit the rating line. Do not add explanations after it."
+)
+OUTPUT_JSON_OBJECT = (
+    _OUTPUT_THINKING_RULES
+    + "Final line: a single-line JSON object with exactly the requested keys, "
+    "each value 1 or 0 (no markdown fence).\n"
+    "Do not omit the JSON line. Do not add explanations after it."
+)
 
 # Shared scene for text-content judging (spoken input → text response).
 _TEXT_SCENE = (
