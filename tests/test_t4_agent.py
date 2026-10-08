@@ -310,6 +310,25 @@ def test_audio_rubric_is_not_scored_when_output_is_missing_or_incomplete(tmp_pat
     assert evaluated["rubric_score"] == pytest.approx(0.75)
 
 
+@pytest.mark.parametrize("tokens, expected", [(512, {"force_close_thinking_tokens": 512}), (0, {})])
+def test_local_rubric_judge_forwards_force_close(monkeypatch, tokens, expected):
+    import audio_evals.evaluator.voice_bench as voice_bench
+
+    calls = []
+
+    class FakeJudge:
+        def inference(self, messages, **kwargs):
+            calls.append(kwargs)
+            return '<think>budget exhausted\n</think>\n{"score": 1, "reason": "ok"}'
+
+    monkeypatch.setattr(voice_bench, "get_judge_model", lambda name: FakeJudge())
+    judge = AgentRubricEvaluator(
+        model_name="qwen3-omni-thinking", force_close_thinking_tokens=tokens
+    )._resolve_judge()
+    judge({"prediction": "hello", "reference": {}, "rubric": "be relevant"})
+    assert calls == [expected]
+
+
 def test_ifeval_adapter_reads_canonical_reference_object():
     score = IFEvalAdapter()(
         "#one #two #three #four",

@@ -539,23 +539,34 @@ class SpeakerAttributionEvaluator(Evaluator):
             for index in range(speaker_count - len(pred_speakers))
         ]
         padded_refs = ref_speakers + [""] * (speaker_count - len(ref_speakers))
+        # Each pair's cost is independent of the rest of the assignment, so it is
+        # computed once; 8 speakers would otherwise mean 8! x 8 compute_wer calls.
+        pair_costs: Dict[Tuple[str, str], float] = {}
+
+        def pair_cost(pred_speaker: str, ref_speaker: str) -> float:
+            key = (pred_speaker, ref_speaker)
+            if key not in pair_costs:
+                pred_text = " ".join(pred_by_speaker.get(pred_speaker, []))
+                ref_text = " ".join(ref_by_speaker.get(ref_speaker, []))
+                # Empty / normalize-empty ref: do not call compute_wer (would raise).
+                if (not ref_text) or is_filler_only_reference(ref_text, language):
+                    pair_costs[key] = float(bool(pred_text.strip()))
+                elif not pred_text.strip():
+                    pair_costs[key] = 1.0
+                else:
+                    pair_costs[key] = compute_wer([ref_text], [pred_text], language=language)
+            return pair_costs[key]
+
         best_cost = float("inf")
         best_mapping: Dict[str, str] = {}
         permutations = itertools.permutations(padded_refs, speaker_count)
         if speaker_count > 8:
             permutations = [tuple(padded_refs)]
         for assignment in permutations:
-            costs = []
-            for pred_speaker, ref_speaker in zip(padded_preds, assignment):
-                pred_text = " ".join(pred_by_speaker.get(pred_speaker, []))
-                ref_text = " ".join(ref_by_speaker.get(ref_speaker, []))
-                # Empty / normalize-empty ref: do not call compute_wer (would raise).
-                if (not ref_text) or is_filler_only_reference(ref_text, language):
-                    costs.append(float(bool(pred_text.strip())))
-                elif not pred_text.strip():
-                    costs.append(1.0)
-                else:
-                    costs.append(compute_wer([ref_text], [pred_text], language=language))
+            costs = [
+                pair_cost(pred_speaker, ref_speaker)
+                for pred_speaker, ref_speaker in zip(padded_preds, assignment)
+            ]
             cost = sum(costs) / len(costs) if costs else 1.0
             if cost < best_cost:
                 best_cost = cost

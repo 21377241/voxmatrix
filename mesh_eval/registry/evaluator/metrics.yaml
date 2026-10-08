@@ -66,6 +66,7 @@ mesh-agent-rubric-audio:
     require_audio: true
     audio_judge: true
     model_name: qwen3-omni-thinking
+    force_close_thinking_tokens: 512
 
 # Multi-turn dialogue: official judge prompts, local Thinking judge
 # (see mesh_eval/evaluator/dialogue.py for protocol sources).
@@ -74,18 +75,21 @@ mesh-dialogue-vocalbench:
   args:
     protocol: vocalbench_multi_round
     model_name: qwen3-omni-thinking
+    force_close_thinking_tokens: 512
 
 mesh-dialogue-mtbench:
   class: mesh_eval.evaluator.dialogue.MultiTurnDialogueEvaluator
   args:
     protocol: voicebench_mtbench
     model_name: qwen3-omni-thinking
+    force_close_thinking_tokens: 512
 
 mesh-dialogue-aab:
   class: mesh_eval.evaluator.dialogue.MultiTurnDialogueEvaluator
   args:
     protocol: audioagentbench
     model_name: qwen3-omni-thinking
+    force_close_thinking_tokens: 512
 
 mesh-dialogue-mtalk-rubric:
   class: mesh_eval.evaluator.dialogue.MultiTurnDialogueEvaluator

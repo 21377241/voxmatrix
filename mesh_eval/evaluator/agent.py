@@ -380,12 +380,16 @@ class AgentRubricEvaluator(Evaluator):
         require_audio: bool = False,
         audio_judge: bool = False,
         rubric_kind: str = "agent",
+        force_close_thinking_tokens: int = 0,
     ):
         self.model_name = model_name
         self.judge = judge
         self.require_audio = bool(require_audio)
         self.audio_judge = bool(audio_judge)
         self.rubric_kind = rubric_kind
+        # Local vLLM-Omni Thinking judges only: close an unfinished thinking
+        # block at the token cap and continue for this many tokens.
+        self.force_close_thinking_tokens = int(force_close_thinking_tokens or 0)
 
     def _resolve_judge(self) -> Callable[..., Any]:
         if self.judge is not None:
@@ -419,6 +423,11 @@ class AgentRubricEvaluator(Evaluator):
             model = registry.get_model(model_name)
         if model is None:
             raise RuntimeError(f"judge model is not registered: {model_name}")
+        local_options = (
+            {"force_close_thinking_tokens": self.force_close_thinking_tokens}
+            if local_judge and self.force_close_thinking_tokens > 0
+            else {}
+        )
 
         def call(payload: Any, **kwargs: Any) -> Any:
             if isinstance(payload, Mapping):
@@ -501,7 +510,9 @@ class AgentRubricEvaluator(Evaluator):
                             {"type": "audio", "value": path} for path in audio_paths
                         )
                     contents.append({"type": "text", "value": text_prompt})
-                    raw = model.inference([{"role": "user", "contents": contents}])
+                    raw = model.inference(
+                        [{"role": "user", "contents": contents}], **local_options
+                    )
                 else:
                     raw = model.inference(
                         text_prompt, temperature=0, max_tokens=2048, **kwargs
@@ -513,7 +524,8 @@ class AgentRubricEvaluator(Evaluator):
                             "role": "user",
                             "contents": [{"type": "text", "value": str(payload)}],
                         }
-                    ]
+                    ],
+                    **local_options,
                 )
             else:
                 raw = model.inference(
