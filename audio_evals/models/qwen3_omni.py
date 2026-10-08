@@ -10,7 +10,7 @@ from typing import Dict
 
 from audio_evals.base import PromptStruct
 from audio_evals.isolate import isolated
-from audio_evals.models.model import OfflineModel
+from audio_evals.models.model import Model, OfflineModel
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +56,22 @@ class Qwen3Omni(OfflineModel):
         self._output_queue = None
         self._output_threads = []
         self._recent_process_logs = deque(maxlen=100)
+        self._init_concurrency(1)
 
         super().__init__(is_chat=True, sample_params=sample_params)
+
+    def inference(self, prompt: PromptStruct, **kwargs) -> str:
+        # OfflineModel.inference serializes on self.lock; concurrent mode is thread-safe.
+        if getattr(self, "max_inflight", 1) > 1:
+            return Model.inference(self, prompt, **kwargs)
+        return super().inference(prompt, **kwargs)
+
+    def _init_concurrency(self, max_inflight: int):
+        self.max_inflight = max(1, int(max_inflight))
+        self._concurrency_lock = threading.RLock()
+        self._write_lock = threading.Lock()
+        self._pending: Dict[str, queue.Queue] = {}
+        self._dispatcher = None
 
     def _parse_content(self, content: Dict):
         assert "type" in content
@@ -162,9 +176,115 @@ class Qwen3Omni(OfflineModel):
             else:
                 logger.info("qwen3-omni stderr: %s", line)
 
+    @staticmethod
+    def _finish_response(res: dict) -> dict:
+        text = str(res.get("text") or "").strip()
+        if text.startswith("assistant"):
+            text = text[len("assistant") :].lstrip()
+        res["text"] = text
+        return res
+
+    def _ensure_dispatcher(self):
+        """Concurrent mode: one thread routes ``<uid>->`` replies to their waiters."""
+        with self._concurrency_lock:
+            if self._dispatcher is not None:
+                return
+            self._ensure_output_pumps()
+
+            def dispatch():
+                while True:
+                    item = self._next_output(1.0)
+                    if item is None:
+                        if self.process.poll() is not None:
+                            break
+                        continue
+                    stream_name, line = item
+                    line = line.strip()
+                    if not line:
+                        continue
+                    anchor = line.find("->")
+                    key = line[: anchor + 2] if anchor != -1 else ""
+                    with self._concurrency_lock:
+                        waiter = self._pending.get(key) if stream_name == "stdout" else None
+                    if waiter is not None:
+                        waiter.put(line[len(key) :])
+                    elif stream_name == "stdout" and line.startswith("Error:"):
+                        logger.warning("qwen3-omni unattributed error: %s", line)
+                    elif stream_name == "stdout":
+                        logger.info(line)
+                    else:
+                        logger.info("qwen3-omni stderr: %s", line)
+                with self._concurrency_lock:
+                    waiters = list(self._pending.values())
+                for waiter in waiters:
+                    waiter.put(None)
+
+            self._dispatcher = threading.Thread(
+                target=dispatch, daemon=True, name="qwen3-omni-dispatch"
+            )
+            self._dispatcher.start()
+
+    def _request_concurrent(self, conversation):
+        import uuid
+
+        with self._concurrency_lock:
+            self._wait_until_ready()
+        self._ensure_dispatcher()
+        prefix = f"{uuid.uuid4()}->"
+        replies: queue.Queue = queue.Queue()
+        with self._concurrency_lock:
+            self._pending[prefix] = replies
+        try:
+            if self.process.poll() is not None:
+                self._raise_process_error(
+                    "qwen3-omni subprocess exited before request write"
+                )
+            payload = json.dumps(conversation, ensure_ascii=False)
+            with self._write_lock:
+                try:
+                    self.process.stdin.write(f"{prefix}{payload}\n")
+                    self.process.stdin.flush()
+                except (BrokenPipeError, OSError):
+                    self._raise_process_error(
+                        "qwen3-omni subprocess pipe closed during request write"
+                    )
+            request_start = time.monotonic()
+            deadline = request_start + self._request_timeout
+            last_progress_log = request_start
+            while True:
+                now = time.monotonic()
+                if now >= deadline:
+                    raise TimeoutError(
+                        f"qwen3-omni request exceeded {self._request_timeout:.1f}s"
+                    )
+                try:
+                    body = replies.get(timeout=min(1.0, deadline - now))
+                except queue.Empty:
+                    now = time.monotonic()
+                    if now - last_progress_log >= self._request_log_interval:
+                        logger.info(
+                            "waiting for qwen3-omni response for %.1fs",
+                            now - request_start,
+                        )
+                        last_progress_log = now
+                    continue
+                if body is None:
+                    self._raise_process_error(
+                        "qwen3-omni subprocess exited before producing a response"
+                    )
+                res = json.loads(body)
+                if "error" in res:
+                    raise RuntimeError("qwen3-omni failed: {}".format(res["error"]))
+                return self._finish_response(res)
+        finally:
+            with self._concurrency_lock:
+                self._pending.pop(prefix, None)
+
     def _request(self, conversation):
         import uuid
 
+        if getattr(self, "max_inflight", 1) > 1:
+            return self._request_concurrent(conversation)
         self._wait_until_ready()
         uid = str(uuid.uuid4())
         prefix = f"{uid}->"
@@ -230,8 +350,7 @@ class Qwen3Omni(OfflineModel):
                         )
                     res = json.loads(result[len(prefix) :])
                     logger.debug("return output: %s", res)
-                    res["text"] = res["text"].split("assistant")[-1].strip()
-                    return res
+                    return self._finish_response(res)
                 if result.startswith("Error:"):
                     raise RuntimeError("qwen3-omni failed: {}".format(result))
                 logger.info(result.strip())
@@ -278,7 +397,14 @@ class Qwen3Omni(OfflineModel):
             return json.dumps(output, ensure_ascii=False)
 
         conversation = [self._parse_role_content(item) for item in prompt]
-        result = self._request(conversation)
+        force_close = int(kwargs.get("force_close_thinking_tokens") or 0)
+        if force_close > 0:
+            # Only the vLLM-Omni worker understands this envelope.
+            result = self._request(
+                {"conversation": conversation, "force_close_thinking_tokens": force_close}
+            )
+        else:
+            result = self._request(conversation)
         if len(result) == 1:
             return result["text"]
         return json.dumps(result, ensure_ascii=False)

@@ -121,6 +121,8 @@ def create_predictor(model_name, args, logger=None):
         startup_workers=args.model_startup_workers or None,
         ready_policy=args.model_ready_policy,
     )
+    if not (args.inference_workers or args.workers):
+        inference_workers = max(inference_workers, predictor.total_slots)
     return predictor, inference_workers, True
 
 
@@ -145,6 +147,9 @@ def build_run_context(
         context["replicas"] = int(predictor.replicas)
     if hasattr(predictor, "gpus_per_replica"):
         context["gpus_per_replica"] = int(predictor.gpus_per_replica)
+    # latency_ms includes engine queueing once slots exceed replicas.
+    if hasattr(predictor, "total_slots"):
+        context["concurrent_slots"] = int(predictor.total_slots)
     if getattr(predictor, "replica_metadata", None):
         context["replica_devices"] = [
             {

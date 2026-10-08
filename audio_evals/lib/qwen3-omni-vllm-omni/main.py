@@ -5,17 +5,22 @@
 - speech=True: thinker→talker→code2wav with deploy YAML (default 2-GPU speech).
 
 Protocol matches audio_evals/lib/qwen3-omni/main.py stdin JSON lines.
+With --max-num-seqs > 1 (text only) requests are served concurrently through
+AsyncOmni: replies are ``<uid>->{json}`` lines in completion order, failures are
+``<uid>->{"error": ...}``, and no ``<uid>->close`` ack is expected.
 Requires envs/vllm_omni (not stock thinker-only vLLM).
 """
 
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import os
 import select
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -30,6 +35,10 @@ from vllm_omni.entrypoints.omni import Omni
 
 READY_SENTINEL = "__QWEN3_OMNI_READY__"
 AUDIO_SR = 24000
+# Evaluators look for this sentence to flag force-closed judgments.
+FORCE_CLOSE_TEXT = (
+    "\n\nThinking budget exhausted; giving the final answer now.\n</think>\n\n"
+)
 
 
 def stage(message: str) -> None:
@@ -53,7 +62,17 @@ def _parse_bool(value: str) -> bool | None:
 
 
 def write_thinker_deploy(
-    path: Path, *, tp: int, util: float, max_model_len: int, max_tokens: int
+    path: Path,
+    *,
+    tp: int,
+    util: float,
+    max_model_len: int,
+    max_tokens: int,
+    # Eager (no CUDA graph) decodes ~15x slower for this MoE at batch=1.
+    enforce_eager: bool = False,
+    # Some nodes fail custom all-reduce IPC during graph capture ('invalid argument').
+    disable_custom_all_reduce: bool = False,
+    max_num_seqs: int = 1,
 ) -> None:
     """Thinker-only deploy; devices/TP follow allocated GPUs."""
     devices = ",".join(str(i) for i in range(max(1, tp)))
@@ -65,10 +84,11 @@ def write_thinker_deploy(
             {
                 "stage_id": 0,
                 "devices": devices,
-                "max_num_seqs": 1,
+                "max_num_seqs": max(1, int(max_num_seqs)),
                 "max_num_batched_tokens": int(max_model_len),
                 "gpu_memory_utilization": float(util),
-                "enforce_eager": True,
+                "enforce_eager": bool(enforce_eager),
+                "disable_custom_all_reduce": bool(disable_custom_all_reduce),
                 "async_scheduling": False,
                 "tensor_parallel_size": int(max(1, tp)),
                 "trust_remote_code": True,
@@ -148,6 +168,155 @@ def _emit(prefix: str, payload: dict) -> None:
             print("not found close signal, will emit again", flush=True)
 
 
+def _parse_request(line: str):
+    """Return (prefix, conversation, force_close_tokens), or None for non-requests."""
+    anchor = line.find("->")
+    if anchor == -1:
+        print(
+            f"Error: Invalid conversation format, must contains  ->, but {line}",
+            flush=True,
+        )
+        return None
+    prefix = line[:anchor].strip() + "->"
+    raw = line[anchor + 2 :].strip()
+    if raw == "close":
+        return None
+    conversation = json.loads(raw)
+    force_close_tokens = 0
+    if isinstance(conversation, dict):
+        force_close_tokens = int(conversation.get("force_close_thinking_tokens") or 0)
+        conversation = conversation["conversation"]
+    return prefix, conversation, force_close_tokens
+
+
+def _needs_force_close(text_out: str, finish_reason, force_close_tokens: int) -> bool:
+    return (
+        force_close_tokens > 0
+        and "</think>" not in (text_out or "")
+        and finish_reason in (None, "length")
+    )
+
+
+def _force_close_params(config, force_close_tokens: int):
+    return [
+        SamplingParams(
+            temperature=float(config.temperature),
+            top_p=1.0,
+            top_k=-1,
+            max_tokens=force_close_tokens,
+            seed=int(config.seed),
+        )
+    ]
+
+
+def _text_of(output):
+    output = getattr(output, "request_output", output)
+    try:
+        return output.outputs[0].text, getattr(output.outputs[0], "finish_reason", None)
+    except Exception:
+        return str(getattr(output, "outputs", output)), None
+
+
+async def _agenerate_text(omni, inputs, sampling_params_list, request_id: str):
+    text_out, finish_reason = "", None
+    async for stage_outputs in omni.generate(
+        inputs, request_id=request_id, sampling_params_list=sampling_params_list
+    ):
+        if getattr(stage_outputs, "final_output_type", None) in (None, "text"):
+            text_out, finish_reason = _text_of(stage_outputs)
+    return text_out, finish_reason
+
+
+async def _handle_concurrent(
+    omni, processor, config, request, sampling_params_list, modalities, truncation
+) -> None:
+    prefix, conversation, force_close_tokens = request
+    request_id = prefix[:-2]
+    try:
+        stage(f"conc_received {request_id[:8]}")
+        inputs = await asyncio.to_thread(
+            build_omni_inputs,
+            processor,
+            conversation,
+            use_audio_in_video=False,
+            modalities=modalities,
+            truncation=truncation,
+        )
+        stage(f"conc_inputs_ready {request_id[:8]}")
+        text_out, finish_reason = await _agenerate_text(
+            omni, inputs, sampling_params_list, request_id
+        )
+        stage(f"conc_generated {request_id[:8]}")
+        if _needs_force_close(text_out, finish_reason, force_close_tokens):
+            forced_prefix = (text_out or "") + FORCE_CLOSE_TEXT
+            forced_inputs = dict(inputs, prompt=inputs["prompt"] + forced_prefix)
+            tail, _ = await _agenerate_text(
+                omni,
+                forced_inputs,
+                _force_close_params(config, force_close_tokens),
+                f"{request_id}-force-close",
+            )
+            text_out = forced_prefix + (tail or "")
+        body = {"text": text_out or ""}
+    except Exception as exc:
+        body = {"error": f"{type(exc).__name__}: {exc}"}
+    print(prefix + json.dumps(body, ensure_ascii=False), flush=True)
+
+
+async def _serve_concurrent(config, omni_kwargs, sampling_params_list, modalities) -> None:
+    """Text-only server: every stdin request runs as its own AsyncOmni request."""
+    from vllm_omni.entrypoints.async_omni import AsyncOmni
+
+    omni = AsyncOmni(**omni_kwargs)
+    processor = Qwen3OmniMoeProcessor.from_pretrained(config.path)
+    stage(f"load_omni_done num_stages={getattr(omni, 'num_stages', '?')} concurrent=1")
+    print(
+        f"{READY_SENTINEL} vLLM-Omni (thinker-only, max_num_seqs={config.max_num_seqs}) "
+        f"loaded from checkpoint: {config.path}",
+        flush=True,
+    )
+
+    loop = asyncio.get_running_loop()
+    lines: asyncio.Queue = asyncio.Queue()
+
+    def read_stdin() -> None:
+        for line in sys.stdin:
+            loop.call_soon_threadsafe(lines.put_nowait, line)
+        loop.call_soon_threadsafe(lines.put_nowait, None)
+
+    threading.Thread(target=read_stdin, daemon=True, name="stdin-reader").start()
+    tasks: set = set()
+    while True:
+        line = await lines.get()
+        if line is None:
+            break
+        try:
+            request = _parse_request(line.strip())
+        except Exception as exc:
+            print(f"Error:{type(exc).__name__}: {exc}", flush=True)
+            continue
+        if request is None:
+            continue
+        task = asyncio.create_task(
+            _handle_concurrent(
+                omni,
+                processor,
+                config,
+                request,
+                sampling_params_list,
+                modalities,
+                config.truncation,
+            )
+        )
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+    shutdown = getattr(omni, "shutdown", None)
+    if callable(shutdown):
+        shutdown()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", type=str, required=True)
@@ -201,6 +370,15 @@ def main() -> None:
                 util=float(config.gpu_memory_utilization),
                 max_model_len=int(config.max_model_len),
                 max_tokens=max_text_tokens,
+                enforce_eager=_parse_bool(
+                    os.environ.get("QWEN3_OMNI_THINKER_ENFORCE_EAGER", "false")
+                )
+                is True,
+                disable_custom_all_reduce=_parse_bool(
+                    os.environ.get("QWEN3_OMNI_DISABLE_CUSTOM_ALL_REDUCE", "false")
+                )
+                is True,
+                max_num_seqs=int(config.max_num_seqs),
             )
             deploy_cfg = thinker_deploy_tmp
 
@@ -223,6 +401,18 @@ def main() -> None:
             json.dumps({k: v for k, v in omni_kwargs.items() if k != "model"}, default=str),
         )
     )
+    if not config.speech and int(config.max_num_seqs) > 1:
+        text_sp = [
+            SamplingParams(
+                temperature=float(config.temperature),
+                top_p=1.0,
+                top_k=-1,
+                max_tokens=max_text_tokens,
+                seed=int(config.seed),
+            )
+        ]
+        asyncio.run(_serve_concurrent(config, omni_kwargs, text_sp, ["text"]))
+        return
     try:
         omni = Omni(**omni_kwargs)
         processor = Qwen3OmniMoeProcessor.from_pretrained(config.path)
@@ -284,19 +474,10 @@ def main() -> None:
 
     while True:
         try:
-            prompt = input()
-            anchor = prompt.find("->")
-            if anchor == -1:
-                print(
-                    f"Error: Invalid conversation format, must contains  ->, but {prompt}",
-                    flush=True,
-                )
+            request = _parse_request(input())
+            if request is None:
                 continue
-            prefix = prompt[:anchor].strip() + "->"
-            raw = prompt[anchor + 2 :].strip()
-            if raw == "close":
-                continue
-            conversation = json.loads(raw)
+            prefix, conversation, force_close_tokens = request
             stage(f"request_received prefix={prefix}")
 
             inputs = build_omni_inputs(
@@ -311,6 +492,7 @@ def main() -> None:
 
             stage("generate_start")
             text_out = ""
+            finish_reason = None
             audio_np = None
             # py_generator=False: keep Omni engine alive across requests.
             for stage_outputs in omni.generate(
@@ -323,6 +505,7 @@ def main() -> None:
                 ):
                     try:
                         text_out = output.outputs[0].text
+                        finish_reason = getattr(output.outputs[0], "finish_reason", None)
                     except Exception:
                         text_out = str(getattr(output, "outputs", output))
                 elif out_type == "audio":
@@ -332,6 +515,24 @@ def main() -> None:
                     except Exception as exc:
                         raise RuntimeError(f"audio extract failed: {exc}") from exc
             stage("generate_done")
+
+            if not config.speech and _needs_force_close(
+                text_out, finish_reason, force_close_tokens
+            ):
+                stage(f"force_close_thinking tokens={force_close_tokens}")
+                forced_prefix = (text_out or "") + FORCE_CLOSE_TEXT
+                forced_inputs = dict(inputs, prompt=inputs["prompt"] + forced_prefix)
+                forced_sp = _force_close_params(config, force_close_tokens)
+                tail = ""
+                for stage_outputs in omni.generate(
+                    [forced_inputs], forced_sp, py_generator=False
+                ):
+                    output = getattr(stage_outputs, "request_output", stage_outputs)
+                    try:
+                        tail = output.outputs[0].text
+                    except Exception:
+                        tail = str(getattr(output, "outputs", output))
+                text_out = forced_prefix + (tail or "")
 
             if not config.speech:
                 _emit(prefix, {"text": text_out or ""})

@@ -39,8 +39,19 @@ from mesh_eval.core.subset_manifest import (  # noqa: E402
 
 MODEL_PATH = Path("/mnt/afs/models/Qwen3-Omni-30B-A3B-Instruct")
 MODEL_ENV = Path("/mnt/afs/users/wangyl/VoxMatrix/envs/qwen3-omni")
-OUTPUT = HERE / "output"
+if not os.environ.get("NATIVE_OUTPUT_DIR"):
+    from datetime import datetime
+
+    os.environ["NATIVE_OUTPUT_DIR"] = str(
+        Path(os.environ.get("NATIVE_RUNS_ROOT") or ROOT / "outputs" / "native_runs")
+        / f"{datetime.now():%Y%m%d_%H%M%S}_{os.uname().nodename}_{os.getpid()}"
+    )
+OUTPUT = Path(os.environ["NATIVE_OUTPUT_DIR"]).resolve()
 RUNTIME_REGISTRY = OUTPUT / "registry" / "eval_task"
+# NATIVE_DATA=full: clip slots read their Full index (slot_map.yaml), all slots run unlimited.
+FULL_MODE = str(os.environ.get("NATIVE_DATA") or "native").strip().lower() == "full"
+SLOT_MAP = ROOT / "mesh_eval" / "data" / "full" / "slot_map.yaml"
+FULL_DATASET_SUFFIX = "--full"
 
 # Catalog capability may be renamed while annotation still uses the historical
 # capability id (spoken_slu ← instruction_following for FSC/SLURP).
@@ -71,12 +82,66 @@ def _capability_id(item: dict) -> str:
     return str(item.get("capability") or item.get("id") or "").strip()
 
 
+def _slot_limit(item: dict, limit: int) -> int:
+    """Round down to whole units (e.g. 4 rows = one S/M/L/XL family)."""
+    step = int(item.get("limit_step") or 1)
+    if step <= 1 or limit <= 0:
+        return limit
+    return max(step, limit - limit % step)
+
+
 def _task_name(item: dict) -> str:
     return f"native-task-{_slot_id(item).replace('_', '-')}"
 
 
 def _benchmark_id(item: dict) -> str:
     return f"native-{_slot_id(item).replace('_', '-')}"
+
+
+def _write_full_datasets(catalog: dict) -> dict[str, str]:
+    """Register ``<dataset>--full`` copies whose f_name is the slot's Full index."""
+    slot_map = yaml.safe_load(SLOT_MAP.read_text(encoding="utf-8")) or {}
+    specs: dict = {}
+    for path in sorted((ROOT / "mesh_eval" / "registry" / "dataset").glob("*.yaml")):
+        specs.update(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
+    renamed: dict[str, str] = {}
+    full_registry: dict = {}
+    for item in catalog["capabilities"]:
+        entry = slot_map.get(_slot_id(item))
+        spec = specs.get(item.get("dataset"))
+        if not entry or not spec:
+            continue
+        args = dict(spec.get("args") or {})
+        if args.get("f_name") != entry["native"]:
+            raise ValueError(
+                f"{_slot_id(item)}: registry f_name {args.get('f_name')} != slot_map native {entry['native']}"
+            )
+        args["f_name"] = entry["full"]
+        name = f"{item['dataset']}{FULL_DATASET_SUFFIX}"
+        full_registry[name] = {"class": spec["class"], "args": args}
+        renamed[item["dataset"]] = name
+    _dump_yaml(OUTPUT / "registry" / "dataset" / "native_full.yaml", full_registry)
+    return renamed
+
+
+def _write_concurrent_model(model_name: str, concurrency: int) -> str:
+    """Register ``<model>--c<N>``: same args, engine and wrapper serve N requests at once."""
+    specs: dict = {}
+    for root in (ROOT / "mesh_eval" / "registry" / "model", HERE / "registry" / "model"):
+        for path in sorted(root.rglob("*.yaml")):
+            specs.update(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
+    spec = specs.get(model_name)
+    if not spec or not str(spec.get("class", "")).endswith("Qwen3OmniVLLMOmni"):
+        raise ValueError(f"NATIVE_CONCURRENCY needs a Qwen3OmniVLLMOmni model, got {model_name}")
+    if (spec.get("args") or {}).get("speech"):
+        raise ValueError(f"NATIVE_CONCURRENCY only applies to text models, got {model_name}")
+    name = f"{model_name}--c{concurrency}"
+    args = dict(spec.get("args") or {}, max_num_seqs=concurrency)
+    _dump_yaml(
+        OUTPUT / "registry" / "model" / "native_concurrency.yaml",
+        {name: {"class": spec["class"], "args": args}},
+    )
+    return name
 
 
 def _dump_yaml(path: Path, payload: dict) -> None:
@@ -107,7 +172,10 @@ def _make_suite(
     registry_paths: list[str],
     rows: list[dict],
     limit: int,
+    replicas: int = 1,
+    concurrency: int = 1,
 ) -> dict:
+    slots = replicas * concurrency
     benchmarks = []
     for item in rows:
         spec = {
@@ -117,7 +185,7 @@ def _make_suite(
             "prompt": item["prompt"],
             "evaluator": item["evaluator"],
             "agg": item["agg"],
-            "limit": limit,
+            "limit": _slot_limit(item, limit),
             "evaluation_workers": 1,
         }
         if item.get("two_phase"):
@@ -137,12 +205,12 @@ def _make_suite(
             "allow_unmatched": True,
         },
         "model_pool": {
-            "use_model_pool": "off",
-            "replicas": 1,
+            "use_model_pool": "on" if slots > 1 else "off",
+            "replicas": replicas,
             "gpus_per_replica": 1,
-            "inference_workers": 1,
+            "inference_workers": slots,
             "allow_gpu_sharing": False,
-            "model_ready_policy": "auto",
+            "model_ready_policy": "required" if slots > 1 else "auto",
         },
         "suite_aggregation": {
             "enabled": True,
@@ -157,6 +225,11 @@ def _make_suite(
 def main() -> int:
     catalog = _load_catalog()
     limit = int(os.environ.get("NATIVE_LIMIT") or os.environ.get("W1_LIMIT") or catalog.get("limit") or 10)
+    full_datasets: dict[str, str] = {}
+    if FULL_MODE:
+        # NATIVE_FULL_LIMIT is only for timing probes; 0 = every row.
+        limit = int(os.environ.get("NATIVE_FULL_LIMIT") or 0)
+        full_datasets = _write_full_datasets(catalog)
     # Comma-separated capability ids, e.g. long_form_asr. Empty = all catalog slots.
     capability_filter = {
         part.strip()
@@ -175,11 +248,17 @@ def main() -> int:
     speech_model = str(
         os.environ.get("NATIVE_SPEECH_MODEL") or catalog["speech_model"]
     )
+    concurrency = max(1, int(os.environ.get("NATIVE_CONCURRENCY") or 1))
+    if concurrency > 1:
+        default_model = _write_concurrent_model(default_model, concurrency)
     baseline = load_annotation_baseline()
     errors: list[str] = []
     report = {
         "catalog": str(HERE / "catalog.yaml"),
+        "data_mode": "full" if FULL_MODE else "native",
         "limit": limit,
+        "model": default_model,
+        "concurrency": concurrency,
         "capability_filter": sorted(capability_filter),
         "slot_filter": sorted(slot_filter),
         "annotation_baseline": baseline.path,
@@ -205,6 +284,7 @@ def main() -> int:
             ROOT / "mesh_eval" / "registry",
             HERE / "registry",
         ]
+        + ([OUTPUT / "registry"] if FULL_MODE or concurrency > 1 else [])
     )
     for name in (default_model, speech_model):
         if name not in registry._model:
@@ -214,6 +294,8 @@ def main() -> int:
     task_registry: dict = {}
 
     for item in catalog["capabilities"]:
+        if item.get("dataset") in full_datasets:
+            item = dict(item, dataset=full_datasets[item["dataset"]])
         slot_id = _slot_id(item)
         cap_id = _capability_id(item)
         bench_id = str(item.get("benchmark") or "")
@@ -299,7 +381,7 @@ def main() -> int:
                 errors.append(f"{slot_id}: {kind} not registered: {key}")
 
         try:
-            loaded = preload_dataset(dataset, limit=limit)
+            loaded = preload_dataset(dataset, limit=_slot_limit(item, limit))
             rows = loaded.rows
         except Exception as exc:
             entry.update(
@@ -372,6 +454,8 @@ def main() -> int:
                 registry_paths=registry_paths,
                 rows=runnable["main"],
                 limit=limit,
+                replicas=int(os.environ.get("NATIVE_REPLICAS") or 1),
+                concurrency=concurrency,
             ),
         )
     if runnable["tts"]:
@@ -384,6 +468,7 @@ def main() -> int:
                 registry_paths=registry_paths,
                 rows=runnable["tts"],
                 limit=limit,
+                replicas=int(os.environ.get("NATIVE_TTS_REPLICAS") or 1),
             ),
         )
 
@@ -403,6 +488,7 @@ def main() -> int:
         "runnable_tts": report["runnable_tts"],
         "blocked": report["blocked"],
         "errors": errors,
+        "output_dir": str(OUTPUT),
         "preflight": str(out_path),
     }
     print(json.dumps(summary, ensure_ascii=False, indent=2))

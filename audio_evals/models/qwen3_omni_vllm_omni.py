@@ -79,6 +79,8 @@ class Qwen3OmniVLLMOmni(Qwen3Omni):
         self._output_queue = None
         self._output_threads = []
         self._recent_process_logs = deque(maxlen=100)
+        # The speech pipeline worker stays one-request-at-a-time.
+        self._init_concurrency(1 if speech else max_num_seqs)
         OfflineModel.__init__(self, is_chat=True, sample_params=sample_params)
 
     def _inference(self, prompt: PromptStruct, **kwargs):

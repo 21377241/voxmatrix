@@ -127,6 +127,8 @@ class IsolatedModelPool:
     ``gpus_per_replica`` controls an explicit contiguous GPU group.  Sharing a
     token between replicas is rejected unless ``allow_gpu_sharing`` is enabled.
     Replicas are constructed concurrently after their assignments are frozen.
+    A replica exposing ``max_inflight > 1`` is queued that many times, so up to
+    that many calls share it concurrently; the replica must be thread-safe.
     """
 
     def __init__(
@@ -251,17 +253,25 @@ class IsolatedModelPool:
 
         for replica_id in range(self.replicas):
             _, assigned, gpu_id, protocol, model = created[replica_id]
+            slots = max(1, int(getattr(model, "max_inflight", 1) or 1))
             self._models.append(model)
-            self._pool.put(model)
+            for _ in range(slots):
+                self._pool.put(model)
             self.replica_metadata.append(
                 {
                     "replica_id": replica_id,
                     "gpu_tokens": list(assigned),
                     "cuda_visible_devices": gpu_id,
                     "ready_protocol": protocol,
+                    "slots": slots,
                 }
             )
-        logger.info("IsolatedModelPool initialized with %s ready replicas", self.replicas)
+        self.total_slots = sum(item["slots"] for item in self.replica_metadata)
+        logger.info(
+            "IsolatedModelPool initialized with %s ready replicas, %s concurrent slots",
+            self.replicas,
+            self.total_slots,
+        )
 
     @staticmethod
     def _compute_gpu_assignments(
