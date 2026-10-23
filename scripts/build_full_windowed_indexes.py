@@ -103,7 +103,11 @@ def main() -> int:
             rows = load_rows(cap, ds)
             if not args.skip_audio_check:
                 missing_audio += [r["sample_id"] for r in rows if not Path(r["WavPath"]).is_file()]
-            write_jsonl(out_path(cap, ds), rows)
+            path = out_path(cap, ds)
+            write_jsonl(path, rows)
+            from mesh_eval.data.full_index_meta import finalize_jsonl
+
+            finalize_jsonl(path, f"{cap}__{ds}")
             counts = Counter(r["bucket"] for r in rows)
             summary.setdefault(cap, {})[ds] = {
                 "rows": len(rows),

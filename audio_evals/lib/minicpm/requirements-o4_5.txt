@@ -1,0 +1,9 @@
+torch==2.6.0
+torchaudio==2.6.0
+torchvision==0.21.0
+transformers==4.51.0
+accelerate
+minicpmo-utils[all]>=1.0.5
+librosa
+soundfile
+Pillow

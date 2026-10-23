@@ -47,13 +47,13 @@ TUT2018_OFFICIAL = [
 
 
 def _write(rows: list[dict], name: str) -> tuple[int, Path]:
+    from mesh_eval.data.full_index_meta import slot_id_from_filename, write_index_jsonl
+
     OUT.mkdir(parents=True, exist_ok=True)
     path = OUT / name
-    path.write_text(
-        "".join(json.dumps(x, ensure_ascii=False) + "\n" for x in rows),
-        encoding="utf-8",
-    )
-    return len(rows), path
+    slot_id = slot_id_from_filename(OUT.name, name)
+    n = write_index_jsonl(path, rows, slot_id)
+    return n, path
 
 
 def build_dcase() -> tuple[int, Path, dict]:

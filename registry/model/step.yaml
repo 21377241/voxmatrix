@@ -1,3 +1,25 @@
+# Official transformers implementation (audio_evals/lib/StepAudio2).
+step-audio-2-mini:
+  class: audio_evals.models.step_audio2.StepAudio2
+  args:
+    path: /mnt/afs/models/Step-Audio-2-mini
+    speech: false
+    # 4-minute meeting windows need >1k tokens for transcripts / diarization JSON.
+    max_new_tokens: 2048
+    env_path: /mnt/afs/conda/envs/stepaudio2
+    requirements_path: ""
+
+step-audio-2-mini-speech:
+  class: audio_evals.models.step_audio2.StepAudio2
+  args:
+    path: /mnt/afs/models/Step-Audio-2-mini
+    speech: true
+    # Greedy speech replies may never emit EOT; 2048 tokens caps them near 65 s of audio.
+    max_new_tokens: 2048
+    speech_output_dir: ${NATIVE_OUTPUT_DIR:-/mnt/afs/users/wangyl/VoxMatrix-clean/outputs/native_runs/unscoped}/tts/speech_wavs
+    env_path: /mnt/afs/conda/envs/stepaudio2
+    requirements_path: ""
+
 step-audio-r1.1:
   class: audio_evals.models.step_audio_r1.StepAudioR1
   args:

@@ -4,6 +4,8 @@
 #   NATIVE_SLOT_FILTER=asr__librispeech scripts/submit_native_full.sh asr
 #   RUN_NAME=small_batch1 scripts/submit_native_full.sh sound_event,speaker_count   (one model load)
 #   NATIVE_CONCURRENCY=8 scripts/submit_native_full.sh asr   (8 in-flight requests per text replica)
+#   MODEL_TAG=step_audio_2_mini NATIVE_MODEL=step-audio-2-mini NATIVE_SPEECH_MODEL=step-audio-2-mini-speech \
+#     scripts/submit_native_full.sh acoustic_scene   (other model; outputs/native_full_<MODEL_TAG>/)
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export VOXMATRIX_ROOT="$ROOT"
@@ -12,6 +14,8 @@ CAP="${1:?capability id(s), comma-separated, e.g. acoustic_scene}"
 shift
 NAME="${RUN_NAME:-${CAP//,/-}}"
 GPUS="${GPUS:-4}"
+OUT_ROOT="$ROOT/outputs/native_full${MODEL_TAG:+_$MODEL_TAG}"
+JOB_NAME="vox-full-${MODEL_TAG:+${MODEL_TAG//_/-}-}${NAME//_/-}"
 cd "$ROOT"
 chmod +x "$ROOT/scripts/run_native_full.sh"
 EXTRA=()
@@ -20,13 +24,15 @@ EXTRA=()
 [[ -n "${NATIVE_REPLICAS:-}" ]] && EXTRA+=(-e "NATIVE_REPLICAS=$NATIVE_REPLICAS")
 [[ -n "${NATIVE_CONCURRENCY:-}" ]] && EXTRA+=(-e "NATIVE_CONCURRENCY=$NATIVE_CONCURRENCY")
 [[ -n "${NATIVE_FULL_LIMIT:-}" ]] && EXTRA+=(-e "NATIVE_FULL_LIMIT=$NATIVE_FULL_LIMIT")
+[[ -n "${NATIVE_MODEL:-}" ]] && EXTRA+=(-e "NATIVE_MODEL=$NATIVE_MODEL")
+[[ -n "${NATIVE_SPEECH_MODEL:-}" ]] && EXTRA+=(-e "NATIVE_SPEECH_MODEL=$NATIVE_SPEECH_MODEL")
 exec "$JOB" submit "$ROOT/scripts/run_native_full.sh" \
   -g "$GPUS" \
-  -N "vox-full-${NAME//_/-}" \
+  -N "$JOB_NAME" \
   --project-root "$ROOT" \
-  --output-root "$ROOT/outputs/native_full" \
+  --output-root "$OUT_ROOT" \
   -e "NATIVE_CAPABILITY_FILTER=$CAP" \
-  -e "NATIVE_OUTPUT_DIR=$ROOT/outputs/native_full/${NAME}_$(date +%Y%m%d_%H%M%S)" \
+  -e "NATIVE_OUTPUT_DIR=$OUT_ROOT/${NAME}_$(date +%Y%m%d_%H%M%S)" \
   -e "QWEN3_OMNI_DISABLE_CUSTOM_ALL_REDUCE=true" \
   ${EXTRA[@]+"${EXTRA[@]}"} \
   "$@"

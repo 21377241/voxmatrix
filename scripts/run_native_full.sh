@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # GPU-node: Full-index run for the slots selected by NATIVE_CAPABILITY_FILTER / NATIVE_SLOT_FILTER.
-# Clip slots read mesh_eval/data/full/slot_map.yaml, every slot runs without a row limit.
+# Every runnable catalog slot must be in mesh_eval/data/full/slot_map.yaml and load
+# NativeClipDataset jsonl (IF / multi_turn / spoken_slu included). No row limit unless
+# NATIVE_FULL_LIMIT is set. Existing outputs/native_full/* runs are left untouched.
 set -euo pipefail
 ROOT="${VOXMATRIX_ROOT:-/mnt/afs/users/wangyl/VoxMatrix-clean}"
 HERE="$ROOT/suites/native"

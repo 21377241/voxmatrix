@@ -87,11 +87,9 @@ def main() -> int:
     rows, stats = convert(args.source)
     if not rows:
         raise SystemExit("full index is empty")
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(
-        "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
-        encoding="utf-8",
-    )
+    from mesh_eval.data.full_index_meta import write_index_jsonl
+
+    write_index_jsonl(args.output, rows, "asr__aishell_1")
     print(json.dumps({"output": str(args.output), **stats}, ensure_ascii=False, indent=2))
     return 0
 

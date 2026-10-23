@@ -38,8 +38,6 @@ def load():
             ],
             extra_cuda_cflags=[
                 "-O3",
-                "-gencode",
-                "arch=compute_70,code=sm_70",
                 "--use_fast_math",
             ]
             + extra_cuda_flags

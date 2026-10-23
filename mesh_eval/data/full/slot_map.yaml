@@ -74,6 +74,18 @@ diarization__chime_6:
   full: mesh_eval/data/full/diarization/diarization_chime_6_windowed.jsonl
   full_rows: 93
   native: mesh_eval/data/native/diarization_chime_6_windowed.jsonl
+instruction_following__vocalbench:
+  full: mesh_eval/data/full/instruction_following/instruction_following_vocalbench.jsonl
+  full_rows: 900
+  native: mesh_eval/data/native/instruction_following_vocalbench.jsonl
+instruction_following__vocalbench_zh:
+  full: mesh_eval/data/full/instruction_following/instruction_following_vocalbench_zh.jsonl
+  full_rows: 1000
+  native: mesh_eval/data/native/instruction_following_vocalbench_zh.jsonl
+instruction_following__voicebench:
+  full: mesh_eval/data/full/instruction_following/instruction_following_voicebench.jsonl
+  full_rows: 345
+  native: mesh_eval/data/native/instruction_following_voicebench.jsonl
 long_form_asr__aishell_4:
   full: mesh_eval/data/full/long_form_asr/aishell_4_long_form_windowed.jsonl
   full_rows: 480
@@ -90,6 +102,26 @@ long_form_asr__chime_6:
   full: mesh_eval/data/full/long_form_asr/chime_6_long_form_windowed.jsonl
   full_rows: 93
   native: mesh_eval/data/native/chime_6_long_form_windowed.jsonl
+multi_turn_dialogue__audioagentbench_suite:
+  full: mesh_eval/data/full/multi_turn_dialogue/multi_turn_dialogue_audioagentbench_suite.jsonl
+  full_rows: 248
+  native: mesh_eval/data/native/multi_turn_dialogue_audioagentbench_suite.jsonl
+multi_turn_dialogue__mtalk_bench:
+  full: mesh_eval/data/full/multi_turn_dialogue/multi_turn_dialogue_mtalk_bench.jsonl
+  full_rows: 270
+  native: mesh_eval/data/native/multi_turn_dialogue_mtalk_bench.jsonl
+multi_turn_dialogue__vocalbench:
+  full: mesh_eval/data/full/multi_turn_dialogue/multi_turn_dialogue_vocalbench.jsonl
+  full_rows: 400
+  native: mesh_eval/data/native/multi_turn_dialogue_vocalbench.jsonl
+multi_turn_dialogue__vocalbench_zh:
+  full: mesh_eval/data/full/multi_turn_dialogue/multi_turn_dialogue_vocalbench_zh.jsonl
+  full_rows: 400
+  native: mesh_eval/data/native/multi_turn_dialogue_vocalbench_zh.jsonl
+multi_turn_dialogue__voicebench:
+  full: mesh_eval/data/full/multi_turn_dialogue/multi_turn_dialogue_voicebench.jsonl
+  full_rows: 46
+  native: mesh_eval/data/native/multi_turn_dialogue_voicebench.jsonl
 paralinguistic_recognition__mmsu:
   full: mesh_eval/data/full/paralinguistic_recognition/paralinguistic_recognition_mmsu.jsonl
   full_rows: 1523
@@ -174,6 +206,14 @@ speech_translation__mmsu:
   full: mesh_eval/data/full/speech_translation/speech_translation_mmsu.jsonl
   full_rows: 119
   native: mesh_eval/data/native/speech_translation_mmsu.jsonl
+spoken_slu__fluent_speech_commands:
+  full: mesh_eval/data/full/spoken_slu/spoken_slu_fluent_speech_commands.jsonl
+  full_rows: 3793
+  native: mesh_eval/data/native/spoken_slu_fluent_speech_commands.jsonl
+spoken_slu__slurp:
+  full: mesh_eval/data/full/spoken_slu/spoken_slu_slurp.jsonl
+  full_rows: 2974
+  native: mesh_eval/data/native/spoken_slu_slurp.jsonl
 target_speaker__aishell_5:
   full: mesh_eval/data/full/target_speaker/target_speaker_aishell_5.jsonl
   full_rows: 1030

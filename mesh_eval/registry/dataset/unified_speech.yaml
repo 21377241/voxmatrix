@@ -7,11 +7,10 @@ mesh-unified-speech-smoke:
     dataset_id: local_smoke
     strict: true
     check_audio_exists: true
-audio-agent-bench-dialogue:
-  class: mesh_eval.dataset.external_benchmarks.AudioAgentBenchDataset
-  args:
-    benchmark_id: audio-agent-bench-dialogue
-    view: dialogue
+# IF / multi_turn / spoken_slu dialogue+intent slots retired their t4-* /
+# audio-agent-bench-dialogue registry names. Catalog uses native-* jsonl
+# (Full via slot_map). Rebuild: scripts/build_full_agentic_indexes.py.
+# Kept below: tool_call / clarification / other views still external for now.
 audio-agent-bench-tool-call:
   class: mesh_eval.dataset.external_benchmarks.AudioAgentBenchDataset
   args:
@@ -22,72 +21,24 @@ audio-agent-bench-clarification:
   args:
     benchmark_id: audio-agent-bench-clarification
     view: clarification
-t4-fsc-instruction-following:
-  class: mesh_eval.dataset.external_benchmarks.FluentSpeechCommandsT4Dataset
-  args:
-    benchmark_id: t4-fsc-instruction-following
-    view: instruction_following
 t4-fsc-tool-call:
   class: mesh_eval.dataset.external_benchmarks.FluentSpeechCommandsT4Dataset
   args:
     benchmark_id: t4-fsc-tool-call
     view: tool_call
-t4-slurp-instruction-following:
-  class: mesh_eval.dataset.external_benchmarks.SLURPT4Dataset
-  args:
-    benchmark_id: t4-slurp-instruction-following
-    view: instruction_following
 t4-slurp-tool-call:
   class: mesh_eval.dataset.external_benchmarks.SLURPT4Dataset
   args:
     benchmark_id: t4-slurp-tool-call
     view: tool_call
-t4-vocalbench-instruction-following:
-  class: mesh_eval.dataset.external_benchmarks.VocalBenchDataset
-  args:
-    benchmark_id: t4-vocalbench-instruction-following
-    view: instruction_following
-    language: en
-t4-vocalbench-zh-instruction-following:
-  class: mesh_eval.dataset.external_benchmarks.VocalBenchDataset
-  args:
-    benchmark_id: t4-vocalbench-zh-instruction-following
-    view: instruction_following
-    language: zh
-t4-vocalbench-multi-turn:
-  class: mesh_eval.dataset.external_benchmarks.VocalBenchDataset
-  args:
-    benchmark_id: t4-vocalbench-multi-turn
-    view: multi_turn
-    language: en
-t4-vocalbench-zh-multi-turn:
-  class: mesh_eval.dataset.external_benchmarks.VocalBenchDataset
-  args:
-    benchmark_id: t4-vocalbench-zh-multi-turn
-    view: multi_turn
-    language: zh
 t4-stepeval-audio-toolcall:
   class: mesh_eval.dataset.external_benchmarks.StepEvalAudioToolCallDataset
   args:
     benchmark_id: t4-stepeval-audio-toolcall
-t4-mtalk-bench:
-  class: mesh_eval.dataset.external_benchmarks.MTalkBenchDataset
-  args:
-    benchmark_id: t4-mtalk-bench
 t4-ear-wdyl:
   class: mesh_eval.dataset.external_benchmarks.EARWDYLDataset
   args:
     benchmark_id: t4-ear-wdyl
-t4-voicebench-ifeval:
-  class: mesh_eval.dataset.external_benchmarks.VoiceBenchT4Dataset
-  args:
-    benchmark_id: t4-voicebench-ifeval
-    view: ifeval
-t4-voicebench-mtbench:
-  class: mesh_eval.dataset.external_benchmarks.VoiceBenchT4Dataset
-  args:
-    benchmark_id: t4-voicebench-mtbench
-    view: mtbench
 ihbench-interruption-offline:
   class: mesh_eval.dataset.external_benchmarks.IHBenchDataset
   args:
@@ -644,3 +595,166 @@ native-speaker-attribution-chime-6:
     ref_col: text
     protocol: speaker_attribution
     benchmark_id: native-speaker-attribution-chime-6
+# Agentic Full/Native indexes (IF / multi-turn / spoken_slu). Built by
+# scripts/build_full_agentic_indexes.py; catalog points here so NATIVE_DATA=full
+# remaps via slot_map like other clip slots.
+native-instruction-following-voicebench:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/instruction_following_voicebench.jsonl
+    default_task: native-instruction-following-voicebench
+    ref_col: text
+    protocol: instruction_following
+    benchmark_id: native-instruction-following-voicebench
+native-instruction-following-vocalbench:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/instruction_following_vocalbench.jsonl
+    default_task: native-instruction-following-vocalbench
+    ref_col: text
+    protocol: instruction_following
+    benchmark_id: native-instruction-following-vocalbench
+native-instruction-following-vocalbench-zh:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/instruction_following_vocalbench_zh.jsonl
+    default_task: native-instruction-following-vocalbench-zh
+    ref_col: text
+    protocol: instruction_following
+    benchmark_id: native-instruction-following-vocalbench-zh
+native-multi-turn-dialogue-audioagentbench-suite:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/multi_turn_dialogue_audioagentbench_suite.jsonl
+    default_task: native-multi-turn-dialogue-audioagentbench-suite
+    ref_col: text
+    protocol: multi_turn_dialogue
+    benchmark_id: native-multi-turn-dialogue-audioagentbench-suite
+native-multi-turn-dialogue-vocalbench:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/multi_turn_dialogue_vocalbench.jsonl
+    default_task: native-multi-turn-dialogue-vocalbench
+    ref_col: text
+    protocol: multi_turn_dialogue
+    benchmark_id: native-multi-turn-dialogue-vocalbench
+native-multi-turn-dialogue-vocalbench-zh:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/multi_turn_dialogue_vocalbench_zh.jsonl
+    default_task: native-multi-turn-dialogue-vocalbench-zh
+    ref_col: text
+    protocol: multi_turn_dialogue
+    benchmark_id: native-multi-turn-dialogue-vocalbench-zh
+native-multi-turn-dialogue-voicebench:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/multi_turn_dialogue_voicebench.jsonl
+    default_task: native-multi-turn-dialogue-voicebench
+    ref_col: text
+    protocol: multi_turn_dialogue
+    benchmark_id: native-multi-turn-dialogue-voicebench
+native-multi-turn-dialogue-mtalk-bench:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/multi_turn_dialogue_mtalk_bench.jsonl
+    default_task: native-multi-turn-dialogue-mtalk-bench
+    ref_col: text
+    protocol: multi_turn_dialogue
+    benchmark_id: native-multi-turn-dialogue-mtalk-bench
+native-spoken-slu-fluent-speech-commands:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/spoken_slu_fluent_speech_commands.jsonl
+    default_task: native-spoken-slu-fluent-speech-commands
+    ref_col: text
+    protocol: spoken_slu
+    benchmark_id: native-spoken-slu-fluent-speech-commands
+native-spoken-slu-slurp:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/native/spoken_slu_slurp.jsonl
+    default_task: native-spoken-slu-slurp
+    ref_col: text
+    protocol: spoken_slu
+    benchmark_id: native-spoken-slu-slurp
+full-instruction-following-voicebench:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/full/instruction_following/instruction_following_voicebench.jsonl
+    default_task: full-instruction-following-voicebench
+    ref_col: text
+    protocol: instruction_following
+    benchmark_id: full-instruction-following-voicebench
+full-instruction-following-vocalbench:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/full/instruction_following/instruction_following_vocalbench.jsonl
+    default_task: full-instruction-following-vocalbench
+    ref_col: text
+    protocol: instruction_following
+    benchmark_id: full-instruction-following-vocalbench
+full-instruction-following-vocalbench-zh:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/full/instruction_following/instruction_following_vocalbench_zh.jsonl
+    default_task: full-instruction-following-vocalbench-zh
+    ref_col: text
+    protocol: instruction_following
+    benchmark_id: full-instruction-following-vocalbench-zh
+full-multi-turn-dialogue-audioagentbench-suite:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/full/multi_turn_dialogue/multi_turn_dialogue_audioagentbench_suite.jsonl
+    default_task: full-multi-turn-dialogue-audioagentbench-suite
+    ref_col: text
+    protocol: multi_turn_dialogue
+    benchmark_id: full-multi-turn-dialogue-audioagentbench-suite
+full-multi-turn-dialogue-vocalbench:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/full/multi_turn_dialogue/multi_turn_dialogue_vocalbench.jsonl
+    default_task: full-multi-turn-dialogue-vocalbench
+    ref_col: text
+    protocol: multi_turn_dialogue
+    benchmark_id: full-multi-turn-dialogue-vocalbench
+full-multi-turn-dialogue-vocalbench-zh:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/full/multi_turn_dialogue/multi_turn_dialogue_vocalbench_zh.jsonl
+    default_task: full-multi-turn-dialogue-vocalbench-zh
+    ref_col: text
+    protocol: multi_turn_dialogue
+    benchmark_id: full-multi-turn-dialogue-vocalbench-zh
+full-multi-turn-dialogue-voicebench:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/full/multi_turn_dialogue/multi_turn_dialogue_voicebench.jsonl
+    default_task: full-multi-turn-dialogue-voicebench
+    ref_col: text
+    protocol: multi_turn_dialogue
+    benchmark_id: full-multi-turn-dialogue-voicebench
+full-multi-turn-dialogue-mtalk-bench:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/full/multi_turn_dialogue/multi_turn_dialogue_mtalk_bench.jsonl
+    default_task: full-multi-turn-dialogue-mtalk-bench
+    ref_col: text
+    protocol: multi_turn_dialogue
+    benchmark_id: full-multi-turn-dialogue-mtalk-bench
+full-spoken-slu-fluent-speech-commands:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/full/spoken_slu/spoken_slu_fluent_speech_commands.jsonl
+    default_task: full-spoken-slu-fluent-speech-commands
+    ref_col: text
+    protocol: spoken_slu
+    benchmark_id: full-spoken-slu-fluent-speech-commands
+full-spoken-slu-slurp:
+  class: mesh_eval.dataset.native.NativeClipDataset
+  args:
+    f_name: mesh_eval/data/full/spoken_slu/spoken_slu_slurp.jsonl
+    default_task: full-spoken-slu-slurp
+    ref_col: text
+    protocol: spoken_slu
+    benchmark_id: full-spoken-slu-slurp

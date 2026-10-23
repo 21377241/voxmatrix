@@ -98,28 +98,51 @@ def _benchmark_id(item: dict) -> str:
     return f"native-{_slot_id(item).replace('_', '-')}"
 
 
+def _load_slot_map() -> dict:
+    return yaml.safe_load(SLOT_MAP.read_text(encoding="utf-8")) or {}
+
+
 def _write_full_datasets(catalog: dict) -> dict[str, str]:
     """Register ``<dataset>--full`` copies whose f_name is the slot's Full index."""
-    slot_map = yaml.safe_load(SLOT_MAP.read_text(encoding="utf-8")) or {}
+    slot_map = _load_slot_map()
     specs: dict = {}
     for path in sorted((ROOT / "mesh_eval" / "registry" / "dataset").glob("*.yaml")):
         specs.update(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
     renamed: dict[str, str] = {}
     full_registry: dict = {}
+    missing: list[str] = []
     for item in catalog["capabilities"]:
-        entry = slot_map.get(_slot_id(item))
-        spec = specs.get(item.get("dataset"))
-        if not entry or not spec:
+        if item.get("status") not in ("ok", "diagnostic") or item.get("suite") == "none":
             continue
+        if not item.get("dataset"):
+            continue
+        slot_id = _slot_id(item)
+        entry = slot_map.get(slot_id)
+        if not entry:
+            missing.append(slot_id)
+            continue
+        spec = specs.get(item.get("dataset"))
+        if not spec:
+            raise ValueError(f"{slot_id}: dataset not registered: {item.get('dataset')}")
         args = dict(spec.get("args") or {})
         if args.get("f_name") != entry["native"]:
             raise ValueError(
-                f"{_slot_id(item)}: registry f_name {args.get('f_name')} != slot_map native {entry['native']}"
+                f"{slot_id}: registry f_name {args.get('f_name')} != slot_map native {entry['native']}"
+            )
+        class_name = str(spec.get("class") or "")
+        if "NativeClipDataset" not in class_name:
+            raise ValueError(
+                f"{slot_id}: Full Index requires NativeClipDataset, got {class_name}"
             )
         args["f_name"] = entry["full"]
         name = f"{item['dataset']}{FULL_DATASET_SUFFIX}"
         full_registry[name] = {"class": spec["class"], "args": args}
         renamed[item["dataset"]] = name
+    if missing:
+        raise ValueError(
+            "NATIVE_DATA=full requires every runnable catalog slot in "
+            f"slot_map.yaml; missing: {', '.join(sorted(missing))}"
+        )
     _dump_yaml(OUTPUT / "registry" / "dataset" / "native_full.yaml", full_registry)
     return renamed
 
@@ -292,6 +315,7 @@ def main() -> int:
 
     runnable = {"main": [], "tts": []}
     task_registry: dict = {}
+    slot_map_cache = _load_slot_map()
 
     for item in catalog["capabilities"]:
         if item.get("dataset") in full_datasets:
@@ -371,6 +395,28 @@ def main() -> int:
             report["capabilities"][slot_id] = entry
             continue
 
+        # slot_map slots must stay on NativeClipDataset jsonl (never re-open
+        # retired t4-* / external live loaders for IF / multi_turn / SLU).
+        map_entry = slot_map_cache.get(slot_id)
+        if map_entry is not None:
+            class_name = type(dataset).__name__
+            f_name = str(getattr(dataset, "f_name", "") or "")
+            expect = map_entry["full"] if FULL_MODE else map_entry["native"]
+            expect_path = (
+                Path(expect)
+                if Path(expect).is_absolute()
+                else (ROOT / expect)
+            ).resolve()
+            if class_name != "NativeClipDataset":
+                errors.append(
+                    f"{slot_id}: must use NativeClipDataset Full/Native index, got {class_name}"
+                )
+            elif Path(f_name).resolve() != expect_path:
+                errors.append(
+                    f"{slot_id}: dataset f_name {f_name} != slot_map "
+                    f"{'full' if FULL_MODE else 'native'} {expect}"
+                )
+
         for kind, key in (
             ("prompt", item["prompt"]),
             ("evaluator", item["evaluator"]),
@@ -423,7 +469,13 @@ def main() -> int:
         model_name = item.get("model") or (
             speech_model if suite_name == "tts" else default_model
         )
-        task_registry[_task_name(item)] = _make_task_yaml(item, model_name)
+        # Catalog pins speech-output slots to the catalog speech model;
+        # NATIVE_SPEECH_MODEL must still swap the model under test.
+        if model_name == catalog["speech_model"]:
+            model_name = speech_model
+        task_registry[_task_name(item)] = _make_task_yaml(
+            dict(item, model=model_name), model_name
+        )
         runnable[suite_name].append(item)
         report["runnable_" + suite_name].append(slot_id)
         report["capabilities"][slot_id] = entry

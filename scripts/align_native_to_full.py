@@ -198,6 +198,12 @@ def main() -> int:
             encoding="utf-8",
         )
         print(f"wrote {SLOT_MAP.relative_to(ROOT)}")
+        # Ensure language/scenario/metadata from subset manifest are present
+        # even if an older Full builder omitted them.
+        from mesh_eval.data.full_index_meta import finalize_all_slot_map_files
+
+        done = finalize_all_slot_map_files(SLOT_MAP)
+        print(f"finalized subset-manifest fields on {len(done)} index files")
     if missing:
         print("missing full:", ", ".join(missing), file=sys.stderr)
         return 1

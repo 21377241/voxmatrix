@@ -9,6 +9,9 @@ source "$HERE/env.sh"
 cd "$ROOT"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 export NATIVE_SLOT_FILTER="${NATIVE_SLOT_FILTER:-instruction_following__voicebench,instruction_following__vocalbench,instruction_following__vocalbench_zh}"
+# Smoke also reads Full Index (limited); retired t4-* external loaders are gone.
+export NATIVE_DATA=full
+export NATIVE_FULL_LIMIT="${NATIVE_FULL_LIMIT:-${NATIVE_LIMIT:-10}}"
 unset NATIVE_CAPABILITY_FILTER || true
 PY="${VOXMATRIX_PYTHON}"
 

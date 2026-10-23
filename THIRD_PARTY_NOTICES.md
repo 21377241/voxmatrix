@@ -18,6 +18,8 @@ disclaimer, and notice files take precedence for their corresponding code.
 | IndexTTS | <https://github.com/index-tts/index-tts> | Apache-2.0 code license, disclaimer, and separate model license under `audio_evals/lib/index-tts/` |
 | IndexTTS2 | <https://github.com/index-tts/index-tts> | bilibili Model Use License Agreement, Chinese translation, and disclaimer under `audio_evals/lib/index-tts2/`; review its restrictions before use or redistribution |
 | Kimi-Audio | <https://github.com/MoonshotAI/Kimi-Audio> | mixed Apache-2.0/MIT statement in `audio_evals/lib/Kimi-Audio/NOTICE.md` and retained file-level headers |
+| Step-Audio-2 | <https://github.com/stepfun-ai/Step-Audio2> | `audio_evals/lib/StepAudio2/LICENSE` (Apache-2.0), see `audio_evals/lib/StepAudio2/NOTICE.md` |
+| FlashCosyVoice | <https://github.com/xingchensong/FlashCosyVoice> | `audio_evals/lib/StepAudio2/flashcosyvoice/LICENSE` (Apache-2.0) |
 | 3D-Speaker | <https://github.com/modelscope/3D-Speaker> | Apache-2.0 attribution in `audio_evals/lib/cv3_speaker_sim/NOTICE.md` and retained file-level headers |
 
 Other compact metric/model integration modules retain upstream copyright and

@@ -49,11 +49,9 @@ def main() -> int:
         if rows is None:
             rows = BUILDERS[benchmark](full_limit)
         path = OUT / f"asr_{benchmark}.jsonl"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(
-            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
-            encoding="utf-8",
-        )
+        from mesh_eval.data.full_index_meta import write_index_jsonl
+
+        write_index_jsonl(path, rows, f"asr__{benchmark}")
         summary[benchmark] = {"records": len(rows), "output": str(path)}
         print(f"[done] {benchmark}: {len(rows)} ({source_kind}) -> {path}")
         if not rows:

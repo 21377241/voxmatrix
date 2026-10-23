@@ -1,18 +1,63 @@
 import argparse
 import json
-import select
+import logging
+import os
 import sys
 import tempfile
-import logging
 import time
-from kimia_infer.api.kimia import KimiAudio
+import traceback
+
 import soundfile as sf
 import torch
+from kimia_infer.api.kimia import KimiAudio
 
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
-if __name__ == "__main__":
+READY_SENTINEL = "__KIMI_AUDIO_READY__"
+
+
+def emit(prefix, response):
+    print(prefix + json.dumps(response, ensure_ascii=False), flush=True)
+    ack = sys.stdin.readline().strip()
+    if ack != f"{prefix}close":
+        raise RuntimeError("response acknowledgement was not received")
+
+
+def run_request(model, payload, config, sampling_params):
+    messages = payload["messages"] if "messages" in payload else payload
+    output_type = "both" if config.speech else "text"
+    with torch.no_grad():
+        wav, text = model.generate(
+            messages, **sampling_params, output_type=output_type
+        )
+    response = {"text": str(text or "").strip()}
+    if config.speech:
+        out_dir = config.speech_output_dir or None
+        if out_dir:
+            os.makedirs(out_dir, exist_ok=True)
+        with tempfile.NamedTemporaryFile(suffix=".wav", dir=out_dir, delete=False) as f:
+            sf.write(
+                f.name,
+                (
+                    wav.detach().cpu().view(-1).numpy()
+                    if torch.is_tensor(wav)
+                    else wav
+                ),
+                24000,
+            )
+            response["audio"] = f.name
+    del wav, text
+    torch.cuda.empty_cache()
+    return response
+
+
+def main():
+    # Concurrent replicas otherwise race on writing trust_remote_code modules
+    # into one shared HF modules cache (KimiAudioConfig AttributeError).
+    os.environ["HF_MODULES_CACHE"] = os.path.join(
+        tempfile.gettempdir(), f"voxmatrix-kimi-hf-modules-{os.getpid()}"
+    )
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--model_path",
@@ -27,10 +72,26 @@ if __name__ == "__main__":
         default=False,
         help="Whether to use speech output",
     )
+    parser.add_argument(
+        "--audio_tokenizer_path",
+        type=str,
+        default="THUDM/glm-4-voice-tokenizer",
+        help="Path or HF repo for the GLM-4-Voice audio tokenizer",
+    )
+    parser.add_argument(
+        "--speech_output_dir",
+        type=str,
+        default="",
+        help="Directory for persistent speech wavs (defaults to tempfile)",
+    )
     config = parser.parse_args()
 
     start_time = time.time()
-    model = KimiAudio(model_path=config.model_path, load_detokenizer=True)
+    model = KimiAudio(
+        model_path=config.model_path,
+        load_detokenizer=config.speech,
+        audio_tokenizer_path=config.audio_tokenizer_path,
+    )
     end_time = time.time()
     logger.info(f"Model loading took {end_time - start_time:.2f} seconds")
     logger.info(f"Using Kimi-Audio model: {config.model_path}")
@@ -47,76 +108,27 @@ if __name__ == "__main__":
         "max_new_tokens": -1,
     }
 
-    while True:
+    print(
+        f"{READY_SENTINEL} Model loaded from checkpoint: {config.model_path}",
+        flush=True,
+    )
+    for raw in sys.stdin:
+        prefix = ""
         try:
-            prompt = input()
-            anchor = prompt.find("->")
-            if anchor == -1:
-                print(
-                    f"Error: Invalid conversation format, must contain ->, but {prompt}",
-                    flush=True,
-                )
-                continue
-            prefix = prompt[:anchor].strip() + "->"
-            x = json.loads(prompt[anchor + 2 :])
-
-            # 兼容 MegaTTS3 的 prompt 格式，假定 x 是 PromptStruct
-            # 只支持 output_type="both"，返回音频文件路径
-            messages = x["messages"] if "messages" in x else x
-            output_type = "both" if config.speech else "text"
-            # 推理
-            with torch.no_grad():
-                wav, text = model.generate(
-                    messages, **sampling_params, output_type=output_type
-                )
-
-            if config.speech:
-                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-                    sf.write(
-                        f.name,
-                        (
-                            wav.detach().cpu().view(-1).numpy()
-                            if torch.is_tensor(wav)
-                            else wav
-                        ),
-                        24000,
-                    )
-                    retry = 3
-                    while retry:
-                        print(
-                            f"{prefix}{json.dumps({'text': text, 'audio': f.name}, ensure_ascii=False)}",
-                            flush=True,
-                        )
-                        rlist, _, _ = select.select([sys.stdin], [], [], 1)
-                        if rlist:
-                            finish = sys.stdin.readline().strip()
-                            if finish == f"{prefix}close":
-                                break
-                        print("not found close signal, will emit again", flush=True)
-                        retry -= 1
+            anchor = raw.find("->")
+            if anchor < 0:
+                raise ValueError("request is missing protocol separator")
+            prefix = raw[:anchor].strip() + "->"
+            payload = json.loads(raw[anchor + 2 :])
+            emit(prefix, run_request(model, payload, config, sampling_params))
+        except Exception as exc:
+            traceback.print_exc(file=sys.stderr)
+            torch.cuda.empty_cache()
+            if prefix:
+                emit(prefix, {"error": f"{type(exc).__name__}: {exc}"})
             else:
-                retry = 3
-                while retry:
-                    print(
-                        f"{prefix}{json.dumps({'text': text}, ensure_ascii=False)}",
-                        flush=True,
-                    )
-                    rlist, _, _ = select.select([sys.stdin], [], [], 1)
-                    if rlist:
-                        finish = sys.stdin.readline().strip()
-                        if finish == f"{prefix}close":
-                            break
-                    print("not found close signal, will emit again", flush=True)
-                    retry -= 1
-            
-            # 清理显存，防止泄露
-            del wav, text
-            torch.cuda.empty_cache()
-            
-        except Exception as e:
-            import traceback
+                print(f"Error:{type(exc).__name__}: {exc}", flush=True)
 
-            traceback.print_exc()
-            print(f"Error: {str(e)}", flush=True)
-            # 异常时也清理显存
-            torch.cuda.empty_cache()
+
+if __name__ == "__main__":
+    main()

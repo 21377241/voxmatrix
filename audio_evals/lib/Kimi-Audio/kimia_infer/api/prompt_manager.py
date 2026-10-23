@@ -15,8 +15,13 @@ from kimia_infer.utils.special_tokens import instantiate_extra_tokens
 
 
 class KimiAPromptManager:
-    def __init__(self, model_path: str, kimia_token_offset: int):
-        self.audio_tokenizer = Glm4Tokenizer("THUDM/glm-4-voice-tokenizer")
+    def __init__(
+        self,
+        model_path: str,
+        kimia_token_offset: int,
+        audio_tokenizer_path: str = "THUDM/glm-4-voice-tokenizer",
+    ):
+        self.audio_tokenizer = Glm4Tokenizer(audio_tokenizer_path)
         self.audio_tokenizer = self.audio_tokenizer.to(torch.cuda.current_device())
 
         if os.path.exists(model_path):

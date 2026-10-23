@@ -101,7 +101,8 @@ class BigVGANWrapper:
             data = f.read()
         json_config = json.loads(data)
         h = AttrDict(json_config)
-        vocoder = BigVGAN(h, True)
+        # Torch Activation1d: cluster CUDA toolkits reject the vendored sm_70 gencode.
+        vocoder = BigVGAN(h, False)
         state_dict_g = load_checkpoint(ckpt_path, "cpu")
         vocoder.load_state_dict(state_dict_g["generator"])
 

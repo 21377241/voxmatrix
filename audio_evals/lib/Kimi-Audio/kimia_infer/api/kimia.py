@@ -12,7 +12,12 @@ from kimia_infer.utils.sampler import KimiASampler
 
 
 class KimiAudio(object):
-    def __init__(self, model_path: str, load_detokenizer: bool = True):
+    def __init__(
+        self,
+        model_path: str,
+        load_detokenizer: bool = True,
+        audio_tokenizer_path: str = "THUDM/glm-4-voice-tokenizer",
+    ):
         logger.info(f"Loading kimi-audio main model")
         self.alm = AutoModelForCausalLM.from_pretrained(
             model_path, torch_dtype=torch.bfloat16, trust_remote_code=True
@@ -23,7 +28,9 @@ class KimiAudio(object):
         self.kimia_token_offset = model_config.kimia_token_offset
 
         self.prompt_manager = KimiAPromptManager(
-            model_path=model_path, kimia_token_offset=self.kimia_token_offset
+            model_path=model_path,
+            kimia_token_offset=self.kimia_token_offset,
+            audio_tokenizer_path=audio_tokenizer_path,
         )
 
         if os.path.exists(model_path):
@@ -244,7 +251,12 @@ class KimiAudio(object):
         audio_input_ids = audio_input_ids.to(torch.cuda.current_device())
         text_input_ids = text_input_ids.to(torch.cuda.current_device())
         is_continuous_mask = is_continuous_mask.to(torch.cuda.current_device())
-        audio_features = [f.to(torch.cuda.current_device()) for f in audio_features]
+        # Text-only prompts have an empty feature list; the HF forward indexes
+        # whisper_input_feature[0] unless the argument is None.
+        if audio_features:
+            audio_features = [f.to(torch.cuda.current_device()) for f in audio_features]
+        else:
+            audio_features = None
 
         generated_wav_tokens, generated_text_tokens = self._generate_loop(
             audio_input_ids=audio_input_ids,

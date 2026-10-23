@@ -40,15 +40,23 @@ EAR_QUESTION = (
     "Answer with one word only."
 )
 
+# 题干已在 wav 里朗读时，mesh-external-qa 的 {{question}} 只放短指令，
+# 避免文本题干与音频重复。原题干保存在 spoken_question_text 供对照。
+SPOKEN_QA_PROMPT_EN = (
+    "Listen to the spoken question in the audio and answer it. "
+    "Output only the answer."
+)
+SPOKEN_QA_PROMPT_ZH = "请听音频中的口语问题并作答，只输出答案。"
+
 
 def _write(rows: list[dict], name: str) -> tuple[int, Path]:
+    from mesh_eval.data.full_index_meta import slot_id_from_filename, write_index_jsonl
+
     OUT.mkdir(parents=True, exist_ok=True)
     path = OUT / name
-    path.write_text(
-        "".join(json.dumps(x, ensure_ascii=False) + "\n" for x in rows),
-        encoding="utf-8",
-    )
-    return len(rows), path
+    slot_id = slot_id_from_filename(OUT.name, name)
+    n = write_index_jsonl(path, rows, slot_id)
+    return n, path
 
 
 def _answer_text(value) -> str:
@@ -188,6 +196,8 @@ def build_uro() -> tuple[int, Path]:
                 if sid in seen:
                     continue
                 seen.add(sid)
+                # APE 等 basic 子集：口语题在音频中；{{question}} 勿再塞题干
+                zh = any("\u4e00" <= ch <= "\u9fff" for ch in question) or "-zh" in subset_dir.name.lower()
                 rows.append(
                     {
                         "schema_version": "full-index/1.0",
@@ -200,7 +210,8 @@ def build_uro() -> tuple[int, Path]:
                         "split": "test",
                         "qa_track": "short",
                         "WavPath": str(wav),
-                        "question": question,
+                        "question": SPOKEN_QA_PROMPT_ZH if zh else SPOKEN_QA_PROMPT_EN,
+                        "spoken_question_text": question,
                         "answer": answer,
                         "text": answer,
                         "source_index": str(path),
@@ -240,6 +251,8 @@ def build_vocalbench_json(
         if not sid or sid in seen or wav is None or not answer or not question:
             continue
         seen.add(sid)
+        # VocalBench knowledge：题干在 wav；prompt 仅短指令
+        zh = dataset.endswith("_zh") or any("\u4e00" <= ch <= "\u9fff" for ch in question)
         rows.append(
             {
                 "schema_version": "full-index/1.0",
@@ -252,13 +265,23 @@ def build_vocalbench_json(
                 "split": "test",
                 "qa_track": "short",
                 "WavPath": str(wav),
-                "question": question,
+                "question": SPOKEN_QA_PROMPT_ZH if zh else SPOKEN_QA_PROMPT_EN,
+                "spoken_question_text": question,
                 "answer": answer,
                 "text": answer,
                 "source_index": str(source),
             }
         )
     return _write(rows, output_name)
+
+
+# VoiceBench openbookqa：完整选择题已在 wav；{{question}} 勿再塞题干。
+# 音频要求选 A/B/C/D，gold 保持短字母。
+SPOKEN_VB_OPENBOOKQA_PROMPT = (
+    "Listen to the spoken multiple-choice question in the audio. "
+    "Follow the answer format required in the audio "
+    "(select one of A, B, C, or D)."
+)
 
 
 def build_voicebench_openbookqa() -> tuple[int, Path]:
@@ -290,7 +313,8 @@ def build_voicebench_openbookqa() -> tuple[int, Path]:
                 "split": "test",
                 "qa_track": "short",
                 "WavPath": str(wav),
-                "question": question,
+                "question": SPOKEN_VB_OPENBOOKQA_PROMPT,
+                "spoken_question_text": question,
                 "answer": answer,
                 "text": answer,
                 "source_index": str(path),

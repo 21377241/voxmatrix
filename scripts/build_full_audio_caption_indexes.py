@@ -31,7 +31,9 @@ def main() -> int:
             for row in rows:
                 row["text"] = row["captions"][0]
         path = OUT / f"audio_caption_{benchmark}.jsonl"
-        path.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows), encoding="utf-8")
+        from mesh_eval.data.full_index_meta import write_index_jsonl
+
+        write_index_jsonl(path, rows, f"audio_caption__{benchmark}")
         summary[benchmark] = {"records": len(rows), "output": str(path)}
         print(f"[done] {benchmark}: {len(rows)} -> {path}")
     print(json.dumps(summary, ensure_ascii=False, indent=2))

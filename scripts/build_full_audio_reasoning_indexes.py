@@ -59,13 +59,13 @@ MMSU_REASONING_EXCLUDE = {
 
 
 def _write(rows: list[dict], name: str) -> tuple[int, Path]:
+    from mesh_eval.data.full_index_meta import slot_id_from_filename, write_index_jsonl
+
     OUT.mkdir(parents=True, exist_ok=True)
     path = OUT / name
-    path.write_text(
-        "".join(json.dumps(x, ensure_ascii=False) + "\n" for x in rows),
-        encoding="utf-8",
-    )
-    return len(rows), path
+    slot_id = slot_id_from_filename(OUT.name, name)
+    n = write_index_jsonl(path, rows, slot_id)
+    return n, path
 
 
 def _strip_mcq_stem(question: str) -> str:
@@ -79,12 +79,21 @@ def _strip_mcq_stem(question: str) -> str:
 
 
 def _open_qa_instruction(stem: str, *, zh: bool = False) -> str:
+    """文本题干 + 作答指令（用于题干不在音频里的子集，如 MuChoEval / MMSU）。"""
     stem = stem.strip()
     if zh:
         return f"{stem}\n\n根据音频作答，只输出答案。"
     return (
         f"{stem}\n\nAnswer the question using the audio. Output only the answer."
     )
+
+
+# VocalBench reasoning：题干已在 wav 朗读，{{question}} 只放短指令
+SPOKEN_AR_PROMPT_EN = (
+    "Listen to the spoken question in the audio and reason to answer. "
+    "Output only the answer."
+)
+SPOKEN_AR_PROMPT_ZH = "请听音频中的口语问题，推理后作答，只输出答案。"
 
 
 def _parse_mmsu_messages(doc: dict) -> tuple[str | None, str, str]:
@@ -260,13 +269,35 @@ def build_vocalbench(
                 "subset": "reasoning",
                 "split": "test",
                 "WavPath": str(wav),
-                "question": _open_qa_instruction(question, zh=zh),
+                # 口语题干在音频中：勿把 stem 再写入 mesh-external-qa 的 {{question}}
+                "question": SPOKEN_AR_PROMPT_ZH if zh else SPOKEN_AR_PROMPT_EN,
+                "spoken_question_text": question,
                 "answer": answer,
                 "text": answer,
                 "source_index": str(source),
             }
         )
     return _write(rows, output_name)
+
+
+# VoiceBench BBH：完整题干+格式要求已在 wav 朗读；{{question}} 勿再塞题干。
+# 音频要求最终答案带前缀 "The answer is:" —— gold(ref) 必须同形，不能只写 (A)/Yes。
+SPOKEN_BBH_PROMPT = (
+    "Listen to the spoken question and instructions in the audio. "
+    "Follow the answer format required in the audio."
+)
+
+
+def _bbh_formatted_ref(answer: str) -> str:
+    """把短标签改成与音频格式要求一致的 gold。"""
+    a = str(answer or "").strip()
+    if not a:
+        return a
+    low = a.lower()
+    if low.startswith("the answer is:"):
+        rest = a.split(":", 1)[1].strip()
+        return f"The answer is: {rest}"
+    return f"The answer is: {a}"
 
 
 def build_voicebench_bbh() -> tuple[int, Path]:
@@ -288,6 +319,7 @@ def build_voicebench_bbh() -> tuple[int, Path]:
             if wav is None or not wav.is_file():
                 continue
             seen.add(sid)
+            ref = _bbh_formatted_ref(answer)
             rows.append(
                 {
                     "schema_version": "full-index/1.0",
@@ -299,9 +331,11 @@ def build_voicebench_bbh() -> tuple[int, Path]:
                     "subset": "bbh",
                     "split": "test",
                     "WavPath": str(wav),
-                    "question": question,
-                    "answer": answer,
-                    "text": answer,
+                    "question": SPOKEN_BBH_PROMPT,
+                    # 与 wav 一致：完整题干 + Options + 格式套话
+                    "spoken_question_text": question,
+                    "answer": ref,
+                    "text": ref,
                     "source_index": str(path),
                 }
             )

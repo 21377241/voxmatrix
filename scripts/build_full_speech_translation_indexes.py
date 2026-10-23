@@ -48,8 +48,11 @@ def build_covost(source_lang, target_lang, filename, output_name):
             "source_index": str(source),
         })
     path = OUT / output_name
-    path.write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in rows), encoding="utf-8")
-    return len(rows), path
+    from mesh_eval.data.full_index_meta import write_index_jsonl
+
+    # slot_map hangs zh→en; en→zh orphan still gets the same subset meta.
+    n = write_index_jsonl(path, rows, "speech_translation__covost2")
+    return n, path
 
 
 def build_mmsu():
@@ -92,8 +95,10 @@ def build_mmsu():
             "source_index": str(source),
         })
     path = OUT / "speech_translation_mmsu.jsonl"
-    path.write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in rows), encoding="utf-8")
-    return len(rows), path
+    from mesh_eval.data.full_index_meta import write_index_jsonl
+
+    n = write_index_jsonl(path, rows, "speech_translation__mmsu")
+    return n, path
 
 
 def main():

@@ -21,3 +21,22 @@ MiniCPMo2_6-speech:
       sampling: false
       num_beams: 5
       max_new_tokens: 128
+
+MiniCPMo4_5-audio:
+  class: audio_evals.models.mini_cpm.MiniCPMo45
+  args:
+    path: /mnt/afs/models/MiniCPM-o-4_5
+    speech: false
+    max_new_tokens: 512
+    env_path: envs/minicpmo4_5
+    requirements_path: audio_evals/lib/minicpm/requirements-o4_5.txt
+
+MiniCPMo4_5-speech:
+  class: audio_evals.models.mini_cpm.MiniCPMo45
+  args:
+    path: /mnt/afs/models/MiniCPM-o-4_5
+    speech: true
+    max_new_tokens: 1024
+    speech_output_dir: ${NATIVE_OUTPUT_DIR:-/mnt/afs/users/wangyl/VoxMatrix-clean/outputs/native_runs/unscoped}/tts/speech_wavs
+    env_path: envs/minicpmo4_5
+    requirements_path: audio_evals/lib/minicpm/requirements-o4_5.txt

@@ -20,6 +20,15 @@ MMSU_ROOT = Path("/mnt/afs/eval_data/benchmarks/MMSU")
 MMSU_JSONL = MMSU_ROOT / "mmsu_audioqa.jsonl"
 VBZH_ROOT = Path("/mnt/afs/eval_data/99_auxiliary_or_out_of_scope/VocalBench-zh")
 
+# VocalBench-zh code-switch：题干已在 wav 朗读；mesh-external-qa 的 {{question}}
+# 只放短指令，原题干进 spoken_question_text。
+SPOKEN_CS_PROMPT_ZH = "请听音频中的口语问题并作答，只输出答案。"
+# open_ended：应输出一段话，而非短语答案
+SPOKEN_CS_OPEN_ENDED_PROMPT_ZH = (
+    "请听音频中的口语问题，用一段连贯的话作答（约2–4句），"
+    "不要只输出短语或关键词。"
+)
+
 
 def _strip_mcq_options(question: str) -> str:
     question = re.split(r"\nA\.\s", question, maxsplit=1)[0].strip()
@@ -82,11 +91,10 @@ def build_mmsu() -> tuple[int, Path]:
             }
         )
     path = OUT / "code_switch_mmsu.jsonl"
-    path.write_text(
-        "".join(json.dumps(x, ensure_ascii=False) + "\n" for x in rows),
-        encoding="utf-8",
-    )
-    return len(rows), path
+    from mesh_eval.data.full_index_meta import write_index_jsonl
+
+    n = write_index_jsonl(path, rows, "code_switch__mmsu")
+    return n, path
 
 
 def build_vocalbench(
@@ -119,6 +127,8 @@ def build_vocalbench(
         if not sid or sid in seen or wav is None or not answer:
             continue
         seen.add(sid)
+        open_ended = "open_ended" in subset.lower() or "open_ended" in json_name.lower()
+        prompt = SPOKEN_CS_OPEN_ENDED_PROMPT_ZH if open_ended else SPOKEN_CS_PROMPT_ZH
         rows.append(
             {
                 "schema_version": "full-index/1.0",
@@ -130,18 +140,19 @@ def build_vocalbench(
                 "subset": subset,
                 "split": "test",
                 "WavPath": str(wav),
-                "question": question,
+                "question": prompt,
+                "spoken_question_text": question,
                 "text": answer,
                 "answer": answer,
                 "source_index": str(source),
             }
         )
     path = OUT / output_name
-    path.write_text(
-        "".join(json.dumps(x, ensure_ascii=False) + "\n" for x in rows),
-        encoding="utf-8",
-    )
-    return len(rows), path
+    from mesh_eval.data.full_index_meta import write_index_jsonl
+
+    # open_ended orphan file reuses vocalbench_zh subset-manifest record.
+    n = write_index_jsonl(path, rows, "code_switch__vocalbench_zh")
+    return n, path
 
 
 def main() -> int:

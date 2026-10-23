@@ -236,6 +236,35 @@ class NativeClipDataset(Dataset):
                     row["answer"] = count
                     row["count"] = count
             row["reference_obj"] = reference
+        elif protocol in {
+            "instruction_following",
+            "multi_turn_dialogue",
+            "spoken_slu",
+        }:
+            # Agentic Full indexes already carry runtime-shaped input /
+            # reference_obj (messages, multi_turn, rubrics, IFEval ids).
+            # Preserve them; only fill WavPath from the first audio uri.
+            row["capability"] = row.get("capability") or protocol
+            row.setdefault("task", "spoken_agentic_interaction")
+            input_obj = dict(row.get("input") or {})
+            if not row.get("WavPath"):
+                audio = input_obj.get("audio") or []
+                if isinstance(audio, list) and audio:
+                    first = audio[0]
+                    uri = first.get("uri") if isinstance(first, dict) else first
+                    if uri:
+                        row["WavPath"] = uri
+                        input_obj.setdefault("audio_path", uri)
+                        row["input"] = input_obj
+            if not row.get("WavPath2"):
+                audio = input_obj.get("audio") or []
+                if isinstance(audio, list) and len(audio) > 1:
+                    second = audio[1]
+                    uri = second.get("uri") if isinstance(second, dict) else second
+                    if uri:
+                        row["WavPath2"] = uri
+            if isinstance(row.get("reference"), dict) and "reference_obj" not in row:
+                row["reference_obj"] = row.pop("reference")
         else:
             row.setdefault("capability", protocol)
         if isinstance(row.get("reference"), dict):

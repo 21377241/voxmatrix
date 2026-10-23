@@ -117,11 +117,10 @@ def build() -> tuple[int, Path, dict]:
         )
     OUT.mkdir(parents=True, exist_ok=True)
     path = OUT / "paralinguistic_recognition_mmsu.jsonl"
-    path.write_text(
-        "".join(json.dumps(x, ensure_ascii=False) + "\n" for x in rows),
-        encoding="utf-8",
-    )
-    return len(rows), path, {"missing_audio": missing, "by_task": dict(by_task)}
+    from mesh_eval.data.full_index_meta import write_index_jsonl
+
+    n = write_index_jsonl(path, rows, "paralinguistic_recognition__mmsu")
+    return n, path, {"missing_audio": missing, "by_task": dict(by_task)}
 
 
 def main() -> None:

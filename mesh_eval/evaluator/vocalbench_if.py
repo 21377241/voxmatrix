@@ -194,24 +194,71 @@ def parse_vocalbench_correct_incorrect(raw: Any) -> Optional[float]:
     return 0.0
 
 
+# Paralinguistic rows: spoken Question = delivery instruction + payload to repeat.
+# Official FR checks that the model repeats the payload (not the delivery sentence).
+REPEAT_SUBCATEGORIES = frozenset(
+    {
+        "Plain repeat",
+        "With emotion",
+        "With speed",
+        "With speed & emotion",
+    }
+)
+
+
+def split_vocalbench_delivery_and_content(question: Any) -> tuple[str, str]:
+    """Split spoken Question into first-sentence delivery vs remaining content.
+
+    Returns ``(delivery, content)``. If no sentence boundary is found, delivery is
+    empty and content is the full question (non-repeat / single-sentence cases).
+    """
+    text = str(question or "").strip()
+    if not text:
+        return "", ""
+    m = re.search(r"([.!?。？！])\s*", text)
+    if not m:
+        return "", text
+    delivery = text[: m.start() + 1].strip()
+    content = text[m.end() :].strip()
+    return delivery, content
+
+
+def expected_repeat_content(
+    question: Any,
+    *,
+    subcategory: Any = None,
+) -> Optional[str]:
+    """Payload the model should repeat for Paralinguistic repeat-style rows."""
+    if str(subcategory or "") not in REPEAT_SUBCATEGORIES:
+        return None
+    _delivery, content = split_vocalbench_delivery_and_content(question)
+    return content or None
+
+
 def rubric_mapping_from_item(item: Mapping[str, Any], language: str) -> dict:
     category = item.get("Category")
     subcategory = item.get("Sub-category")
     criteria = resolve_vocalbench_criteria(
         category=category, subcategory=subcategory, language=language
     )
+    question = item.get("Question")
     return {
         "protocol": "vocalbench_instruction_official",
-        "instruction": item.get("Question"),
+        "instruction": question,  # full spoken instruction (judge needs this)
         "category": category,
         "subcategory": subcategory,
         "judgment_criteria": criteria,
         "text_emo": item.get("Text_emo"),
         "metric": "following_rate",
+        "expected_content": expected_repeat_content(
+            question, subcategory=subcategory
+        ),
         "notes": (
             "Semantic stage uses official Correct/Incorrect criteria. "
             "Paralinguistic rows (index<200 / Plain repeat…speed&emotion) also need "
             "official acoustic gates (ASR WER, emotion2vec, speaking-speed duration) "
-            "for Following Rate; see VocalBench utils/instruction_full.py."
+            "for Following Rate; see VocalBench utils/instruction_full.py. "
+            "expected_content is the payload after the delivery sentence; do not "
+            "treat the delivery sentence itself as gold."
         ),
     }

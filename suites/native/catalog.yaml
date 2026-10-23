@@ -328,7 +328,7 @@ capabilities:
   benchmark: vocalbench
   status: diagnostic
   suite: tts
-  dataset: t4-vocalbench-instruction-following
+  dataset: native-instruction-following-vocalbench
   prompt: mesh-agent-rubric
   evaluator: mesh-agent-rubric-audio
   agg: mesh
@@ -337,14 +337,14 @@ capabilities:
   - extract_audio
   two_phase: true
   note: Official VocalBench FR semantic (Correct/Incorrect criteria); Thinking judge;
-    acoustic gates TBD; not merged with VoiceBench.
+    acoustic gates TBD; not merged with VoiceBench. Full via slot_map.
   subset_record_id: vocalbench__test__instruction_following__instruction_following__instruction_following__unknown__unknown__a866f40f86
 - id: instruction_following__vocalbench_zh
   capability: instruction_following
   benchmark: vocalbench_zh
   status: diagnostic
   suite: tts
-  dataset: t4-vocalbench-zh-instruction-following
+  dataset: native-instruction-following-vocalbench-zh
   prompt: mesh-agent-rubric
   evaluator: mesh-agent-rubric-audio
   agg: mesh
@@ -353,18 +353,18 @@ capabilities:
   - extract_audio
   two_phase: true
   note: Official VocalBench-zh FR semantic (正确/错误); Thinking judge; acoustic gates
-    TBD; not merged with VoiceBench.
+    TBD; not merged with VoiceBench. Full via slot_map.
   subset_record_id: vocalbench_zh__test__instruction_following__instruction_following__instruction_following__unknown__unknown__2a3367926d
 - id: instruction_following__voicebench
   capability: instruction_following
   benchmark: voicebench
   status: ok
   suite: main
-  dataset: t4-voicebench-ifeval
+  dataset: native-instruction-following-voicebench
   prompt: mesh-agent-rubric
   evaluator: mesh-ifeval
   agg: mesh
-  note: Text IFEval; not merged with VocalBench.
+  note: Text IFEval; not merged with VocalBench. Full via slot_map.
   subset_record_id: voicebench__test__ifeval__instruction_following__instruction_following__unknown__unknown__fa5fcd5735
 - id: interruption__ihbench
   capability: interruption
@@ -448,63 +448,68 @@ capabilities:
   benchmark: audioagentbench_suite
   status: ok
   suite: main
-  dataset: audio-agent-bench-dialogue
+  dataset: native-multi-turn-dialogue-audioagentbench-suite
   prompt: mesh-contextual-audio
   evaluator: mesh-dialogue-aab
   agg: mesh
   two_phase: true
   note: audio-arena-bench rehydrated mode (golden text history, target audio); official
-    judge prompt -> turn_pass + dimension pass rates; tool turns excluded.
+    judge prompt -> turn_pass + dimension pass rates; tool turns excluded. Full via
+    slot_map.
   subset_record_id: audioagentbench_suite__test__multi_turn_dialogue_all__multi_turn_dialogue__multi_turn_dialogue__home__unknown__281ab1bb53
 - id: multi_turn_dialogue__mtalk_bench
   capability: multi_turn_dialogue
   benchmark: mtalk_bench
   status: ok
   suite: tts
-  dataset: t4-mtalk-bench
+  dataset: native-multi-turn-dialogue-mtalk-bench
   prompt: mesh-contextual-audio
   evaluator: mesh-dialogue-mtalk-rubric
   agg: mesh
   model: qwen3-omni-speech-local
   two_phase: true
   note: Official rubric protocol (general + specific 0/1 criteria on concatenated
-    dialogue audio) -> rubric_score; arena/ELO needs model pairs, not computed.
+    dialogue audio) -> rubric_score; arena/ELO needs model pairs, not computed. Full
+    via slot_map.
   subset_record_id: mtalk_bench__test__ambient__multi_turn_dialogue__multi_turn_dialogue__unknown__unknown__d540068b30
 - id: multi_turn_dialogue__vocalbench
   capability: multi_turn_dialogue
   benchmark: vocalbench
   status: ok
   suite: main
-  dataset: t4-vocalbench-multi-turn
+  dataset: native-multi-turn-dialogue-vocalbench
   prompt: mesh-contextual-audio
   evaluator: mesh-dialogue-vocalbench
   agg: mesh
   two_phase: true
-  note: Official utils/multi_round.py judge (Correct/Wrong) -> multi_round_acc.
+  note: Official utils/multi_round.py judge (Correct/Wrong) -> multi_round_acc. Full
+    via slot_map.
   subset_record_id: vocalbench__test__multi_round__multi_turn_dialogue__multi_turn_dialogue__unknown__unknown__6f05b38ea7
 - id: multi_turn_dialogue__vocalbench_zh
   capability: multi_turn_dialogue
   benchmark: vocalbench_zh
   status: ok
   suite: main
-  dataset: t4-vocalbench-zh-multi-turn
+  dataset: native-multi-turn-dialogue-vocalbench-zh
   prompt: mesh-contextual-audio
   evaluator: mesh-dialogue-vocalbench
   agg: mesh
   two_phase: true
-  note: Official utils/multi_round.py judge (正确/错误) -> multi_round_acc.
+  note: Official utils/multi_round.py judge (正确/错误) -> multi_round_acc. Full via
+    slot_map.
   subset_record_id: vocalbench_zh__test__multi_round__multi_turn_dialogue__multi_turn_dialogue__unknown__unknown__5ef79e65e2
 - id: multi_turn_dialogue__voicebench
   capability: multi_turn_dialogue
   benchmark: voicebench
   status: ok
   suite: main
-  dataset: t4-voicebench-mtbench
+  dataset: native-multi-turn-dialogue-voicebench
   prompt: mesh-contextual-audio
   evaluator: mesh-dialogue-mtbench
   agg: mesh
   two_phase: true
   note: FastChat MT-Bench single-answer grading (1-10, per turn) -> mtbench_score.
+    Full via slot_map.
   subset_record_id: voicebench__test__mtbench__multi_turn_dialogue__multi_turn_dialogue__unknown__unknown__738bca5a2e
 - id: paralinguistic_recognition__mmsu
   capability: paralinguistic_recognition
@@ -824,23 +829,26 @@ capabilities:
   benchmark: fluent_speech_commands
   status: diagnostic
   suite: main
-  dataset: t4-fsc-instruction-following
+  dataset: native-spoken-slu-fluent-speech-commands
   prompt: mesh-intent-slots
   evaluator: mesh-intent
   agg: mesh
   note: Spoken SLU (intent_acc + slot_f1 via mesh-slot-f1 aux). Independent of IF
-    and tool_call.
+    and tool_call. Full via slot_map.
+  # Same subset as historical IF record (task moved to spoken_slu).
+  subset_record_id: fluent_speech_commands__test__test__instruction_following__instruction_following__unknown__unknown__bfe63bb2e6
 - id: spoken_slu__slurp
   capability: spoken_slu
   benchmark: slurp
   status: diagnostic
   suite: main
-  dataset: t4-slurp-instruction-following
+  dataset: native-spoken-slu-slurp
   prompt: mesh-intent-slots
   evaluator: mesh-intent
   agg: mesh
   note: Spoken SLU (intent_acc + slot_f1 via mesh-slot-f1 aux). Independent of IF
-    and tool_call.
+    and tool_call. Full via slot_map.
+  subset_record_id: slurp__test__test__instruction_following__instruction_following__unknown__unknown__de3affb6d6
 - id: meeting_summary
   capability: meeting_summary
   status: blocked

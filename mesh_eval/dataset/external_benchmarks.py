@@ -11,7 +11,10 @@ from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple
 
 from audio_evals.config import get_environment
 from mesh_eval.dataset.full_eval import FullEvalDataset
-from mesh_eval.evaluator.vocalbench_if import rubric_mapping_from_item
+from mesh_eval.evaluator.vocalbench_if import (
+    expected_repeat_content,
+    rubric_mapping_from_item,
+)
 
 
 DEFAULT_AUDIO_AGENT_ROOT = Path(
@@ -1043,8 +1046,16 @@ class VocalBenchDataset(_T4NativeDataset):
                 # full speech output (content + delivery constraints). Text-only
                 # preds are not a complete official score for this benchmark.
                 requires_audio = True
+                spoken_q = item.get("Question")
+                expected = expected_repeat_content(
+                    spoken_q, subcategory=item.get("Sub-category")
+                )
                 reference = {
-                    "question": item.get("Question"),
+                    # Full spoken instruction (judge prompt needs this).
+                    "question": spoken_q,
+                    # Payload after delivery sentence for repeat-style rows only.
+                    "expected_content": expected,
+                    "answer": expected,
                     "rubric": rubric_mapping_from_item(item, self.language),
                     "instruction_ids": _nonempty(item.get("instruction_id_list"), _nonempty(item.get("instruction_ids"), [])),
                     "kwargs": _nonempty(item.get("kwargs"), []),
@@ -1068,6 +1079,8 @@ class VocalBenchDataset(_T4NativeDataset):
                     "use_bucket": "diagnostic_evidence",
                     "split": "test",
                     "language": self.language,
+                    # Audio already carries the instruction; keep short SUT prompt.
+                    "spoken_question_text": spoken_q,
                     "input": {
                         "audio": _audio_descriptor_input([str(audio_path)]),
                         "audio_path": str(audio_path),
@@ -1081,7 +1094,8 @@ class VocalBenchDataset(_T4NativeDataset):
                     "sample_id": f"{self.dataset_id}_instruction_{item.get('Qid', index)}",
                     "label_meta": {
                         "sources": {"audio_path": "native", "reference": "native"},
-                        "question": item.get("Question"),
+                        "question": spoken_q,
+                        "expected_content": expected,
                         "category": item.get("Category"),
                         "subcategory": item.get("Sub-category"),
                         "requires_audio_output": requires_audio,
@@ -1261,7 +1275,11 @@ class MTalkBenchDataset(_T4NativeDataset):
     def __init__(self, benchmark_id: str, root: str = "", cache_dir: str = "", strict: bool = True, check_audio_exists: bool = True):
         super().__init__(dataset="mtalk_bench", benchmark_id=benchmark_id, view="multi_turn", root=root or "data", strict=strict, check_audio_exists=check_audio_exists)
         self.root = Path(root).expanduser() if root else DEFAULT_MTALK_ROOT
-        self.cache_dir = Path(cache_dir).expanduser() if cache_dir else Path("/tmp/voxmatrix_mtalk_audio")
+        self.cache_dir = (
+            Path(cache_dir).expanduser()
+            if cache_dir
+            else Path("/mnt/afs/eval_data/voxmatrix_full_audio/mtalk")
+        )
 
     @property
     def manifest_path(self) -> Path:
@@ -1384,7 +1402,11 @@ class VoiceBenchT4Dataset(_T4NativeDataset):
     def __init__(self, benchmark_id: str, view: str = "ifeval", root: str = "", cache_dir: str = "", strict: bool = True, check_audio_exists: bool = True):
         super().__init__(dataset="voicebench", benchmark_id=benchmark_id, view=view, root=root or "data", strict=strict, check_audio_exists=check_audio_exists)
         self.root = Path(root).expanduser() if root else DEFAULT_VOICEBENCH_ROOT
-        self.cache_dir = Path(cache_dir).expanduser() if cache_dir else Path("/tmp/voxmatrix_voicebench_audio")
+        self.cache_dir = (
+            Path(cache_dir).expanduser()
+            if cache_dir
+            else Path("/mnt/afs/eval_data/voxmatrix_full_audio/voicebench")
+        )
 
     @property
     def manifest_path(self) -> Path:

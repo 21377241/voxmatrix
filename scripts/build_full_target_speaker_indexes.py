@@ -279,8 +279,9 @@ def main() -> int:
             if j < len(rows_by_speaker[spk]):
                 rows.append(rows_by_speaker[spk][j])
 
-    FULL_OUT.parent.mkdir(parents=True, exist_ok=True)
-    FULL_OUT.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
+    from mesh_eval.data.full_index_meta import write_index_jsonl
+
+    write_index_jsonl(FULL_OUT, rows, "target_speaker__aishell_5")
 
     # Native: 10 distinct target speakers, alternating positive / negative, first pair each.
     native: list[dict] = []
@@ -290,7 +291,7 @@ def main() -> int:
     if NATIVE_OUT.is_file() and not (NATIVE_LEGACY_DIR / NATIVE_OUT.name).is_file():
         NATIVE_LEGACY_DIR.mkdir(parents=True, exist_ok=True)
         shutil.copy2(NATIVE_OUT, NATIVE_LEGACY_DIR / NATIVE_OUT.name)
-    NATIVE_OUT.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in native), encoding="utf-8")
+    write_index_jsonl(NATIVE_OUT, native, "target_speaker__aishell_5")
 
     summary = {
         "sessions": Counter(s.split for s in sessions),

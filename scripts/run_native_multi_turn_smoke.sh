@@ -9,6 +9,8 @@ source "$HERE/env.sh"
 cd "$ROOT"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0,1}"
 export NATIVE_SLOT_FILTER="${NATIVE_SLOT_FILTER:-multi_turn_dialogue__vocalbench,multi_turn_dialogue__vocalbench_zh,multi_turn_dialogue__voicebench,multi_turn_dialogue__audioagentbench_suite,multi_turn_dialogue__mtalk_bench}"
+export NATIVE_DATA=full
+export NATIVE_FULL_LIMIT="${NATIVE_FULL_LIMIT:-${NATIVE_LIMIT:-10}}"
 unset NATIVE_CAPABILITY_FILTER || true
 PY="${VOXMATRIX_PYTHON}"
 

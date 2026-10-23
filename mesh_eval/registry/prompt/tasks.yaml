@@ -29,7 +29,8 @@ mesh-code-switch-open-ended:
           - type: audio
             value: "{{WavPath}}"
           - type: text
-            value: "Listen to the speech in the audio and answer the question concisely in 2-4 sentences. Do not use bullet points or long explanations.\n\nQuestion: {{ question }}"
+            # 题干在音频中；{{question}} 应为作答指令（一段话），勿再拼 Question: 题干
+            value: "{{ question | default('Listen to the spoken question in the audio and answer in 2-4 coherent sentences. Do not reply with only a short phrase.') }}"
 
 mesh-external-classification:
   class: audio_evals.prompt.base.Prompt

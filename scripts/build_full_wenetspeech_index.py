@@ -67,6 +67,11 @@ def build(split: str) -> dict:
                     out.write(json.dumps(item, ensure_ascii=False) + "\n")
                     records += 1
     os.replace(tmp_output, output)
+    from mesh_eval.data.full_index_meta import finalize_jsonl
+
+    # Streaming write above; attach subset-manifest fields after close.
+    # test_net is orphan; still annotate with the meeting/test catalog record.
+    finalize_jsonl(output, "asr__wenetspeech")
     return {"records": records, "missing_audio": missing_audio, "output": str(output)}
 
 
